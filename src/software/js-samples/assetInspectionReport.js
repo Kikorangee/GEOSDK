@@ -15,16 +15,24 @@
         const database = $("database").value.trim();
         const username = $("username").value.trim();
         const password = $("password").value.trim();
+
         clearBanner();
         banner("Connecting...", "info");
+
         try {
-            api = new GeotabApi(server, database, username, password);
-            await new Promise((resolve, reject) => {
-                api.authenticate((result) => {
-                    if (result) resolve();
-                    else reject("Auth failed");
-                }, reject);
+            api = new geotab.API({
+                credentials: {
+                    database: database,
+                    userName: username,
+                    password: password
+                },
+                path: server
             });
+
+            await new Promise((resolve, reject) => {
+                api.authenticate(() => resolve(), err => reject(err));
+            });
+
             banner("Connected. Loading inspections...", "success");
             loadInspections();
         } catch (err) {
@@ -35,9 +43,11 @@
     async function loadInspections() {
         try {
             // Get DVIR logs
-            const dvirLogs = await api.call("Get", {
-                typeName: "DVIRLog",
-                resultsLimit: 50
+            const dvirLogs = await new Promise((resolve, reject) => {
+                api.call("Get", {
+                    typeName: "DVIRLog",
+                    resultsLimit: 50
+                }, resolve, reject);
             });
 
             if (!dvirLogs.length) {
@@ -48,7 +58,7 @@
             // Map device IDs
             const deviceIds = [...new Set(dvirLogs.map(d => d.device.id))];
 
-            // Get engine hours for each device (latest reading)
+            // Get engine hours (latest readings for each device)
             const engineHoursCalls = deviceIds.map(id => ({
                 method: "Get",
                 params: {
@@ -62,7 +72,10 @@
                 }
             }));
 
-            const engineHoursResults = await api.call("ExecuteMultiCall", { calls: engineHoursCalls });
+            const engineHoursResults = await new Promise((resolve, reject) => {
+                api.call("ExecuteMultiCall", { calls: engineHoursCalls }, resolve, reject);
+            });
+
             const engineHoursMap = {};
             engineHoursResults.forEach((res, i) => {
                 engineHoursMap[deviceIds[i]] = res[0] ? res[0].data : null;
