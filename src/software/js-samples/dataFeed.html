@@ -1,272 +1,618 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>Geotab SDK | Data Feed Example (Fleet # + Output Time)</title>
-    <link rel="icon" href="../../favicon.ico">
-    <link href="css/JavaScriptExamples.css" rel="stylesheet" type="text/css" />
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-  </head>
+    <head>
+        <meta charset="utf-8" />
+        <title>Geotab SDK | Data Feed Example</title>
+        <link rel="icon" href="../../favicon.ico">
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                margin: 0;
+                padding: 20px;
+                background-color: #f5f5f5;
+            }
+            
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            
+            .example-header {
+                margin-bottom: 30px;
+                padding-bottom: 20px;
+                border-bottom: 2px solid #e0e0e0;
+            }
+            
+            .title {
+                font-size: 28px;
+                font-weight: bold;
+                color: #333;
+                margin-bottom: 15px;
+            }
+            
+            .description {
+                font-size: 16px;
+                line-height: 1.6;
+                color: #666;
+                margin-bottom: 20px;
+            }
+            
+            .api-references {
+                background: #f8f9fa;
+                padding: 15px;
+                border-radius: 5px;
+                border-left: 4px solid #007bff;
+            }
+            
+            .api-references details {
+                margin: 10px 0;
+            }
+            
+            .api-references a {
+                color: #007bff;
+                text-decoration: none;
+                margin-right: 15px;
+            }
+            
+            .api-references a:hover {
+                text-decoration: underline;
+            }
+            
+            #example-content {
+                background: #f8f9fa;
+                padding: 20px;
+                border-radius: 5px;
+                margin: 20px 0;
+            }
+            
+            .primary-btn {
+                background-color: #007bff;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 14px;
+                margin-right: 10px;
+            }
+            
+            .primary-btn:hover {
+                background-color: #0056b3;
+            }
+            
+            .primary-btn:disabled {
+                background-color: #6c757d;
+                cursor: not-allowed;
+            }
+            
+            .secondary-btn {
+                background-color: #6c757d;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 14px;
+            }
+            
+            .secondary-btn:hover {
+                background-color: #545b62;
+            }
+            
+            .feed-container {
+                display: none;
+                margin-top: 20px;
+                overflow-x: auto;
+                max-height: 600px;
+                overflow-y: auto;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+            }
+            
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                background: white;
+            }
+            
+            th, td {
+                padding: 12px;
+                text-align: left;
+                border-bottom: 1px solid #ddd;
+                font-size: 14px;
+            }
+            
+            th {
+                background-color: #f8f9fa;
+                font-weight: bold;
+                color: #333;
+                position: sticky;
+                top: 0;
+                z-index: 1;
+            }
+            
+            tr:hover {
+                background-color: #f5f5f5;
+            }
+            
+            .status-message {
+                padding: 10px;
+                margin: 10px 0;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            
+            .status-success {
+                background-color: #d4edda;
+                color: #155724;
+                border: 1px solid #c3e6cb;
+            }
+            
+            .status-error {
+                background-color: #f8d7da;
+                color: #721c24;
+                border: 1px solid #f5c6cb;
+            }
+            
+            .status-info {
+                background-color: #cce7f0;
+                color: #055160;
+                border: 1px solid #b6d4fe;
+            }
+            
+            .status-warning {
+                background-color: #fff3cd;
+                color: #856404;
+                border: 1px solid #ffeeba;
+            }
+            
+            input[type="checkbox"] {
+                margin-right: 8px;
+            }
+            
+            label {
+                cursor: pointer;
+            }
 
-  <body>
-    <header>
-      <nav>
-        <a href="https://geotab.github.io/sdk/software/introduction/" target="_blank">
-          <img src="../../assets/images/pillar.svg" width="35" height="35" alt="">
-          <h1>MyGeotab SDK</h1>
-        </a>
-        <div class="sample-tooltip">
-          <h1>Direct Track</h1>
-          <div class="sample-tooltip-text">
-            <p>Provided by Direct Track</p>
-          </div>
-        </div>
-        <button class="primary-btn sign-out-btn" id="signout">Sign out</button>
-      </nav>
-    </header>
+            .connection-status {
+                padding: 8px 12px;
+                border-radius: 4px;
+                font-size: 12px;
+                margin-bottom: 15px;
+                display: inline-block;
+            }
 
-    <div class="container">
-      <div id="signin-content"></div>
+            .connection-connected {
+                background-color: #d4edda;
+                color: #155724;
+                border: 1px solid #c3e6cb;
+            }
 
-      <div class="example-header"> 
-        <div class="title">Data Feed Example</div>
-        <div class="skill-level">Skill level:
-          <div class="skill-tooltip">
-            <img src="images/advanced-pill.svg">
-            <div class="skill-text">
-              <p>Advanced-level sample using GetFeed + MultiCall.</p>
+            .connection-disconnected {
+                background-color: #f8d7da;
+                color: #721c24;
+                border: 1px solid #f5c6cb;
+            }
+
+            .loading {
+                display: inline-block;
+                margin-left: 10px;
+            }
+
+            .spinner {
+                border: 2px solid #f3f3f3;
+                border-top: 2px solid #3498db;
+                border-radius: 50%;
+                width: 16px;
+                height: 16px;
+                animation: spin 1s linear infinite;
+                display: inline-block;
+            }
+
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="container">
+            <!-- Connection status indicator -->
+            <div id="connection-status" class="connection-status connection-connected">
+                🟢 Connected to MyGeotab
             </div>
-          </div>
+
+            <!-- Status message area -->
+            <div id="status-message"></div>
+
+            <!-- Header used to display the name of the example and more information about the example -->
+            <div class="example-header"> 
+                <!-- Name of the example-->
+                <div class="title">Data Feed Example</div>
+
+                <!-- Description section of the example -->
+                <div class="description">
+                    This example shows you how you can implement polling for multiple sources of data.
+                    We retrieve new information by setting up JavaScript intervals which invoke a function every few seconds. This function
+                    is responsible for building a set of API requests using <strong>MultiCall</strong>
+                    to reduce network traffic. After we have the results from the API response, we dynamically build an HTML table with all the data.
+                </div>
+
+                <!-- Methods/objects used section containing the links to the specific SDK references used -->
+                <div class="api-references">In this example
+                    <details open>
+                        <summary>API Methods:</summary>
+                        <a href="https://geotab.github.io/sdk/software/api/reference/#GetFeed1" target="_blank">GetFeed</a>
+                    </details>      
+                    <details open>
+                        <summary>API Entities:</summary>
+                        <a href="https://geotab.github.io/sdk/software/api/reference/#FaultData" target="_blank">FaultData</a>
+                        <a href="https://geotab.github.io/sdk/software/api/reference/#LogRecord" target="_blank">LogRecord</a>
+                        <a href="https://geotab.github.io/sdk/software/api/reference/#StatusData" target="_blank">StatusData</a>
+                    </details>
+                </div>
+            </div>
+
+            <!-- Components which make up the example in this case input fields to select the data to be retrieved -->
+            <div id="example-content">
+                <form>
+                    <p>
+                        Select the options of data you want to visualize:
+                    </p>
+                    <p>
+                        <input id="includeLocationData" type="checkbox" checked="checked" /> <label for="includeLocationData">Include location data</label>
+                    </p>
+                    <p>
+                        <input id="includeStatusData" type="checkbox" checked="checked" /> <label for="includeStatusData">Include engine status data</label>
+                    </p>
+                    <p>
+                        <input id="includeFaultData" type="checkbox" checked="checked" /> <label for="includeFaultData">Include vehicle fault data</label>
+                    </p>
+                    <button class="primary-btn" id="toggleFeed">Start data feed</button>&nbsp;<button class="secondary-btn" id="clear">Clear</button>
+                    <span id="loading-indicator" class="loading" style="display: none;">
+                        <span class="spinner"></span> Loading...
+                    </span>
+                </form>
+            </div>
+            
+            <div id="feed-container" class="feed-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Vehicle Id</th>
+                            <th>Id</th>
+                            <th>Date</th>
+                            <th>Latitude</th>
+                            <th>Longitude</th>
+                            <th>Speed</th>
+                            <th>Diagnostic</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody id="feed"></tbody>
+                </table>
+            </div>
         </div>
-        <div class="description">
-          This version outputs <strong>Fleet #</strong> (from your Device fields) and includes an <strong>Output Time</strong> stamp.
-        </div>
-        <div class="api-references">In this example
-          <details open>
-            <summary>API Methods:</summary>
-            <a href="https://geotab.github.io/sdk/software/api/reference/#GetFeed1" target="_blank">GetFeed</a>
-            &nbsp;|&nbsp;
-            <a href="https://geotab.github.io/sdk/software/api/reference/#Get1" target="_blank">Get</a>
-          </details>      
-          <details open>
-            <summary>API Entities:</summary>
-            <a href="https://geotab.github.io/sdk/software/api/reference/#Device" target="_blank">Device</a>,
-            <a href="https://geotab.github.io/sdk/software/api/reference/#LogRecord" target="_blank">LogRecord</a>,
-            <a href="https://geotab.github.io/sdk/software/api/reference/#StatusData" target="_blank">StatusData</a>,
-            <a href="https://geotab.github.io/sdk/software/api/reference/#FaultData" target="_blank">FaultData</a>
-          </details>
-        </div>
-      </div>
 
-      <div id="example-content">
-        <form>
-          <p>Select the options of data you want to visualize:</p>
-          <p><input id="includeLocationData" type="checkbox" checked /> <label for="includeLocationData">Include location data</label></p>
-          <p><input id="includeStatusData"   type="checkbox" checked /> <label for="includeStatusData">Include engine status data</label></p>
-          <p><input id="includeFaultData"    type="checkbox" checked /> <label for="includeFaultData">Include vehicle fault data</label></p>
-          <button class="primary-btn" id="toggleFeed">Start data feed</button>
-          &nbsp;
-          <button class="secondary-btn" id="clear">Clear</button>
-        </form>
-      </div>
-      
-      <div id="feed-container" class="feed-container" style="display:none;">
-        <table>
-          <thead>
-            <tr>
-              <th>Fleet #</th>
-              <th>Id</th>
-              <th>Date</th>
-              <th>Latitude</th>
-              <th>Longitude</th>
-              <th>Speed</th>
-              <th>Diagnostic</th>
-              <th>Value</th>
-              <th>Output Time</th>
-            </tr>
-          </thead>
-          <tbody id="feed"></tbody>
-        </table>
-      </div>
-    </div>
+        <!-- MyGeotab Add-in JavaScript -->
+        <script type="text/javascript">
+            // MyGeotab Add-in Entry Point
+            window.geotabAddin = {
+                // Global variables for the add-in
+                api: null,
+                state: null,
+                table: null,
+                enabled: false,
+                updateInterval: 5, // In seconds
+                update: null,
+                lastVersions: [null, null, null],
+                startDate: new Date(new Date().setUTCHours(0,0,0,0) - 24*60*60*1000).toISOString(),
 
-    <!-- Geotab sample helpers (provide global `api` and sign-in UI in Add-In context) -->
-    <script src="js/api.js"></script>
-    <script src="js/login.js"></script>
+                // Initialize method - called when the add-in is first loaded
+                initialize: function(api, state, callback) {
+                    console.log('MyGeotab Add-in initializing...');
+                    
+                    // Store the API and state objects
+                    this.api = api;
+                    this.state = state;
+                    this.table = document.getElementById("feed");
 
-    <script type="text/javascript">
-      // ========= CONFIG: define your preferred fields for "Fleet #"
-      // Order matters. First non-empty wins.
-      const PREFERRED_DEVICE_FIELDS = [
-        "deviceNumber",                // custom/partner fields often used for Fleet #
-        "licensePlate",
-        "name",
-        "serialNumber",
-        "vehicleIdentificationNumber", // VIN (fallback only if you truly use VIN as fleet #)
-      ];
+                    // Show success message
+                    this.showStatus('Data Feed Add-in loaded successfully', 'success');
 
-      // ========= State
-      var table, enabled = false, updateInterval = 5, update = null;
-      var lastVersions = [null, null, null];
-      var startDate = new Date(new Date().setUTCHours(0,0,0,0) - 24*60*60*1000).toISOString();
-      var deviceCache = {}; // id -> Fleet #
+                    // Setup event listeners
+                    this.setupEventListeners();
 
-      document.addEventListener("DOMContentLoaded", function () {
-        table = document.getElementById("feed");
+                    // Call the callback to indicate initialization is complete
+                    if (callback) {
+                        callback();
+                    }
+                },
 
-        document.getElementById("toggleFeed").addEventListener("click", function (event) {
-          event.preventDefault();
-          enabled = !enabled;
-          event.target.innerHTML = enabled ? "Stop data feed" : "Start data feed";
+                // Focus method - called when the add-in page becomes active
+                focus: function(api, state) {
+                    console.log('MyGeotab Add-in focused');
+                    this.api = api;
+                    this.state = state;
+                },
 
-          if (enabled) {
-            // Warm device cache first so we can render Fleet # instead of Device Id
-            cacheDevices(function () {
-              document.getElementById("feed-container").style.display = "block";
-              pollForData(); // start immediately
-              update = setInterval(pollForData, 1000 * updateInterval);
-            });
-          } else {
-            if (update) {
-              clearInterval(update);
-              update = null;
-              lastVersions = [null, null, null];
-            }
-          }
-        });
+                // Blur method - called when the add-in page loses focus
+                blur: function(api, state) {
+                    console.log('MyGeotab Add-in blurred');
+                    // Stop any running data feeds when losing focus
+                    if (this.enabled) {
+                        this.stopDataFeed();
+                    }
+                },
 
-        document.getElementById("clear").addEventListener("click", function (event) {
-          event.preventDefault();
-          table.innerHTML = "";
-        });
-      });
+                // Setup event listeners
+                setupEventListeners: function() {
+                    var self = this;
 
-      // ========= Device cache (for Fleet # lookup)
-      function cacheDevices(callback) {
-        // Pull the devices user can see (adjust resultsLimit if your fleet is larger)
-        api.call("Get", { typeName: "Device", resultsLimit: 100000 }, function (devices) {
-          devices.forEach(function (d) {
-            deviceCache[d.id] = deviceFleetNumber(d);
-          });
-          if (callback) callback();
-        }, function (err) {
-          console.error("Error fetching devices:", err);
-          // Worst case: fall back to device id as label
-          if (callback) callback();
-        });
-      }
+                    document.getElementById("toggleFeed").addEventListener("click", function(event) {
+                        event.preventDefault();
+                        self.toggleDataFeed();
+                    });
 
-      function deviceFleetNumber(device) {
-        // Return the first non-empty preferred field
-        for (var i = 0; i < PREFERRED_DEVICE_FIELDS.length; i++) {
-          var key = PREFERRED_DEVICE_FIELDS[i];
-          var val = device && device[key];
-          if (val !== undefined && val !== null && String(val).trim() !== "") {
-            return String(val).trim();
-          }
-        }
-        // As a last resort, fall back to id so we never render blank
-        return device && device.id ? device.id : "";
-      }
+                    document.getElementById("clear").addEventListener("click", function(event) {
+                        event.preventDefault();
+                        self.clearTable();
+                    });
+                },
 
-      // ========= Feed loop
-      function pollForData() {
-        var includeLocationData = document.getElementById("includeLocationData").checked;
-        var includeStatusData   = document.getElementById("includeStatusData").checked;
-        var includeFaultData    = document.getElementById("includeFaultData").checked;
+                // Status message helper
+                showStatus: function(message, type) {
+                    type = type || 'info';
+                    var statusDiv = document.getElementById('status-message');
+                    statusDiv.innerHTML = '<div class="status-message status-' + type + '">' + message + '</div>';
+                    
+                    // Auto-clear success/info messages after 5 seconds
+                    if (type === 'success' || type === 'info') {
+                        setTimeout(function() {
+                            statusDiv.innerHTML = '';
+                        }, 5000);
+                    }
+                },
 
-        if (!includeLocationData && !includeStatusData && !includeFaultData) {
-          document.getElementById("includeLocationData").checked = true;
-          includeLocationData = true;
-        }
+                // Toggle data feed on/off
+                toggleDataFeed: function() {
+                    if (!this.api) {
+                        this.showStatus('API not available. Please ensure you are running this in MyGeotab.', 'error');
+                        return;
+                    }
 
-        var apiCalls = [];
+                    this.enabled = !this.enabled;
+                    var toggleButton = document.getElementById("toggleFeed");
+                    toggleButton.innerHTML = this.enabled ? "Stop data feed" : "Start data feed";
 
-        if (includeLocationData) {
-          apiCalls.push(["GetFeed", {
-            typeName: "LogRecord",
-            fromVersion: lastVersions[0],
-            search: { fromDate: startDate },
-            resultsLimit: 1000
-          }]);
-        }
+                    if (this.enabled) {
+                        this.startDataFeed();
+                    } else {
+                        this.stopDataFeed();
+                    }
+                },
 
-        if (includeStatusData) {
-          apiCalls.push(["GetFeed", {
-            typeName: "StatusData",
-            fromVersion: lastVersions[1],
-            search: { fromDate: startDate },
-            resultsLimit: 1000
-          }]);
-        }
+                // Start the data feed
+                startDataFeed: function() {
+                    var self = this;
+                    document.getElementById("feed-container").style.display = "block";
+                    this.showStatus('Data feed started. Polling every ' + this.updateInterval + ' seconds.', 'success');
+                    
+                    // Start immediately
+                    this.pollForData();
+                    
+                    // Set up interval for subsequent polls
+                    this.update = setInterval(function() {
+                        self.pollForData();
+                    }, 1000 * this.updateInterval);
+                },
 
-        if (includeFaultData) {
-          apiCalls.push(["GetFeed", {
-            typeName: "FaultData",
-            fromVersion: lastVersions[2],
-            search: { fromDate: startDate },
-            resultsLimit: 1000
-          }]);
-        }
+                // Stop the data feed
+                stopDataFeed: function() {
+                    if (this.update) {
+                        clearInterval(this.update);
+                        this.update = null;
+                        this.lastVersions = [null, null, null];
+                    }
+                    this.showStatus('Data feed stopped.', 'info');
+                },
 
-        api.multiCall(apiCalls, function (result) {
-          if (result !== undefined && result.length > 0) {
-            for (var i = 0; i < result.length; i++) {
-              displayFeed(result[i]);
-              lastVersions[i] = result[i].toVersion;
-            }
-          }
-        }, function (error) {
-          console.log(error);
-        });
-      }
+                // Clear the data table
+                clearTable: function() {
+                    this.table.innerHTML = "";
+                    this.showStatus('Table cleared.', 'info');
+                },
 
-      function displayFeed(feed) {
-        if (feed.data !== undefined && feed.data.length > 0) {
-          for (var i = 0; i < feed.data.length; i++) {
-            var feedData = feed.data[i];
-            var row = (feedData.hasOwnProperty("data") || feedData.hasOwnProperty("failureMode"))
-              ? createEngineRow(feedData)
-              : createLocationRow(feedData);
-            table.appendChild(row);
-          }
-        }
-      }
+                // Poll for data from MyGeotab API
+                pollForData: function() {
+                    var self = this;
 
-      // ========= Row builders (Fleet # + Output Time)
-      function createLocationRow(feedItem) {
-        var row = document.createElement("tr");
-        row.appendChild(createCell(deviceCache[feedItem.device.id] || feedItem.device.id)); // Fleet #
-        row.appendChild(createCell(feedItem.id));
-        row.appendChild(createCell(feedItem.dateTime));
-        row.appendChild(createCell(feedItem.latitude));
-        row.appendChild(createCell(feedItem.longitude));
-        row.appendChild(createCell(feedItem.speed));
-        row.appendChild(createCell("-"));
-        row.appendChild(createCell("-"));
-        row.appendChild(createCell(new Date().toLocaleString())); // Output Time
-        return row;
-      }
+                    if (!this.api) {
+                        this.showStatus('API not available. Stopping data feed.', 'error');
+                        this.toggleDataFeed(); // Stop the feed
+                        return;
+                    }
 
-      function createEngineRow(feedItem) {
-        var row = document.createElement("tr");
-        row.appendChild(createCell(deviceCache[feedItem.device.id] || feedItem.device.id)); // Fleet #
-        row.appendChild(createCell(feedItem.id));
-        row.appendChild(createCell(feedItem.dateTime));
-        row.appendChild(createCell("-"));
-        row.appendChild(createCell("-"));
-        row.appendChild(createCell("-"));
-        row.appendChild(createCell(feedItem.diagnostic.id.replace("Diagnostic", "").replace("Id", "")));
-        row.appendChild(createCell(feedItem.data || "-"));
-        row.appendChild(createCell(new Date().toLocaleString())); // Output Time
-        return row;
-      }
+                    var includeLocationData = document.getElementById("includeLocationData").checked;
+                    var includeStatusData = document.getElementById("includeStatusData").checked;
+                    var includeFaultData = document.getElementById("includeFaultData").checked;
 
-      function createCell(text) {
-        var cell = document.createElement("td");
-        cell.appendChild(document.createTextNode(text));
-        return cell;
-      }
-    </script>
-  </body>
+                    // Ensure at least one data type is selected
+                    if (!includeLocationData && !includeStatusData && !includeFaultData) {
+                        document.getElementById("includeLocationData").checked = true;
+                        this.showStatus('At least one data type must be selected. Location data enabled.', 'info');
+                        return;
+                    }
+
+                    var apiCalls = [];
+                    var callIndex = 0;
+
+                    // Build API calls based on selected options
+                    if (includeLocationData) {
+                        apiCalls.push(["GetFeed", {
+                            "typeName": "LogRecord",
+                            "fromVersion": this.lastVersions[callIndex],
+                            "search": {
+                                "fromDate": this.startDate
+                            },
+                            "resultsLimit": 50
+                        }]);
+                        callIndex++;
+                    }
+
+                    if (includeStatusData) {
+                        apiCalls.push(["GetFeed", {
+                            "typeName": "StatusData",
+                            "fromVersion": this.lastVersions[callIndex],
+                            "search": {
+                                "fromDate": this.startDate
+                            },
+                            "resultsLimit": 50
+                        }]);
+                        callIndex++;
+                    }
+
+                    if (includeFaultData) {
+                        apiCalls.push(["GetFeed", {
+                            "typeName": "FaultData",
+                            "fromVersion": this.lastVersions[callIndex],
+                            "search": {
+                                "fromDate": this.startDate
+                            },
+                            "resultsLimit": 50
+                        }]);
+                    }
+
+                    // Show loading indicator
+                    document.getElementById("loading-indicator").style.display = "inline-block";
+
+                    // Execute API calls using MultiCall
+                    this.api.multiCall(apiCalls, 
+                        function(result) {
+                            // Success callback
+                            document.getElementById("loading-indicator").style.display = "none";
+                            
+                            try {
+                                if (result && result.length > 0) {
+                                    var totalRecords = 0;
+                                    for (var i = 0; i < result.length; i++) {
+                                        if (result[i] && result[i].data) {
+                                            self.displayFeed(result[i]);
+                                            self.lastVersions[i] = result[i].toVersion;
+                                            totalRecords += result[i].data.length;
+                                        }
+                                    }
+                                    
+                                    if (totalRecords > 0) {
+                                        console.log('Received ' + totalRecords + ' new records');
+                                    }
+                                }
+                            } catch (error) {
+                                console.error('Error processing feed data:', error);
+                                self.showStatus('Error processing feed data: ' + error.message, 'error');
+                            }
+                        }, 
+                        function(error) {
+                            // Error callback
+                            document.getElementById("loading-indicator").style.display = "none";
+                            console.error('API call failed:', error);
+                            self.showStatus('API call failed: ' + (error.message || error), 'error');
+                        }
+                    );
+                },
+
+                // Display feed data in the table
+                displayFeed: function(feed) {
+                    if (feed.data && feed.data.length > 0) {
+                        var fragment = document.createDocumentFragment();
+                        
+                        for (var i = 0; i < feed.data.length; i++) {
+                            var feedData = feed.data[i];
+                            var row = null;
+                            
+                            if (feedData.hasOwnProperty("data") || feedData.hasOwnProperty("failureMode")) {
+                                row = this.createEngineRow(feedData);
+                            } else {
+                                row = this.createLocationRow(feedData);
+                            }
+                            
+                            if (row) {
+                                fragment.appendChild(row);
+                            }
+                        }
+                        
+                        this.table.appendChild(fragment);
+                        
+                        // Limit table rows to prevent browser slowdown
+                        var maxRows = 1000;
+                        while (this.table.children.length > maxRows) {
+                            this.table.removeChild(this.table.firstChild);
+                        }
+                    }
+                },
+
+                // Create table row for location data
+                createLocationRow: function(feedItem) {
+                    var row = document.createElement("tr");
+                    row.appendChild(this.createCell(feedItem.device ? feedItem.device.id : 'N/A'));
+                    row.appendChild(this.createCell(feedItem.id || 'N/A'));
+                    row.appendChild(this.createCell(this.formatDateTime(feedItem.dateTime)));
+                    row.appendChild(this.createCell(feedItem.latitude || '-'));
+                    row.appendChild(this.createCell(feedItem.longitude || '-'));
+                    row.appendChild(this.createCell(feedItem.speed ? parseFloat(feedItem.speed).toFixed(1) + ' km/h' : '-'));
+                    row.appendChild(this.createCell("-"));
+                    row.appendChild(this.createCell("-"));
+                    return row;
+                },
+
+                // Create table row for engine/status data
+                createEngineRow: function(feedItem) {
+                    var row = document.createElement("tr");
+                    row.appendChild(this.createCell(feedItem.device ? feedItem.device.id : 'N/A'));
+                    row.appendChild(this.createCell(feedItem.id || 'N/A'));
+                    row.appendChild(this.createCell(this.formatDateTime(feedItem.dateTime)));
+                    row.appendChild(this.createCell("-"));
+                    row.appendChild(this.createCell("-"));
+                    row.appendChild(this.createCell("-"));
+                    
+                    var diagnosticName = feedItem.diagnostic && feedItem.diagnostic.id 
+                        ? feedItem.diagnostic.id.replace("Diagnostic", "").replace("Id", "")
+                        : 'Unknown';
+                    row.appendChild(this.createCell(diagnosticName));
+                    
+                    var dataValue = feedItem.data !== undefined ? feedItem.data : 
+                                   feedItem.failureMode !== undefined ? feedItem.failureMode : '-';
+                    row.appendChild(this.createCell(dataValue));
+                    
+                    return row;
+                },
+
+                // Create table cell
+                createCell: function(text) {
+                    var cell = document.createElement("td");
+                    var textNode = document.createTextNode(text.toString());
+                    cell.appendChild(textNode);
+                    return cell;
+                },
+
+                // Format date/time for display
+                formatDateTime: function(dateTimeString) {
+                    if (!dateTimeString) return 'N/A';
+                    
+                    try {
+                        var date = new Date(dateTimeString);
+                        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+                    } catch (error) {
+                        return dateTimeString;
+                    }
+                }
+            };
+
+        </script>
+    </body>
 </html>
