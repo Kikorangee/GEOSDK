@@ -42,7 +42,6 @@
 
     async function loadInspections() {
         try {
-            // Get DVIR logs
             const dvirLogs = await new Promise((resolve, reject) => {
                 api.call("Get", {
                     typeName: "DVIRLog",
@@ -55,10 +54,8 @@
                 return;
             }
 
-            // Map device IDs
             const deviceIds = [...new Set(dvirLogs.map(d => d.device.id))];
 
-            // Get engine hours (latest readings for each device)
             const engineHoursCalls = deviceIds.map(id => ({
                 method: "Get",
                 params: {
@@ -81,7 +78,6 @@
                 engineHoursMap[deviceIds[i]] = res[0] ? res[0].data : null;
             });
 
-            // Populate table
             const tbody = $("results").querySelector("tbody");
             tbody.innerHTML = "";
             dvirLogs.forEach(log => {
