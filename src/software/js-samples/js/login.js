@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", function () {
         
         var authenticationCallback,
             debug = {
-                enabled: true,
+                enabled: false,
                 server: "mygeotab.com ",
                 database: "uccnz",
                 email: "francis@directt.co.nz",
