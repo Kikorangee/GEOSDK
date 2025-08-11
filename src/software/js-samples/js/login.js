@@ -8,11 +8,11 @@ document.addEventListener("DOMContentLoaded", function () {
         
         var authenticationCallback,
             debug = {
-                enabled: false,
-                server: "",
-                database: "",
-                email: "",
-                password: ""
+                enabled: true,
+                server: "mygeotab.com ",
+                database: "uccnz",
+                email: "francis@directt.co.nz",
+                password: "@fr4nc1sWynn5"
             };
 
         function initializeGeotabApi() {
