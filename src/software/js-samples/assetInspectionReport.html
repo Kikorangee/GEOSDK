@@ -1,51 +1,337 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8" />
   <title>Asset Inspection + Engine Hours</title>
-
-  <!-- Load official Geotab JavaScript SDK -->
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Geotab SDK (modern) -->
   <script src="https://my.geotab.com/sdk/js/geotab.min.js"></script>
-
-  <!-- Bootstrap for UI styling -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 0; }
+    header { padding: 12px 16px; border-bottom: 1px solid #eee; display:flex; align-items:center; gap:12px; }
+    h1 { font-size: 18px; margin: 0; }
+    .wrap { max-width: 1200px; margin: 16px auto; padding: 0 16px; }
+    .row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+    input, button { padding: 8px 10px; border: 1px solid #d0d5dd; border-radius: 8px; font-size: 14px; }
+    button.primary { background:#111827; color:#fff; border-color:#111827; cursor:pointer; }
+    button[disabled]{ opacity:.6; cursor:not-allowed }
+    .banner { margin: 12px 0; padding: 10px 12px; border-radius: 8px; }
+    .info { background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; }
+    .ok { background:#ecfdf5; color:#065f46; border:1px solid #bbf7d0; }
+    .warn { background:#fff7ed; color:#9a3412; border:1px solid #fed7aa; }
+    .err { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+    th, td { border-bottom: 1px solid #eee; padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #fafafa; position: sticky; top: 0; }
+    .pill { background:#111827; color:#fff; border-radius:999px; padding:4px 10px; font-size:12px; display:inline-block; }
+  </style>
 </head>
-<body class="p-3">
+<body>
+  <header>
+    <h1>Asset Inspection + Engine Hours</h1>
+    <span id="count" class="pill">0 rows</span>
+  </header>
 
-  <h2>Asset Inspection + Engine Hours</h2>
-  
-  <!-- Connection UI -->
-  <div class="mb-3">
-    <input type="text" id="server" placeholder="my.geotab.com or my6.geotab.com" class="form-control mb-2">
-    <input type="text" id="database" placeholder="Database" class="form-control mb-2">
-    <input type="text" id="username" placeholder="Username" class="form-control mb-2">
-    <input type="password" id="password" placeholder="Password" class="form-control mb-2">
-    <button id="connect" class="btn btn-primary">Connect</button>
+  <div class="wrap">
+    <div id="banner" class="banner info" style="display:none"></div>
+
+    <div class="row" style="margin:10px 0 16px;">
+      <input id="server"   placeholder="my.geotab.com or my6.geotab.com" size="24">
+      <input id="database" placeholder="Database (e.g., UCCNZ)" size="14">
+      <input id="username" placeholder="Username (email)" size="26">
+      <input id="password" type="password" placeholder="Password" size="14">
+      <button id="connect" class="primary">Connect</button>
+      <span style="font-size:12px;color:#666;">If running inside MyGeotab, leave fields empty and click Connect.</span>
+    </div>
+
+    <div class="row" style="margin:10px 0;">
+      <label>From&nbsp;<input id="from" type="datetime-local"></label>
+      <label>To&nbsp;<input id="to" type="datetime-local"></label>
+      <button id="run" class="primary" disabled>Run report</button>
+      <button id="csv" disabled>Download CSV</button>
+    </div>
+
+    <div style="max-height:70vh; overflow:auto;">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th>Reporting Date</th>
+            <th>Device</th>
+            <th>License Plate</th>
+            <th>Driver</th>
+            <th>Is Safe</th>
+            <th>Defects</th>
+            <th>Odometer</th>
+            <th>Address</th>
+            <th>Engine Hours (as-of)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 
-  <!-- Status banner -->
-  <div id="banner" class="alert alert-info d-none"></div>
+<script>
+(() => {
+  // --- UI helpers
+  const $ = id => document.getElementById(id);
+  const show = (id, cls, msg) => { const b = $(id); b.className = `banner ${cls}`; b.textContent = msg; b.style.display = ""; };
+  const hide = id => { $(id).style.display = "none"; };
+  const toIso = d => new Date(d).toISOString();
+  const CSV = rows => {
+    if (!rows.length) return "";
+    const headers = Object.keys(rows[0]);
+    const esc = v => v == null ? "" : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g,'""')}"` : String(v);
+    return [headers.join(",")].concat(rows.map(r => headers.map(h => esc(r[h])).join(","))).join("\n");
+  };
 
-  <!-- Results table -->
-  <table id="results" class="table table-striped table-sm">
-    <thead>
-      <tr>
-        <th>Reporting Date</th>
-        <th>Device</th>
-        <th>License Plate</th>
-        <th>Driver</th>
-        <th>Is Safe</th>
-        <th>Defects</th>
-        <th>Odometer</th>
-        <th>Address</th>
-        <th>Engine Hours (as-of)</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  // --- Geotab API
+  let api = null;
+  let connected = false;
 
-  <!-- Main logic -->
-  <script src="assetInspectionReport.js"></script>
+  // set sensible date defaults (today local)
+  (function initDates(){
+    const pad = x => String(x).padStart(2,"0");
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0,0,0);
+    const end   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23,59,59);
+    const toLocalInput = dt => {
+      const off = dt.getTimezoneOffset()*60000;
+      return new Date(dt.getTime()-off).toISOString().slice(0,16);
+    };
+    $("from").value = toLocalInput(start);
+    $("to").value   = toLocalInput(end);
+  })();
+
+  $("connect").addEventListener("click", async () => {
+    hide("banner");
+    $("run").disabled = true;
+    $("csv").disabled = true;
+
+    try {
+      const server   = $("server").value.trim() || null;
+      const database = $("database").value.trim() || null;
+      const userName = $("username").value.trim() || null;
+      const password = $("password").value || null;
+
+      // Use modern SDK. If fields are empty and this runs inside MyGeotab,
+      // the SDK will reuse the current session.
+      api = new geotab.API({
+        credentials: (server && database && userName && password) ? { database, userName, password } : null,
+        path: server || null
+      });
+
+      // Force a call to verify
+      show("banner", "info", "Connecting…");
+      await call("Get", { typeName:"User", search:{ name:"" }, resultsLimit:1 });
+      connected = true;
+      show("banner", "ok", "Connected.");
+      $("run").disabled = false;
+    } catch (e) {
+      show("banner", "err", `Auth failed: ${e && e.message ? e.message : e}`);
+    }
+  });
+
+  $("run").addEventListener("click", async () => {
+    if (!connected) { show("banner","err","Not connected."); return; }
+    $("run").disabled = true; $("csv").disabled = true; hide("banner"); show("banner","info","Loading DVIR…");
+    try {
+      const from = new Date($("from").value);
+      const to   = new Date($("to").value);
+      // Pull DVIR via GetFeed for the window
+      const dvir = await getFeedAll("DVIRLog", { fromDate: toIso(from), toDate: toIso(to) });
+      if (!dvir.length) {
+        show("banner","warn","No DVIR found for the selected range or feature not enabled.");
+        render([]); $("run").disabled = false; return;
+      }
+      // Normalize DVIR rows we can join on
+      const dvirRows = dvir
+        .map(r => ({
+          id: r.id,
+          dateTime: new Date(r.dateTime),
+          deviceId: r.device && r.device.id || null,
+          deviceName: r.device && (r.device.name || "") || "",
+          plate: (r.device && (r.device.licensePlate || r.device.serialNumber)) || "",
+          driver: r.driver && r.driver.name || "",
+          isSafe: r.isSafe,
+          defects: Array.isArray(r.defects) ? r.defects.map(d => (d && d.defect && d.defect.name) || "").filter(Boolean).join("; ") : "",
+          odometer: (typeof r.odometer === "number" ? r.odometer : ""),
+          address: r.address || ""
+        }))
+        .filter(x => x.deviceId && x.dateTime);
+
+      if (!dvirRows.length) {
+        show("banner","warn","DVIR returned rows, but none had device+time to join on.");
+        render([]); $("run").disabled = false; return;
+      }
+
+      // Pull engine hours for those devices (primary + fallback), pad window a bit
+      show("banner","info","Fetching engine hours…");
+      const deviceIds = Array.from(new Set(dvirRows.map(x => x.deviceId)));
+      const padMs = 24*3600*1000;
+      const eh = await fetchEngineHours(deviceIds, new Date(from.getTime()-padMs), new Date(to.getTime()+padMs));
+
+      // As-of join
+      show("banner","info","Joining engine hours…");
+      const joined = attachAsOf(dvirRows, eh);
+
+      render(joined);
+      $("csv").disabled = joined.length === 0;
+      show("banner","ok",`Done. ${joined.length} rows.`);
+    } catch (e) {
+      console.error(e);
+      show("banner","err", e && e.message ? e.message : String(e));
+    } finally {
+      $("run").disabled = false;
+    }
+  });
+
+  $("csv").addEventListener("click", () => {
+    const rows = extractTableRows();
+    const blob = new Blob([CSV(rows)], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `asset_inspection_engine_hours_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  // ---- API helpers (modern SDK) ----
+  function call(method, params) {
+    return new Promise((resolve, reject) => api.call(method, params, resolve, reject));
+  }
+
+  async function getFeedAll(typeName, search) {
+    const out = [];
+    let fromVersion = null;
+    while (true) {
+      const page = await call("GetFeed", { typeName, search, fromVersion, resultsLimit: 1000 });
+      if (!page || !page.data || !page.data.length) break;
+      out.push(...page.data);
+      fromVersion = page.toVersion;
+    }
+    return out;
+  }
+
+  async function fetchEngineHours(deviceIds, fromDate, toDate) {
+    const ENGINE_DIAG_PRIMARY  = "DiagnosticEngineHoursAdjustmentId";
+    const ENGINE_DIAG_FALLBACK = "DiagnosticEngineHoursId";
+    const makeCalls = (diagId, ids) => ids.map(id => ([
+      "GetFeed",
+      {
+        typeName: "StatusData",
+        search: {
+          deviceSearch: { id },
+          diagnosticSearch: { id: diagId },
+          fromDate: toIso(fromDate),
+          toDate: toIso(toDate)
+        },
+        fromVersion: null,
+        resultsLimit: 1000
+      }
+    ]));
+
+    // First try primary diagnostic
+    const primaryRes = await multiCall(makeCalls(ENGINE_DIAG_PRIMARY, deviceIds));
+    const perDev = primaryRes.map((r,i) => ({ id: deviceIds[i], rows: (r && r.data) ? r.data : [] }));
+
+    // Fallback for devices with no rows
+    const missing = perDev.filter(x => x.rows.length === 0).map(x => x.id);
+    if (missing.length) {
+      const fallbackRes = await multiCall(makeCalls(ENGINE_DIAG_FALLBACK, missing));
+      fallbackRes.forEach((r,idx) => {
+        const devId = missing[idx];
+        const slot = perDev.find(x => x.id === devId);
+        slot.rows = (r && r.data) ? r.data : [];
+      });
+    }
+
+    // Flatten + normalize
+    const flat = [];
+    perDev.forEach(d => {
+      d.rows.forEach(row => {
+        const v = row && row.data && row.data.value;
+        if (v != null) {
+          flat.push({ deviceId: d.id, dateTime: new Date(row.dateTime), value: Number(v) });
+        }
+      });
+    });
+    // Sort per device/time
+    flat.sort((a,b)=> a.deviceId.localeCompare(b.deviceId) || a.dateTime - b.dateTime);
+    return flat;
+  }
+
+  function multiCall(calls) {
+    // geotab SDK accepts array of [method, params]
+    return new Promise((resolve, reject) => api.multiCall(calls, resolve, reject));
+  }
+
+  function attachAsOf(dvirRows, engineRows) {
+    // Index engine rows by device
+    const byDev = new Map();
+    engineRows.forEach(r => {
+      if (!byDev.has(r.deviceId)) byDev.set(r.deviceId, []);
+      byDev.get(r.deviceId).push(r);
+    });
+    byDev.forEach(list => list.sort((a,b)=> a.dateTime - b.dateTime));
+
+    // Binary search last <= dt
+    const searchAsOf = (list, dt) => {
+      let lo = 0, hi = list.length - 1, idx = -1;
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        if (list[mid].dateTime <= dt) { idx = mid; lo = mid + 1; } else { hi = mid - 1; }
+      }
+      return idx >= 0 ? list[idx].value : null;
+    };
+
+    return dvirRows.map(r => {
+      const list = byDev.get(r.deviceId) || [];
+      const eh = list.length ? searchAsOf(list, r.dateTime) : null;
+      return {
+        "Reporting Date": r.dateTime.toLocaleString(),
+        "Device": r.deviceName,
+        "License Plate": r.plate,
+        "Driver": r.driver,
+        "Is Safe": r.isSafe === true ? "Yes" : (r.isSafe === false ? "No" : ""),
+        "Defects": r.defects,
+        "Odometer": r.odometer,
+        "Address": r.address,
+        "Engine Hours (as-of)": eh != null ? eh : ""
+      };
+    });
+  }
+
+  // ---- render helpers
+  function render(rows){
+    const tbody = $("tbl").querySelector("tbody");
+    tbody.innerHTML = "";
+    rows.forEach(r => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${r["Reporting Date"]}</td>
+        <td>${escapeHtml(r["Device"])}</td>
+        <td>${escapeHtml(r["License Plate"])}</td>
+        <td>${escapeHtml(r["Driver"])}</td>
+        <td>${r["Is Safe"]}</td>
+        <td>${escapeHtml(r["Defects"])}</td>
+        <td>${r["Odometer"] ?? ""}</td>
+        <td>${escapeHtml(r["Address"])}</td>
+        <td>${r["Engine Hours (as-of)"] ?? ""}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    $("count").textContent = `${rows.length} rows`;
+  }
+  function escapeHtml(s){ return String(s||"").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]); }
+  function extractTableRows(){
+    const headers = ["Reporting Date","Device","License Plate","Driver","Is Safe","Defects","Odometer","Address","Engine Hours (as-of)"];
+    return Array.from($("tbl").querySelectorAll("tbody tr")).map(tr=>{
+      const cells = Array.from(tr.children).map(td=>td.innerText);
+      const obj = {}; headers.forEach((h,i)=> obj[h]=cells[i]); return obj;
+    });
+  }
+})();
+</script>
 </body>
 </html>
