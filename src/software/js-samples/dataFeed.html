@@ -203,6 +203,23 @@
                         "resultsLimit": 1000,
                     }]);
                 }
+                
+                 if (includeFaultData) {
+                    apiCalls.push(["GetFeed", {
+                     "typeName" : "Device",
+                        "search" : {
+                          "groups" : [group]
+                                        },
+                            "resultsLimit": 1000,
+                                        }, function (devices) {
+        var now = new Date().toISOString(),
+        calls = [],
+        diagnostic = {
+            id: "DiagnosticOdometerAdjustmentId"
+        };                
+                
+                
+                }
 
                 api.multiCall(apiCalls, function(result) {
                     if (result !== undefined && result.length > 0) {
