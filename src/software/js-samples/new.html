@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Geotab API Runner - Professional Toolkit</title>
+  <title>Geotab API Dashboard - Professional Toolkit</title>
   <style>
     * {
       margin: 0;
@@ -357,17 +357,12 @@
         Geotab API Runner
         <span style="font-size: 0.6em; color: #718096;">Professional Toolkit</span>
       </h1>
-      <div class="subtitle">Complete fleet management API testing environment</div>
+      <div class="subtitle">API testing environment</div>
     </div>
 
     <div class="success-banner">
       <span class="icon">✅</span>
       <div>
-        <strong>Enhanced API Runner with 20+ Pre-built API Calls</strong><br>
-        <small>Click any example below to auto-fill the parameters, then hit "Run API Call"</small>
-      </div>
-    </div>
-
     <!-- Authentication Section -->
     <div class="card">
       <h3 class="card-title">
@@ -407,21 +402,6 @@
         </div>
       </div>
 
-      <div class="status-info">
-        <div class="status-row">
-          <span class="status-label">Server:</span>
-          <span class="status-value" id="connectedServer"></span>
-        </div>
-        <div class="status-row">
-          <span class="status-label">Database:</span>
-          <span class="status-value" id="connectedDB"></span>
-        </div>
-        <div class="status-row">
-          <span class="status-label">User:</span>
-          <span class="status-value" id="connectedUser"></span>
-        </div>
-      </div>
-
       <div class="form-group">
         <div class="form-row">
           <select id="method" class="form-control">
@@ -445,12 +425,7 @@
             <span class="icon">📊</span>
             Download CSV
           </button>
-          <button id="logout" class="btn btn-danger">
-            <span class="icon">🚪</span>
-            Logout
-          </button>
-        </div>
-      </div>
+          </div>
       
       <div id="apiResult"></div>
     </div>
@@ -461,13 +436,7 @@
         <span class="icon">🏢</span>
         Group-Based Odometer Collection
       </h3>
-      
-      <div class="instructions">
-        <strong>📝 Instructions:</strong><br>
-        1. First get your Group ID and Diagnostic ID using the examples below<br>
-        2. Enter them here and click "Get Group Odometer Readings"
-      </div>
-
+   
       <div class="form-group">
         <div class="form-row">
           <input id="groupId" class="form-control" placeholder="Group ID (e.g., GroupCompanyId)" value="GroupCompanyId">
