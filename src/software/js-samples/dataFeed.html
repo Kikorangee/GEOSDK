@@ -95,7 +95,7 @@
                 </form>
             </div>
             
-            <div id="feed-container" class="feed-container" style="display:none;">
+            <div id="feed-container" class="feed-container">
                 <table>
                     <thead>
                         <tr>
@@ -149,7 +149,6 @@
                             clearInterval(update);
                             lastVersions = [null, null, null];
                         }
-                        document.getElementById("feed-container").setAttribute("style", "display:none;");
                     }
                 });
 
@@ -168,7 +167,6 @@
 
                 if (!includeLocationData && !includeStatusData && !includeFaultData) {
                     document.getElementById("includeLocationData").checked = true;
-                    includeLocationData = true;
                 }
 
                 var apiCalls = [];
@@ -180,7 +178,7 @@
                         "search": {
                             "fromDate": startDate
                         },
-                        "resultsLimit": 1000
+                        "resultsLimit": 1000,
                     }]);
                 }
 
@@ -191,7 +189,7 @@
                         "search": {
                             "fromDate": startDate
                         },
-                        "resultsLimit": 1000
+                        "resultsLimit": 1000,
                     }]);
                 }
 
@@ -202,12 +200,12 @@
                         "search": {
                             "fromDate": startDate
                         },
-                        "resultsLimit": 1000
+                        "resultsLimit": 1000,
                     }]);
                 }
 
                 api.multiCall(apiCalls, function(result) {
-                    if (Array.isArray(result) && result.length > 0) {
+                    if (result !== undefined && result.length > 0) {
                         for (var i = 0; i < result.length; i++) {
                             displayFeed(result[i]);
                             lastVersions[i] = result[i].toVersion;
@@ -222,7 +220,7 @@
                 if (feed.data !== undefined && feed.data.length > 0) {
                     for (var i = 0; i < feed.data.length; i++) {
                         var row = null,
-                            feedData = feed.data[i];
+                        	feedData = feed.data[i];
                         if (feedData.hasOwnProperty("data") || feedData.hasOwnProperty("failureMode")) {
                             row = createEngineRow(feedData);
                         } else {
@@ -235,12 +233,12 @@
 
             function createLocationRow(feedItem) {
                 var row = document.createElement("tr");
-                row.appendChild(createCell(feedItem.device ? feedItem.device.id : "-"));
-                row.appendChild(createCell(feedItem.id || "-"));
-                row.appendChild(createCell(feedItem.dateTime || "-"));
-                row.appendChild(createCell(feedItem.latitude !== undefined ? feedItem.latitude : "-"));
-                row.appendChild(createCell(feedItem.longitude !== undefined ? feedItem.longitude : "-"));
-                row.appendChild(createCell(feedItem.speed !== undefined ? feedItem.speed : "-"));
+                row.appendChild(createCell(feedItem.device.id));
+                row.appendChild(createCell(feedItem.id));
+                row.appendChild(createCell(feedItem.dateTime));
+                row.appendChild(createCell(feedItem.latitude));
+                row.appendChild(createCell(feedItem.longitude));
+                row.appendChild(createCell(feedItem.speed));
                 row.appendChild(createCell("-"));
                 row.appendChild(createCell("-"));
                 return row;
@@ -248,14 +246,14 @@
 
             function createEngineRow(feedItem) {
                 var row = document.createElement("tr");
-                row.appendChild(createCell(feedItem.device ? feedItem.device.id : "-"));
-                row.appendChild(createCell(feedItem.id || "-"));
-                row.appendChild(createCell(feedItem.dateTime || "-"));
+                row.appendChild(createCell(feedItem.device.id));
+                row.appendChild(createCell(feedItem.id));
+                row.appendChild(createCell(feedItem.dateTime));
                 row.appendChild(createCell("-"));
                 row.appendChild(createCell("-"));
                 row.appendChild(createCell("-"));
-                row.appendChild(createCell(feedItem.diagnostic ? feedItem.diagnostic.id.replace("Diagnostic", "").replace("Id", "") : "-"));
-                row.appendChild(createCell(feedItem.data !== undefined ? feedItem.data : "-"));
+                row.appendChild(createCell(feedItem.diagnostic.id.replace("Diagnostic", "").replace("Id", "")));
+                row.appendChild(createCell(feedItem.data || "-"));
                 return row;
             }
 
