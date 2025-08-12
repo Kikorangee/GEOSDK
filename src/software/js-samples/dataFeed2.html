@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Geotab API Debug Tool</title>
+  <title>Geotab API Runner</title>
   <style>
     * {
       margin: 0;
@@ -12,8 +12,8 @@
     }
 
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #f8f9fa;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f5f5f5;
       color: #333;
       padding: 20px;
       line-height: 1.6;
@@ -24,692 +24,673 @@
       margin: 0 auto;
     }
 
-    .header {
-      background: linear-gradient(135deg, #dc3545, #c82333);
-      color: white;
-      border-radius: 12px;
-      padding: 25px;
-      margin-bottom: 25px;
-      text-align: center;
-    }
-
     .card {
       background: white;
-      border-radius: 12px;
-      padding: 25px;
-      margin-bottom: 25px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-      border: 1px solid #e9ecef;
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      border: 1px solid #e1e5e9;
     }
 
-    .card-title {
-      color: #2d3748;
-      font-size: 1.4em;
-      font-weight: 700;
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      border-bottom: 2px solid #e9ecef;
-      padding-bottom: 12px;
+    .header {
+      background: linear-gradient(135deg, #0066cc, #004499);
+      color: white;
+      text-align: center;
+      margin-bottom: 0;
+    }
+
+    .header h1 {
+      font-size: 1.8rem;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .status {
+      padding: 16px;
+      border-radius: 6px;
+      margin: 16px 0;
+      font-weight: 500;
+      border: 1px solid;
+    }
+
+    .status-success {
+      background: #d1f2eb;
+      color: #0c5460;
+      border-color: #bee5eb;
+    }
+
+    .status-error {
+      background: #f8d7da;
+      color: #721c24;
+      border-color: #f5c6cb;
+    }
+
+    .status-warning {
+      background: #fff3cd;
+      color: #856404;
+      border-color: #ffeaa7;
+    }
+
+    .status-info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border-color: #bee5eb;
     }
 
     .btn {
-      padding: 12px 24px;
+      background: #0066cc;
+      color: white;
       border: none;
-      border-radius: 8px;
+      padding: 10px 20px;
+      border-radius: 4px;
       font-size: 14px;
-      font-weight: 600;
+      font-weight: 500;
       cursor: pointer;
-      transition: all 0.2s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      margin: 4px;
+      margin: 6px 6px 6px 0;
+      transition: background-color 0.2s;
     }
 
     .btn:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      background: #0056b3;
     }
 
-    .btn-primary { background: #007bff; color: white; }
-    .btn-success { background: #28a745; color: white; }
-    .btn-warning { background: #ffc107; color: black; }
-    .btn-danger { background: #dc3545; color: white; }
-    .btn-info { background: #17a2b8; color: white; }
+    .btn-success {
+      background: #28a745;
+    }
 
-    .alert {
-      padding: 15px 20px;
-      border-radius: 8px;
-      margin: 15px 0;
-      display: flex;
-      align-items: flex-start;
+    .btn-success:hover {
+      background: #218838;
+    }
+
+    .btn-warning {
+      background: #ffc107;
+      color: #212529;
+    }
+
+    .btn-warning:hover {
+      background: #e0a800;
+    }
+
+    .btn-danger {
+      background: #dc3545;
+    }
+
+    .btn-danger:hover {
+      background: #c82333;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: #0066cc;
+      box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.25);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
       gap: 12px;
-      font-weight: 500;
+      margin-bottom: 12px;
     }
 
-    .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-    .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-    .alert-warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
-    .alert-info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
-
-    .debug-box {
+    .result-box {
       background: #2d3748;
       color: #e2e8f0;
-      padding: 20px;
-      border-radius: 8px;
-      margin: 15px 0;
-      font-family: 'Courier New', monospace;
+      padding: 16px;
+      border-radius: 6px;
+      margin: 16px 0;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
       font-size: 13px;
-      line-height: 1.4;
       max-height: 400px;
       overflow-y: auto;
-      border: 1px solid #4a5568;
+      white-space: pre-wrap;
+      word-wrap: break-word;
     }
 
-    .status-grid {
+    .examples {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 20px;
-      margin: 20px 0;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
     }
 
-    .status-item {
+    .example-btn {
+      background: #6f42c1;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+      text-align: center;
+      transition: background-color 0.2s;
+    }
+
+    .example-btn:hover {
+      background: #5a2d91;
+    }
+
+    .debug-info {
       background: #f8f9fa;
-      padding: 15px;
-      border-radius: 8px;
-      border-left: 4px solid #007bff;
+      border: 1px solid #e9ecef;
+      padding: 12px;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 12px;
+      margin: 12px 0;
     }
 
-    .status-label {
+    .connection-details {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+      margin: 16px 0;
+    }
+
+    .detail-item {
+      background: #f8f9fa;
+      padding: 12px;
+      border-radius: 4px;
+      border-left: 4px solid #0066cc;
+    }
+
+    .detail-label {
       font-weight: 600;
       color: #495057;
-      margin-bottom: 8px;
-    }
-
-    .status-value {
-      color: #2d3748;
-      font-family: monospace;
-      background: #e9ecef;
-      padding: 8px 12px;
-      border-radius: 4px;
-      word-break: break-all;
-    }
-
-    .icon { font-size: 1.2em; }
-    
-    .test-result {
-      margin: 10px 0;
-      padding: 15px;
-      border-radius: 8px;
-      border-left: 4px solid #ccc;
-    }
-
-    .test-pass {
-      background: #d4edda;
-      border-left-color: #28a745;
-      color: #155724;
-    }
-
-    .test-fail {
-      background: #f8d7da;
-      border-left-color: #dc3545;
-      color: #721c24;
-    }
-
-    .test-info {
-      background: #d1ecf1;
-      border-left-color: #17a2b8;
-      color: #0c5460;
-    }
-
-    .log-entry {
-      margin: 5px 0;
-      padding: 8px 12px;
-      border-radius: 4px;
-      font-family: monospace;
       font-size: 12px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
     }
 
-    .log-info { background: #e3f2fd; color: #0d47a1; }
-    .log-success { background: #e8f5e8; color: #1b5e20; }
-    .log-warning { background: #fff3e0; color: #e65100; }
-    .log-error { background: #ffebee; color: #c62828; }
+    .detail-value {
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 13px;
+      color: #2d3748;
+    }
+
+    @media (max-width: 768px) {
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+      .examples {
+        grid-template-columns: 1fr;
+      }
+      .connection-details {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <!-- Header -->
-    <div class="header">
-      <h1>🔧 Geotab API Debug & Troubleshoot Tool</h1>
-      <div>Diagnose API connection issues and find available objects</div>
+    <div class="card header">
+      <h1>🚀 Geotab API Runner</h1>
+      <p>Professional API testing tool for MyGeotab</p>
     </div>
 
-    <!-- Quick Status -->
+    <!-- Connection Status -->
     <div class="card">
-      <h3 class="card-title">
-        <span class="icon">📊</span>
-        Quick Status Check
-      </h3>
-      
-      <div id="quickStatus">
-        <div class="alert alert-info">
-          <span class="icon">🔄</span>
-          <div>Click "Run Full Diagnostic" to start analysis...</div>
+      <h2>🔗 Connection Status</h2>
+      <div id="connectionStatus">
+        <div class="status status-info">
+          Scanning for Geotab API objects...
         </div>
       </div>
-
-      <button id="runDiagnostic" class="btn btn-primary">
-        <span class="icon">🔍</span>
-        Run Full Diagnostic
-      </button>
       
-      <button id="continuousCheck" class="btn btn-warning">
-        <span class="icon">🔄</span>
-        Start Continuous Monitoring
-      </button>
+      <div id="connectionDetails" class="connection-details" style="display: none;"></div>
       
-      <button id="testSimpleApi" class="btn btn-success">
-        <span class="icon">🧪</span>
-        Test Simple API Call
-      </button>
+      <button id="testConnection" class="btn">🔍 Test Connection</button>
+      <button id="showDebug" class="btn btn-warning">🐛 Show Debug Info</button>
+      <button id="forceRefresh" class="btn btn-danger">🔄 Force Refresh</button>
     </div>
 
-    <!-- Environment Analysis -->
-    <div class="card">
-      <h3 class="card-title">
-        <span class="icon">🌐</span>
-        Environment Analysis
-      </h3>
-      <div id="environmentAnalysis"></div>
-    </div>
-
-    <!-- Available Objects -->
-    <div class="card">
-      <h3 class="card-title">
-        <span class="icon">📦</span>
-        Available Objects & Variables
-      </h3>
-      <div id="availableObjects"></div>
-    </div>
-
-    <!-- API Tests -->
-    <div class="card">
-      <h3 class="card-title">
-        <span class="icon">🧪</span>
-        API Connection Tests
-      </h3>
-      <div id="apiTests"></div>
-    </div>
-
-    <!-- Advanced Debugging -->
-    <div class="card">
-      <h3 class="card-title">
-        <span class="icon">🐛</span>
-        Advanced Debugging
-      </h3>
+    <!-- API Testing Panel -->
+    <div id="apiPanel" class="card" style="display: none;">
+      <h2>🔧 API Testing</h2>
       
-      <div style="margin: 15px 0;">
-        <button id="checkParentWindow" class="btn btn-info">Check Parent Window</button>
-        <button id="checkIframe" class="btn btn-info">Check if in iFrame</button>
-        <button id="checkWindowObjects" class="btn btn-info">Scan Window Objects</button>
-        <button id="checkGeotabObjects" class="btn btn-info">Deep Geotab Scan</button>
+      <div class="form-group">
+        <div class="form-row">
+          <select id="method" class="form-control">
+            <option value="Get">Get</option>
+            <option value="Add">Add</option>
+            <option value="Set">Set</option>
+            <option value="Remove">Remove</option>
+            <option value="ExecuteMultiCall">ExecuteMultiCall</option>
+          </select>
+          <input id="typeName" class="form-control" placeholder="Type Name (e.g., User, Device, Trip)" value="User">
+        </div>
+        
+        <textarea id="params" class="form-control" rows="5" placeholder="Parameters (JSON)">{"search":{"name":"%"},"resultsLimit":10}</textarea>
+        
+        <button id="runApi" class="btn btn-success">🚀 Run API Call</button>
+        <button id="clearResults" class="btn">🗑️ Clear Results</button>
+        <button id="downloadCsv" class="btn btn-warning">📊 Download CSV</button>
       </div>
       
-      <div id="advancedDebug"></div>
+      <div id="apiResults"></div>
     </div>
 
-    <!-- Real-time Log -->
-    <div class="card">
-      <h3 class="card-title">
-        <span class="icon">📝</span>
-        Real-time Debug Log
-      </h3>
-      
-      <button id="clearLog" class="btn btn-warning">Clear Log</button>
-      
-      <div id="debugLog" class="debug-box" style="min-height: 200px;">
-        Debug log will appear here...
+    <!-- Quick Examples -->
+    <div id="examplesPanel" class="card" style="display: none;">
+      <h2>📋 Quick Examples</h2>
+      <div class="examples">
+        <button class="example-btn" onclick="loadExample('users')">👥 Get Users</button>
+        <button class="example-btn" onclick="loadExample('devices')">🚗 Get Devices</button>
+        <button class="example-btn" onclick="loadExample('groups')">🏢 Get Groups</button>
+        <button class="example-btn" onclick="loadExample('trips')">🗺️ Get Trips</button>
+        <button class="example-btn" onclick="loadExample('zones')">📍 Get Zones</button>
+        <button class="example-btn" onclick="loadExample('diagnostics')">🔧 Get Diagnostics</button>
+        <button class="example-btn" onclick="loadExample('odometer')">🔢 Get Odometer</button>
+        <button class="example-btn" onclick="loadExample('gps')">📡 Get GPS Data</button>
       </div>
+    </div>
+
+    <!-- Debug Panel -->
+    <div id="debugPanel" class="card" style="display: none;">
+      <h2>🐛 Debug Information</h2>
+      <div id="debugOutput" class="result-box">Debug information will appear here...</div>
     </div>
   </div>
 
   <script>
-    let logContainer = null;
-    let diagnosticInterval = null;
-    let foundApis = [];
+    let geotabApi = null;
+    let isInitialized = false;
+    let lastApiResult = null;
+    let currentUser = null;
 
     function log(message, type = 'info') {
-      if (!logContainer) logContainer = document.getElementById('debugLog');
-      
-      const timestamp = new Date().toLocaleTimeString();
-      const logClass = `log-${type}`;
-      
-      const logEntry = document.createElement('div');
-      logEntry.className = `log-entry ${logClass}`;
-      logEntry.textContent = `[${timestamp}] ${message}`;
-      
-      logContainer.appendChild(logEntry);
-      logContainer.scrollTop = logContainer.scrollHeight;
+      console.log(`[API Runner] ${message}`);
     }
 
-    function showResult(elementId, content, type = 'info') {
-      const element = document.getElementById(elementId);
-      const alertClass = `alert-${type}`;
-      element.innerHTML = `<div class="alert ${alertClass}">
-        <span class="icon">${type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️'}</span>
-        <div>${content}</div>
-      </div>`;
+    function showStatus(message, type = 'info') {
+      const statusDiv = document.getElementById('connectionStatus');
+      statusDiv.innerHTML = `<div class="status status-${type}">${message}</div>`;
     }
 
-    function createStatusGrid(data) {
-      let html = '<div class="status-grid">';
-      for (const [key, value] of Object.entries(data)) {
-        html += `
-          <div class="status-item">
-            <div class="status-label">${key}:</div>
-            <div class="status-value">${value}</div>
-          </div>
-        `;
-      }
-      html += '</div>';
-      return html;
+    function showResult(elementId, content) {
+      document.getElementById(elementId).innerHTML = `<div class="result-box">${content}</div>`;
     }
 
-    function scanForGeotabObjects() {
-      const results = [];
-      const checkLocations = [
-        { name: 'window.api', obj: window.api },
-        { name: 'window.state', obj: window.state },
-        { name: 'window.state?.api', obj: window.state?.api },
-        { name: 'window.parent?.api', obj: window.parent?.api },
-        { name: 'window.top?.api', obj: window.top?.api },
-        { name: 'window.GeotabApi', obj: window.GeotabApi },
-        { name: 'window.geotabApi', obj: window.geotabApi },
-        { name: 'window.myGeotabApi', obj: window.myGeotabApi },
-        { name: 'window.parent?.state?.api', obj: window.parent?.state?.api },
-        { name: 'window.frames[0]?.api', obj: window.frames[0]?.api }
+    function showConnectionDetails(apiPath, user) {
+      const details = `
+        <div class="detail-item">
+          <div class="detail-label">API Source</div>
+          <div class="detail-value">${apiPath}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Current User</div>
+          <div class="detail-value">${user ? user.name : 'Unknown'}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Database</div>
+          <div class="detail-value">${window.location.pathname.split('/')[1] || 'Unknown'}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Status</div>
+          <div class="detail-value">✅ Connected</div>
+        </div>
+      `;
+      document.getElementById('connectionDetails').innerHTML = details;
+      document.getElementById('connectionDetails').style.display = 'grid';
+    }
+
+    // Find and initialize Geotab API
+    function findGeotabApi() {
+      log('Scanning for Geotab API objects...');
+      
+      const apiSources = [
+        { name: 'window.api', getter: () => window.api },
+        { name: 'window.state.api', getter: () => window.state?.api },
+        { name: 'window.parent.api', getter: () => window.parent?.api },
+        { name: 'window.top.api', getter: () => window.top?.api },
+        { name: 'parent.api', getter: () => parent?.api },
+        { name: 'top.api', getter: () => top?.api }
       ];
 
-      checkLocations.forEach(location => {
+      for (const source of apiSources) {
         try {
-          if (location.obj) {
-            const type = typeof location.obj;
-            const hasCall = typeof location.obj.call === 'function';
-            const hasCredentials = !!location.obj.credentials;
-            
-            results.push({
-              name: location.name,
-              found: true,
-              type: type,
-              hasCall: hasCall,
-              hasCredentials: hasCredentials,
-              obj: location.obj
-            });
-
-            if (hasCall) {
-              foundApis.push({
-                name: location.name,
-                obj: location.obj
-              });
-            }
-          } else {
-            results.push({
-              name: location.name,
-              found: false,
-              type: 'undefined'
-            });
+          const api = source.getter();
+          if (api && typeof api.call === 'function') {
+            geotabApi = api;
+            log(`✅ Found Geotab API at: ${source.name}`);
+            return source.name;
           }
         } catch (error) {
-          results.push({
-            name: location.name,
-            found: false,
-            type: 'error',
-            error: error.message
-          });
+          log(`❌ Error accessing ${source.name}: ${error.message}`);
         }
-      });
+      }
 
-      return results;
+      log('❌ No Geotab API found');
+      return null;
     }
 
-    function runEnvironmentAnalysis() {
-      const info = {
+    function initializeGeotab() {
+      const apiPath = findGeotabApi();
+      
+      if (!geotabApi) {
+        showStatus('❌ No Geotab API detected. Make sure this is running as a MyGeotab Add-In.', 'error');
+        return false;
+      }
+
+      // Test the API with a simple call
+      geotabApi.call('Get', {
+        typeName: 'User',
+        search: { name: '%' },
+        resultsLimit: 1
+      }, 
+      function(users) {
+        currentUser = users && users.length > 0 ? users[0] : null;
+        const userName = currentUser ? currentUser.name : 'Unknown User';
+        
+        showStatus(`✅ Connected to Geotab API! Hello, ${userName}`, 'success');
+        showConnectionDetails(apiPath, currentUser);
+        
+        // Show the API testing panels
+        document.getElementById('apiPanel').style.display = 'block';
+        document.getElementById('examplesPanel').style.display = 'block';
+        
+        isInitialized = true;
+        log(`✅ API initialized successfully. User: ${userName}`);
+      },
+      function(error) {
+        showStatus(`⚠️ API found but test call failed: ${error}`, 'warning');
+        log(`⚠️ API test failed: ${error}`);
+      });
+
+      return true;
+    }
+
+    // Run API call
+    function runApiCall() {
+      if (!geotabApi) {
+        showResult('apiResults', 'Error: Geotab API not connected');
+        return;
+      }
+
+      const method = document.getElementById('method').value;
+      const typeName = document.getElementById('typeName').value.trim();
+      let params = {};
+
+      // Parse parameters
+      const paramsText = document.getElementById('params').value.trim();
+      if (paramsText) {
+        try {
+          params = JSON.parse(paramsText);
+        } catch (e) {
+          showResult('apiResults', `JSON Parse Error: ${e.message}`);
+          return;
+        }
+      }
+
+      if (typeName) {
+        params.typeName = typeName;
+      }
+
+      // Make the API call
+      showResult('apiResults', 'Making API call...');
+      log(`🚀 Making API call: ${method} ${typeName}`);
+      
+      geotabApi.call(method, params,
+        function(result) {
+          const count = Array.isArray(result) ? result.length : (result ? 1 : 0);
+          const output = `SUCCESS! Retrieved ${count} record(s)\n\nCall: ${method} ${typeName}\nTimestamp: ${new Date().toISOString()}\n\n${JSON.stringify(result, null, 2)}`;
+          showResult('apiResults', output);
+          
+          // Store for CSV download
+          lastApiResult = {
+            method: method,
+            typeName: typeName,
+            data: result,
+            timestamp: new Date().toISOString()
+          };
+          
+          log(`✅ API call successful: ${count} records returned`);
+        },
+        function(error) {
+          const output = `API Error: ${error}\n\nCall: ${method} ${typeName}\nTimestamp: ${new Date().toISOString()}`;
+          showResult('apiResults', output);
+          log(`❌ API call failed: ${error}`);
+        }
+      );
+    }
+
+    // Download results as CSV
+    function downloadCSV() {
+      if (!lastApiResult) {
+        alert('No data available for download. Run an API call first!');
+        return;
+      }
+      
+      let csvContent = '';
+      const data = lastApiResult.data;
+      
+      if (Array.isArray(data) && data.length > 0) {
+        // Get headers from first object
+        const headers = Object.keys(data[0]);
+        csvContent = headers.map(h => `"${h}"`).join(',') + '\n';
+        
+        // Add data rows
+        data.forEach(row => {
+          const values = headers.map(header => {
+            const value = row[header];
+            if (value === null || value === undefined) return '""';
+            if (typeof value === 'object') return `"${JSON.stringify(value).replace(/"/g, '""')}"`;
+            return `"${String(value).replace(/"/g, '""')}"`;
+          });
+          csvContent += values.join(',') + '\n';
+        });
+      } else if (data) {
+        // Single object or other data
+        csvContent = `"Value"\n"${JSON.stringify(data)}"`;
+      } else {
+        csvContent = '"No Data"';
+      }
+      
+      // Create and download file
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+      const filename = `Geotab_${lastApiResult.method}_${lastApiResult.typeName}_${timestamp}.csv`;
+      
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      
+      if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        log(`📊 CSV downloaded: ${filename}`);
+      } else {
+        alert('CSV download not supported in this browser');
+      }
+    }
+
+    // Load example configurations
+    function loadExample(type) {
+      const today = new Date().toISOString().split('T')[0];
+      const yesterday = new Date(Date.now() - 24*60*60*1000).toISOString();
+      const lastWeek = new Date(Date.now() - 7*24*60*60*1000).toISOString();
+      
+      const examples = {
+        users: {
+          method: 'Get',
+          typeName: 'User',
+          params: '{"search":{"name":"%"},"resultsLimit":20}'
+        },
+        devices: {
+          method: 'Get',
+          typeName: 'Device',
+          params: '{"resultsLimit":50}'
+        },
+        groups: {
+          method: 'Get',
+          typeName: 'Group',
+          params: '{"search":{"name":"%"}}'
+        },
+        trips: {
+          method: 'Get',
+          typeName: 'Trip',
+          params: `{"search":{"fromDate":"${lastWeek}"},"resultsLimit":100}`
+        },
+        zones: {
+          method: 'Get',
+          typeName: 'Zone',
+          params: '{"resultsLimit":50}'
+        },
+        diagnostics: {
+          method: 'Get',
+          typeName: 'Diagnostic',
+          params: '{"search":{"name":"%odometer%"}}'
+        },
+        odometer: {
+          method: 'Get',
+          typeName: 'StatusData',
+          params: `{"search":{"diagnosticSearch":{"id":"DiagnosticOdometerId"},"fromDate":"${yesterday}"},"resultsLimit":20}`
+        },
+        gps: {
+          method: 'Get',
+          typeName: 'LogRecord',
+          params: `{"search":{"fromDate":"${yesterday}"},"resultsLimit":100}`
+        }
+      };
+
+      const example = examples[type];
+      if (example) {
+        document.getElementById('method').value = example.method;
+        document.getElementById('typeName').value = example.typeName;
+        document.getElementById('params').value = example.params;
+        log(`📋 Loaded example: ${type}`);
+      }
+    }
+
+    // Show debug information
+    function showDebugInfo() {
+      const debug = {
         'Current URL': window.location.href,
         'Origin': window.location.origin,
         'Protocol': window.location.protocol,
         'Host': window.location.host,
         'Pathname': window.location.pathname,
-        'Search': window.location.search,
-        'Hash': window.location.hash,
-        'User Agent': navigator.userAgent.substring(0, 100) + '...',
-        'Is Secure Context': window.isSecureContext,
-        'Document Domain': document.domain,
-        'Referrer': document.referrer,
-        'Document Ready State': document.readyState,
-        'Window Name': window.name,
-        'In iFrame': window !== window.top,
-        'Parent Available': window.parent !== window,
-        'Top Available': window.top !== window
+        'In iframe': window !== window.top,
+        'Parent available': window.parent !== window,
+        'Document ready state': document.readyState,
+        'User agent': navigator.userAgent,
+        'API initialized': isInitialized,
+        'Current user': currentUser ? currentUser.name : 'None',
+        'window.api type': typeof window.api,
+        'window.state type': typeof window.state,
+        'window.parent.api type': typeof window.parent?.api,
+        'Geotab API found': !!geotabApi
       };
 
-      document.getElementById('environmentAnalysis').innerHTML = createStatusGrid(info);
-      
-      Object.entries(info).forEach(([key, value]) => {
-        log(`Environment: ${key} = ${value}`, 'info');
-      });
-    }
-
-    function scanAvailableObjects() {
-      const relevantObjects = [];
-      
-      // Scan window properties for Geotab-related objects
-      try {
-        for (const prop in window) {
-          if (prop.toLowerCase().includes('geotab') || 
-              prop.toLowerCase().includes('api') || 
-              prop.toLowerCase().includes('state')) {
-            try {
-              const obj = window[prop];
-              relevantObjects.push({
-                name: prop,
-                type: typeof obj,
-                hasCall: typeof obj?.call === 'function',
-                value: obj
-              });
-            } catch (e) {
-              relevantObjects.push({
-                name: prop,
-                type: 'access-denied',
-                error: e.message
-              });
-            }
-          }
-        }
-      } catch (error) {
-        log(`Error scanning window objects: ${error.message}`, 'error');
+      let output = 'Debug Information:\n\n';
+      for (const [key, value] of Object.entries(debug)) {
+        output += `${key}: ${value}\n`;
       }
 
-      let html = '<div class="debug-box">';
-      html += '<strong>Window Properties (Geotab/API related):</strong><br>';
+      output += '\n--- Available Window Properties ---\n';
+      const props = Object.getOwnPropertyNames(window).filter(prop => 
+        prop.toLowerCase().includes('api') || 
+        prop.toLowerCase().includes('geotab') || 
+        prop === 'state'
+      );
       
-      if (relevantObjects.length === 0) {
-        html += 'No Geotab or API related objects found in window<br>';
-      } else {
-        relevantObjects.forEach(obj => {
-          html += `• ${obj.name}: ${obj.type}`;
-          if (obj.hasCall) html += ' (has .call method) ✅';
-          if (obj.error) html += ` - Error: ${obj.error}`;
-          html += '<br>';
+      if (props.length > 0) {
+        props.forEach(prop => {
+          try {
+            output += `${prop}: ${typeof window[prop]}\n`;
+          } catch (e) {
+            output += `${prop}: access denied\n`;
+          }
         });
-      }
-
-      html += '<br><strong>Standard Window Properties:</strong><br>';
-      const standardProps = ['location', 'navigator', 'document', 'parent', 'top', 'self', 'frames'];
-      standardProps.forEach(prop => {
-        try {
-          html += `• ${prop}: ${typeof window[prop]}<br>`;
-        } catch (e) {
-          html += `• ${prop}: access-denied<br>`;
-        }
-      });
-
-      html += '</div>';
-      document.getElementById('availableObjects').innerHTML = html;
-    }
-
-    function runApiTests() {
-      const scanResults = scanForGeotabObjects();
-      let html = '';
-      
-      scanResults.forEach(result => {
-        const resultClass = result.found && result.hasCall ? 'test-pass' : 
-                           result.found ? 'test-info' : 'test-fail';
-        
-        html += `<div class="test-result ${resultClass}">
-          <strong>${result.name}:</strong> 
-          ${result.found ? 
-            `Found (${result.type})${result.hasCall ? ' - Has .call() method ✅' : ' - No .call() method'}${result.hasCredentials ? ' - Has credentials' : ''}` : 
-            'Not found'
-          }
-          ${result.error ? `<br>Error: ${result.error}` : ''}
-        </div>`;
-        
-        log(`API Test: ${result.name} - ${result.found ? 'Found' : 'Not found'}${result.hasCall ? ' (callable)' : ''}`, 
-            result.found && result.hasCall ? 'success' : result.found ? 'warning' : 'error');
-      });
-
-      if (foundApis.length > 0) {
-        html += `<div class="alert alert-success">
-          <span class="icon">✅</span>
-          <div><strong>Found ${foundApis.length} usable API object(s)!</strong><br>
-          ${foundApis.map(api => api.name).join(', ')}</div>
-        </div>`;
       } else {
-        html += `<div class="alert alert-error">
-          <span class="icon">❌</span>
-          <div><strong>No usable API objects found</strong><br>
-          This might mean the page loaded before Geotab was ready, or you're not running inside Geotab.</div>
-        </div>`;
+        output += 'No API-related properties found\n';
       }
 
-      document.getElementById('apiTests').innerHTML = html;
-    }
-
-    function testSimpleApiCall() {
-      if (foundApis.length === 0) {
-        showResult('quickStatus', 'No API objects available for testing. Run Full Diagnostic first.', 'error');
-        return;
-      }
-
-      const api = foundApis[0].obj;
-      log(`Testing API call with ${foundApis[0].name}`, 'info');
-
-      try {
-        api.call('Get', {
-          typeName: 'User',
-          search: { name: '%' },
-          resultsLimit: 1
-        }, 
-        function(result) {
-          log(`API call successful! Got ${result.length} user(s)`, 'success');
-          showResult('quickStatus', 
-            `✅ API CONNECTION SUCCESSFUL!<br>
-            <strong>Using:</strong> ${foundApis[0].name}<br>
-            <strong>Test result:</strong> Retrieved ${result.length} user(s)<br>
-            <strong>Status:</strong> Ready for normal operation`, 'success');
-          
-          // Now we can test a full API call
-          if (result.length > 0) {
-            log(`First user: ${result[0].name}`, 'info');
-          }
-        },
-        function(error) {
-          log(`API call failed: ${error}`, 'error');
-          showResult('quickStatus', `API object found but call failed: ${error}`, 'error');
-        });
-        
-      } catch (error) {
-        log(`API call exception: ${error.message}`, 'error');
-        showResult('quickStatus', `API call failed with exception: ${error.message}`, 'error');
-      }
-    }
-
-    function startContinuousMonitoring() {
-      if (diagnosticInterval) {
-        clearInterval(diagnosticInterval);
-        diagnosticInterval = null;
-        document.getElementById('continuousCheck').textContent = '🔄 Start Continuous Monitoring';
-        log('Stopped continuous monitoring', 'info');
-        return;
-      }
-
-      log('Starting continuous monitoring (every 2 seconds)', 'info');
-      document.getElementById('continuousCheck').textContent = '⏹️ Stop Monitoring';
-      
-      diagnosticInterval = setInterval(() => {
-        const previousCount = foundApis.length;
-        foundApis = [];
-        
-        const scanResults = scanForGeotabObjects();
-        const currentCount = foundApis.length;
-        
-        if (currentCount > previousCount) {
-          log(`🎉 New API objects detected! Now have ${currentCount} API(s)`, 'success');
-          
-          // Auto-test when APIs become available
-          if (currentCount > 0 && previousCount === 0) {
-            setTimeout(testSimpleApiCall, 500);
-          }
-        }
-      }, 2000);
+      document.getElementById('debugOutput').textContent = output;
+      document.getElementById('debugPanel').style.display = 'block';
+      log('🐛 Debug information displayed');
     }
 
     // Event handlers
-    document.getElementById('runDiagnostic').onclick = function() {
-      log('Running full diagnostic...', 'info');
-      foundApis = [];
-      
-      runEnvironmentAnalysis();
-      scanAvailableObjects();
-      runApiTests();
-      
-      if (foundApis.length > 0) {
-        showResult('quickStatus', 
-          `Found ${foundApis.length} API object(s): ${foundApis.map(api => api.name).join(', ')}`, 'success');
-      } else {
-        showResult('quickStatus', 'No Geotab API objects detected. Try continuous monitoring or check if you\'re running inside Geotab.', 'warning');
-      }
+    document.getElementById('testConnection').onclick = function() {
+      log('🔍 Manual connection test triggered');
+      showStatus('Testing connection...', 'info');
+      initializeGeotab();
     };
 
-    document.getElementById('continuousCheck').onclick = startContinuousMonitoring;
-    document.getElementById('testSimpleApi').onclick = testSimpleApiCall;
+    document.getElementById('showDebug').onclick = showDebugInfo;
 
-    document.getElementById('checkParentWindow').onclick = function() {
-      let html = '<div class="debug-box">';
-      try {
-        html += `<strong>Parent Window Analysis:</strong><br>`;
-        html += `• window === window.parent: ${window === window.parent}<br>`;
-        html += `• window === window.top: ${window === window.top}<br>`;
-        html += `• window.parent type: ${typeof window.parent}<br>`;
-        html += `• window.top type: ${typeof window.top}<br>`;
-        
-        if (window.parent && window.parent !== window) {
-          html += `• Parent URL: ${window.parent.location.href}<br>`;
-          html += `• Parent has api: ${typeof window.parent.api}<br>`;
-          html += `• Parent has state: ${typeof window.parent.state}<br>`;
-        }
-      } catch (error) {
-        html += `Error accessing parent: ${error.message}<br>`;
-      }
-      html += '</div>';
-      document.getElementById('advancedDebug').innerHTML = html;
+    document.getElementById('forceRefresh').onclick = function() {
+      log('🔄 Force refresh triggered');
+      geotabApi = null;
+      isInitialized = false;
+      currentUser = null;
+      document.getElementById('apiPanel').style.display = 'none';
+      document.getElementById('examplesPanel').style.display = 'none';
+      document.getElementById('connectionDetails').style.display = 'none';
+      showStatus('Refreshing...', 'info');
+      setTimeout(initializeGeotab, 500);
     };
 
-    document.getElementById('checkIframe').onclick = function() {
-      const inIframe = window !== window.top;
-      const html = `<div class="debug-box">
-        <strong>iFrame Analysis:</strong><br>
-        • Running in iFrame: ${inIframe}<br>
-        • Frame depth: ${inIframe ? 'Child frame' : 'Top level'}<br>
-        • Can access parent: ${window.parent !== window}<br>
-        • Frame name: "${window.name}"<br>
-        • Frames count: ${window.frames.length}<br>
-      </div>`;
-      document.getElementById('advancedDebug').innerHTML = html;
+    document.getElementById('runApi').onclick = runApiCall;
+
+    document.getElementById('clearResults').onclick = function() {
+      document.getElementById('apiResults').innerHTML = '';
+      lastApiResult = null;
+      log('🗑️ Results cleared');
     };
 
-    document.getElementById('checkWindowObjects').onclick = function() {
-      let html = '<div class="debug-box"><strong>All Window Properties:</strong><br>';
-      const props = Object.getOwnPropertyNames(window).sort();
-      props.forEach(prop => {
-        try {
-          const type = typeof window[prop];
-          html += `• ${prop}: ${type}<br>`;
-        } catch (e) {
-          html += `• ${prop}: access-denied<br>`;
-        }
-      });
-      html += '</div>';
-      document.getElementById('advancedDebug').innerHTML = html;
-    };
+    document.getElementById('downloadCsv').onclick = downloadCSV;
 
-    document.getElementById('checkGeotabObjects').onclick = function() {
-      let html = '<div class="debug-box"><strong>Deep Geotab Object Scan:</strong><br>';
+    // Initialize when page loads
+    window.addEventListener('load', function() {
+      log('📄 Page loaded, initializing...');
       
-      // Check various possible locations
-      const locations = [
-        'window',
-        'window.parent', 
-        'window.top',
-        'document',
-        'document.defaultView'
-      ];
-      
-      locations.forEach(loc => {
-        try {
-          const obj = eval(loc);
-          if (obj) {
-            const props = Object.getOwnPropertyNames(obj).filter(p => 
-              p.toLowerCase().includes('geotab') || 
-              p.toLowerCase().includes('api') ||
-              p === 'state'
-            );
-            if (props.length > 0) {
-              html += `<br><strong>${loc}:</strong><br>`;
-              props.forEach(prop => {
-                try {
-                  html += `  • ${prop}: ${typeof obj[prop]}<br>`;
-                } catch (e) {
-                  html += `  • ${prop}: access-denied<br>`;
-                }
-              });
-            }
+      // Try immediately
+      if (!initializeGeotab()) {
+        // Retry after 2 seconds
+        setTimeout(() => {
+          log('🔄 Retrying initialization...');
+          if (!initializeGeotab()) {
+            // Final attempt after 5 seconds
+            setTimeout(() => {
+              log('🔄 Final initialization attempt...');
+              initializeGeotab();
+            }, 3000);
           }
-        } catch (error) {
-          html += `${loc}: ${error.message}<br>`;
-        }
+        }, 2000);
+      }
+    });
+
+    // Also initialize on DOM ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(initializeGeotab, 1000);
       });
-      
-      html += '</div>';
-      document.getElementById('advancedDebug').innerHTML = html;
-    };
+    }
 
-    document.getElementById('clearLog').onclick = function() {
-      document.getElementById('debugLog').innerHTML = 'Debug log cleared...<br>';
-    };
-
-    // Initialize
-    log('Geotab API Debug Tool initialized', 'info');
-    log('Environment: ' + window.location.href, 'info');
-    
-    // Auto-run basic diagnostic on load
-    setTimeout(() => {
-      log('Running automatic diagnostic...', 'info');
-      document.getElementById('runDiagnostic').click();
-    }, 1000);
-
-    // Try to detect APIs every 3 seconds for the first 30 seconds
-    let autoDetectCount = 0;
-    const autoDetectInterval = setInterval(() => {
-      autoDetectCount++;
-      
-      const previousCount = foundApis.length;
-      foundApis = [];
-      runApiTests();
-      
-      if (foundApis.length > 0 && previousCount === 0) {
-        log('🎉 Auto-detected Geotab API!', 'success');
-        clearInterval(autoDetectInterval);
-        testSimpleApiCall();
-      }
-      
-      if (autoDetectCount >= 10) { // Stop after 30 seconds
-        clearInterval(autoDetectInterval);
-        log('Auto-detection stopped after 30 seconds', 'info');
-      }
-    }, 3000);
+    // Log startup
+    log('🚀 Geotab API Runner loaded');
+    log('🌐 Environment: ' + window.location.href);
   </script>
 </body>
 </html>
