@@ -1022,22 +1022,22 @@
         'devices': {
           method: 'Get',
           typeName: 'Device',
-          params: '{"resultsLimit": 50}'
+          params: '{"resultsLimit": 150}'
         },
         'device-status': {
           method: 'Get',
           typeName: 'DeviceStatusInfo',
-          params: '{"resultsLimit": 20}'
+          params: '{"resultsLimit": 200}'
         },
         'device-odometer': {
           method: 'Get',
           typeName: 'StatusData',
-          params: `{"search": {"diagnosticSearch": {"id": "DiagnosticOdometerId"}, "fromDate": "${yesterday}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 10}`
+          params: `{"search": {"diagnosticSearch": {"id": "DiagnosticOdometerId"}, "fromDate": "${yesterday}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 150}`
         },
         'devices-in-group': {
           method: 'Get',
           typeName: 'Device',
-          params: '{"search": {"groups": [{"id": "GroupCompanyId"}]}, "resultsLimit": 10}'
+          params: '{"search": {"groups": [{"id": "GroupCompanyId"}]}, "resultsLimit": 150}'
         },
         'device-info': {
           method: 'Get',
@@ -1049,49 +1049,49 @@
         'gps-data': {
           method: 'Get',
           typeName: 'LogRecord',
-          params: `{"search": {"fromDate": "${yesterday}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 100}`
+          params: `{"search": {"fromDate": "${yesterday}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 1000}`
         },
         'trips': {
           method: 'Get',
           typeName: 'Trip',
-          params: `{"search": {"fromDate": "${lastWeek}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 20}`
+          params: `{"search": {"fromDate": "${lastWeek}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 200}`
         },
         'stops': {
           method: 'Get',
           typeName: 'Stop',
-          params: `{"search": {"fromDate": "${yesterday}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 50}`
+          params: `{"search": {"fromDate": "${yesterday}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 150}`
         },
         'zones': {
           method: 'Get',
           typeName: 'Zone',
-          params: '{"resultsLimit": 50}'
+          params: '{"resultsLimit": 150}'
         },
         'zone-stops': {
           method: 'Get',
           typeName: 'ZoneStop',
-          params: `{"search": {"fromDate": "${yesterday}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 20}`
+          params: `{"search": {"fromDate": "${yesterday}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 200}`
         },
 
         // Fuel & Engine Data
         'fuel-data': {
           method: 'Get',
           typeName: 'StatusData',
-          params: `{"search": {"diagnosticSearch": {"id": "DiagnosticFuelLevelId"}, "fromDate": "${yesterday}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 50}`
+          params: `{"search": {"diagnosticSearch": {"id": "DiagnosticFuelLevelId"}, "fromDate": "${yesterday}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 150}`
         },
         'engine-data': {
           method: 'Get',
           typeName: 'StatusData',
-          params: `{"search": {"diagnosticSearch": {"id": "DiagnosticIgnitionId"}, "fromDate": "${yesterday}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 50}`
+          params: `{"search": {"diagnosticSearch": {"id": "DiagnosticIgnitionId"}, "fromDate": "${yesterday}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 150}`
         },
         'fault-data': {
           method: 'Get',
           typeName: 'FaultData',
-          params: `{"search": {"fromDate": "${lastWeek}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 20}`
+          params: `{"search": {"fromDate": "${lastWeek}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 200}`
         },
         'diagnostics': {
           method: 'Get',
           typeName: 'Diagnostic',
-          params: '{"resultsLimit": 100}'
+          params: '{"resultsLimit": 150}'
         },
 
         // Users & Groups
@@ -1113,7 +1113,7 @@
         'driver-changes': {
           method: 'Get',
           typeName: 'DriverChange',
-          params: `{"search": {"fromDate": "${yesterday}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 50}`
+          params: `{"search": {"fromDate": "${yesterday}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 150}`
         },
         'user-details': {
           method: 'Get',
@@ -1125,22 +1125,22 @@
         'maintenance': {
           method: 'Get',
           typeName: 'MaintenanceReminder',
-          params: '{"resultsLimit": 20}'
+          params: '{"resultsLimit": 200}'
         },
         'exceptions': {
           method: 'Get',
           typeName: 'ExceptionEvent',
-          params: `{"search": {"fromDate": "${yesterday}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 20}`
+          params: `{"search": {"fromDate": "${yesterday}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 200}`
         },
         'dvir': {
           method: 'Get',
           typeName: 'DVIRLog',
-          params: `{"search": {"fromDate": "${lastWeek}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 10}`
+          params: `{"search": {"fromDate": "${lastWeek}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 150}`
         },
         'text-messages': {
           method: 'Get',
           typeName: 'TextMessage',
-          params: `{"search": {"fromDate": "${yesterday}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 20}`
+          params: `{"search": {"fromDate": "${yesterday}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 200}`
         },
 
         // Advanced Multi-Calls
@@ -1152,7 +1152,7 @@
         'multi-status': {
           method: 'ExecuteMultiCall',
           typeName: '',
-          params: '{"calls": [{"method": "Get", "params": {"typeName": "Device", "resultsLimit": 5}}, {"method": "Get", "params": {"typeName": "User", "resultsLimit": 5}}, {"method": "Get", "params": {"typeName": "Zone", "resultsLimit": 5}}]}'
+          params: '{"calls": [{"method": "Get", "params": {"typeName": "Device", "resultsLimit": 150}}, {"method": "Get", "params": {"typeName": "User", "resultsLimit": 150}}, {"method": "Get", "params": {"typeName": "Zone", "resultsLimit": 5}}]}'
         },
         'fleet-summary': {
           method: 'ExecuteMultiCall',
