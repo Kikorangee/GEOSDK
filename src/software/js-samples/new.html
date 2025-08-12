@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Geotab API Runner</title>
+  <title>Geotab API Runner - Quick Fix</title>
   <style>
     * {
       margin: 0;
@@ -12,7 +12,7 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #f5f5f5;
       color: #333;
       padding: 20px;
@@ -34,7 +34,7 @@
     }
 
     .header {
-      background: linear-gradient(135deg, #0066cc, #004499);
+      background: linear-gradient(135deg, #28a745, #20c997);
       color: white;
       text-align: center;
       margin-bottom: 0;
@@ -79,7 +79,7 @@
     }
 
     .btn {
-      background: #0066cc;
+      background: #28a745;
       color: white;
       border: none;
       padding: 10px 20px;
@@ -92,33 +92,15 @@
     }
 
     .btn:hover {
-      background: #0056b3;
-    }
-
-    .btn-success {
-      background: #28a745;
-    }
-
-    .btn-success:hover {
       background: #218838;
     }
 
-    .btn-warning {
-      background: #ffc107;
-      color: #212529;
-    }
-
-    .btn-warning:hover {
-      background: #e0a800;
-    }
-
-    .btn-danger {
-      background: #dc3545;
-    }
-
-    .btn-danger:hover {
-      background: #c82333;
-    }
+    .btn-primary { background: #007bff; }
+    .btn-primary:hover { background: #0056b3; }
+    .btn-warning { background: #ffc107; color: #212529; }
+    .btn-warning:hover { background: #e0a800; }
+    .btn-danger { background: #dc3545; }
+    .btn-danger:hover { background: #c82333; }
 
     .form-group {
       margin-bottom: 20px;
@@ -135,8 +117,8 @@
 
     .form-control:focus {
       outline: none;
-      border-color: #0066cc;
-      box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.25);
+      border-color: #28a745;
+      box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
     }
 
     .form-row {
@@ -183,42 +165,14 @@
       background: #5a2d91;
     }
 
-    .debug-info {
+    .inspection-box {
       background: #f8f9fa;
       border: 1px solid #e9ecef;
-      padding: 12px;
-      border-radius: 4px;
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-      font-size: 12px;
-      margin: 12px 0;
-    }
-
-    .connection-details {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 16px;
+      padding: 16px;
+      border-radius: 6px;
       margin: 16px 0;
-    }
-
-    .detail-item {
-      background: #f8f9fa;
-      padding: 12px;
-      border-radius: 4px;
-      border-left: 4px solid #0066cc;
-    }
-
-    .detail-label {
-      font-weight: 600;
-      color: #495057;
+      font-family: monospace;
       font-size: 12px;
-      text-transform: uppercase;
-      margin-bottom: 4px;
-    }
-
-    .detail-value {
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-      font-size: 13px;
-      color: #2d3748;
     }
 
     @media (max-width: 768px) {
@@ -228,9 +182,6 @@
       .examples {
         grid-template-columns: 1fr;
       }
-      .connection-details {
-        grid-template-columns: 1fr;
-      }
     }
   </style>
 </head>
@@ -238,8 +189,25 @@
   <div class="container">
     <!-- Header -->
     <div class="card header">
-      <h1>🚀 Geotab API Runner</h1>
-      <p>Professional API testing tool for MyGeotab</p>
+      <h1>🔧 Geotab API Runner - Quick Fix</h1>
+      <p>Specialized version to detect window.geotab object</p>
+    </div>
+
+    <!-- Object Detection -->
+    <div class="card">
+      <h2>🔍 Object Detection & Analysis</h2>
+      <div id="detectionStatus">
+        <div class="status status-info">
+          Ready to analyze window.geotab object...
+        </div>
+      </div>
+      
+      <button id="analyzeGeotab" class="btn">🔬 Analyze window.geotab</button>
+      <button id="testAllPatterns" class="btn btn-primary">🧪 Test All API Patterns</button>
+      
+      <div id="analysisResults" class="inspection-box" style="display: none;">
+        Analysis results will appear here...
+      </div>
     </div>
 
     <!-- Connection Status -->
@@ -247,15 +215,11 @@
       <h2>🔗 Connection Status</h2>
       <div id="connectionStatus">
         <div class="status status-info">
-          Scanning for Geotab API objects...
+          Click "Analyze window.geotab" first...
         </div>
       </div>
       
-      <div id="connectionDetails" class="connection-details" style="display: none;"></div>
-      
-      <button id="testConnection" class="btn">🔍 Test Connection</button>
-      <button id="showDebug" class="btn btn-warning">🐛 Show Debug Info</button>
-      <button id="forceRefresh" class="btn btn-danger">🔄 Force Refresh</button>
+      <button id="connectApi" class="btn btn-primary" disabled>🚀 Connect to API</button>
     </div>
 
     <!-- API Testing Panel -->
@@ -269,279 +233,229 @@
             <option value="Add">Add</option>
             <option value="Set">Set</option>
             <option value="Remove">Remove</option>
-            <option value="ExecuteMultiCall">ExecuteMultiCall</option>
           </select>
-          <input id="typeName" class="form-control" placeholder="Type Name (e.g., User, Device, Trip)" value="User">
+          <input id="typeName" class="form-control" placeholder="Type Name" value="User">
         </div>
         
-        <textarea id="params" class="form-control" rows="5" placeholder="Parameters (JSON)">{"search":{"name":"%"},"resultsLimit":10}</textarea>
+        <textarea id="params" class="form-control" rows="4" placeholder="Parameters (JSON)">{"search":{"name":"%"},"resultsLimit":10}</textarea>
         
-        <button id="runApi" class="btn btn-success">🚀 Run API Call</button>
-        <button id="clearResults" class="btn">🗑️ Clear Results</button>
-        <button id="downloadCsv" class="btn btn-warning">📊 Download CSV</button>
+        <button id="runApi" class="btn">🚀 Run API Call</button>
+        <button id="clearResults" class="btn btn-warning">🗑️ Clear</button>
       </div>
       
       <div id="apiResults"></div>
-    </div>
-
-    <!-- Quick Examples -->
-    <div id="examplesPanel" class="card" style="display: none;">
-      <h2>📋 Quick Examples</h2>
-      <div class="examples">
-        <button class="example-btn" onclick="loadExample('users')">👥 Get Users</button>
-        <button class="example-btn" onclick="loadExample('devices')">🚗 Get Devices</button>
-        <button class="example-btn" onclick="loadExample('groups')">🏢 Get Groups</button>
-        <button class="example-btn" onclick="loadExample('trips')">🗺️ Get Trips</button>
-        <button class="example-btn" onclick="loadExample('zones')">📍 Get Zones</button>
-        <button class="example-btn" onclick="loadExample('diagnostics')">🔧 Get Diagnostics</button>
-        <button class="example-btn" onclick="loadExample('odometer')">🔢 Get Odometer</button>
-        <button class="example-btn" onclick="loadExample('gps')">📡 Get GPS Data</button>
-      </div>
-    </div>
-
-    <!-- Debug Panel -->
-    <div id="debugPanel" class="card" style="display: none;">
-      <h2>🐛 Debug Information</h2>
-      <div id="debugOutput" class="result-box">Debug information will appear here...</div>
     </div>
   </div>
 
   <script>
     let geotabApi = null;
-    let isInitialized = false;
-    let lastApiResult = null;
+    let apiPattern = null;
     let currentUser = null;
 
-    function log(message, type = 'info') {
-      console.log(`[API Runner] ${message}`);
+    function log(message) {
+      console.log(`[Quick Fix] ${message}`);
     }
 
-    function showStatus(message, type = 'info') {
-      const statusDiv = document.getElementById('connectionStatus');
+    function showStatus(elementId, message, type = 'info') {
+      const statusDiv = document.getElementById(elementId);
       statusDiv.innerHTML = `<div class="status status-${type}">${message}</div>`;
     }
 
-    function showResult(elementId, content) {
-      document.getElementById(elementId).innerHTML = `<div class="result-box">${content}</div>`;
+    function showAnalysis(content) {
+      const resultsDiv = document.getElementById('analysisResults');
+      resultsDiv.textContent = content;
+      resultsDiv.style.display = 'block';
     }
 
-    function showConnectionDetails(apiPath, user) {
-      const details = `
-        <div class="detail-item">
-          <div class="detail-label">API Source</div>
-          <div class="detail-value">${apiPath}</div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-label">Current User</div>
-          <div class="detail-value">${user ? user.name : 'Unknown'}</div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-label">Database</div>
-          <div class="detail-value">${window.location.pathname.split('/')[1] || 'Unknown'}</div>
-        </div>
-        <div class="detail-item">
-          <div class="detail-label">Status</div>
-          <div class="detail-value">✅ Connected</div>
-        </div>
-      `;
-      document.getElementById('connectionDetails').innerHTML = details;
-      document.getElementById('connectionDetails').style.display = 'grid';
-    }
-
-    // Find and initialize Geotab API
-    function findGeotabApi() {
-      log('Scanning for Geotab API objects...');
+    // Analyze the geotab object
+    function analyzeGeotabObject() {
+      log('🔬 Starting geotab object analysis...');
       
-      const apiSources = [
-        { name: 'window.geotab', getter: () => window.geotab },
-        { name: 'window.geotab.api', getter: () => window.geotab?.api },
-        { name: 'window.api', getter: () => window.api },
-        { name: 'window.state.api', getter: () => window.state?.api },
-        { name: 'window.parent.api', getter: () => window.parent?.api },
-        { name: 'window.top.api', getter: () => window.top?.api },
-        { name: 'parent.api', getter: () => parent?.api },
-        { name: 'top.api', getter: () => top?.api }
-      ];
-
-      for (const source of apiSources) {
-        try {
-          const api = source.getter();
-          log(`🔍 Checking ${source.name}: ${typeof api}`);
-          
-          // Check if it has a .call method (standard API)
-          if (api && typeof api.call === 'function') {
-            geotabApi = api;
-            log(`✅ Found Geotab API at: ${source.name} (with .call method)`);
-            return source.name;
+      let analysis = '=== GEOTAB OBJECT ANALYSIS ===\n\n';
+      
+      // Basic existence check
+      analysis += `window.geotab exists: ${!!window.geotab}\n`;
+      analysis += `window.geotab type: ${typeof window.geotab}\n\n`;
+      
+      if (!window.geotab) {
+        analysis += '❌ window.geotab not found!';
+        showAnalysis(analysis);
+        showStatus('detectionStatus', '❌ window.geotab object not found', 'error');
+        return;
+      }
+      
+      try {
+        // Get all properties
+        const props = Object.getOwnPropertyNames(window.geotab);
+        analysis += `Properties (${props.length}): ${props.join(', ')}\n\n`;
+        
+        // Get methods
+        const methods = props.filter(prop => {
+          try {
+            return typeof window.geotab[prop] === 'function';
+          } catch (e) {
+            return false;
           }
-          
-          // Check if it has .api property
-          if (api && api.api && typeof api.api.call === 'function') {
-            geotabApi = api.api;
-            log(`✅ Found Geotab API at: ${source.name}.api (with .call method)`);
-            return `${source.name}.api`;
+        });
+        analysis += `Methods (${methods.length}): ${methods.join(', ')}\n\n`;
+        
+        // Check common API patterns
+        analysis += '=== API PATTERN DETECTION ===\n';
+        analysis += `Has .call method: ${typeof window.geotab.call === 'function'}\n`;
+        analysis += `Has .Get method: ${typeof window.geotab.Get === 'function'}\n`;
+        analysis += `Has .get method: ${typeof window.geotab.get === 'function'}\n`;
+        analysis += `Has .api property: ${!!window.geotab.api}\n`;
+        
+        if (window.geotab.api) {
+          analysis += `\nwindow.geotab.api type: ${typeof window.geotab.api}\n`;
+          if (typeof window.geotab.api === 'object') {
+            const apiProps = Object.getOwnPropertyNames(window.geotab.api);
+            const apiMethods = apiProps.filter(prop => {
+              try {
+                return typeof window.geotab.api[prop] === 'function';
+              } catch (e) {
+                return false;
+              }
+            });
+            analysis += `geotab.api properties: ${apiProps.join(', ')}\n`;
+            analysis += `geotab.api methods: ${apiMethods.join(', ')}\n`;
           }
-          
-          // Check if it's the geotab object with different structure
-          if (api && source.name === 'window.geotab') {
-            log(`🔍 Inspecting window.geotab structure:`);
-            const props = Object.getOwnPropertyNames(api);
-            log(`   Properties: ${props.join(', ')}`);
-            
-            // Look for common API methods
-            if (typeof api.Get === 'function' || typeof api.get === 'function') {
-              geotabApi = api;
-              log(`✅ Found Geotab API at: ${source.name} (direct methods)`);
-              return source.name;
-            }
-          }
-          
-        } catch (error) {
-          log(`❌ Error accessing ${source.name}: ${error.message}`);
         }
+        
+        // Check for other common patterns
+        analysis += `\n=== OTHER CHECKS ===\n`;
+        analysis += `Has credentials: ${!!window.geotab.credentials}\n`;
+        analysis += `Has database: ${!!window.geotab.database}\n`;
+        analysis += `Has session: ${!!window.geotab.session}\n`;
+        
+        // Test if it's callable directly
+        analysis += `\n=== CALLABLE TEST ===\n`;
+        try {
+          if (typeof window.geotab === 'function') {
+            analysis += `geotab is a function: true\n`;
+          } else {
+            analysis += `geotab is a function: false\n`;
+          }
+        } catch (e) {
+          analysis += `Function test error: ${e.message}\n`;
+        }
+        
+      } catch (error) {
+        analysis += `\n❌ Error during analysis: ${error.message}`;
       }
-
-      log('❌ No Geotab API found');
-      return null;
+      
+      showAnalysis(analysis);
+      showStatus('detectionStatus', '✅ Analysis complete! Check results below.', 'success');
+      
+      // Enable the connect button
+      document.getElementById('connectApi').disabled = false;
     }
 
-    function initializeGeotab() {
-      const apiPath = findGeotabApi();
+    // Test all possible API patterns
+    function testAllApiPatterns() {
+      log('🧪 Testing all possible API patterns...');
       
-      if (!geotabApi) {
-        showStatus('❌ No Geotab API detected. Make sure this is running as a MyGeotab Add-In.', 'error');
-        return false;
+      if (!window.geotab) {
+        showStatus('connectionStatus', '❌ window.geotab not found. Run analysis first.', 'error');
+        return;
       }
-
-      // Test the API with a simple call - try different call patterns
-      log('🧪 Testing API call patterns...');
+      
+      const testParams = {
+        typeName: 'User',
+        search: { name: '%' },
+        resultsLimit: 1
+      };
+      
+      const successCallback = function(result) {
+        log(`✅ API pattern worked! Got ${result.length} users`);
+        currentUser = result && result.length > 0 ? result[0] : null;
+        const userName = currentUser ? currentUser.name : 'Unknown User';
+        showStatus('connectionStatus', `✅ API Connected! Hello, ${userName} (Pattern: ${apiPattern})`, 'success');
+        document.getElementById('apiPanel').style.display = 'block';
+      };
+      
+      const errorCallback = function(error) {
+        log(`❌ API pattern failed: ${error}`);
+        showStatus('connectionStatus', `❌ API pattern failed: ${error}`, 'error');
+      };
       
       // Pattern 1: Standard .call method
-      if (typeof geotabApi.call === 'function') {
-        log('📞 Trying standard .call() method...');
-        geotabApi.call('Get', {
-          typeName: 'User',
-          search: { name: '%' },
-          resultsLimit: 1
-        }, 
-        function(users) {
-          handleApiSuccess(users, apiPath);
-        },
-        function(error) {
-          log(`❌ Standard .call() failed: ${error}`);
-          tryAlternativeApiPatterns(apiPath);
-        });
-      } else {
-        // Try alternative patterns
-        tryAlternativeApiPatterns(apiPath);
-      }
-
-      return true;
-    }
-
-    function tryAlternativeApiPatterns(apiPath) {
-      log('🔄 Trying alternative API patterns...');
-      
-      // Pattern 2: Direct method calls
-      if (typeof geotabApi.Get === 'function') {
-        log('📞 Trying direct Get() method...');
+      if (typeof window.geotab.call === 'function') {
+        log('📞 Testing Pattern 1: window.geotab.call()');
+        apiPattern = 'geotab.call';
+        geotabApi = window.geotab;
         try {
-          geotabApi.Get('User', {
-            search: { name: '%' },
-            resultsLimit: 1
-          }, function(users) {
-            handleApiSuccess(users, apiPath);
-          }, function(error) {
-            log(`❌ Direct Get() failed: ${error}`);
-            handleApiFailure(error);
-          });
+          window.geotab.call('Get', testParams, successCallback, errorCallback);
           return;
-        } catch (error) {
-          log(`❌ Direct Get() exception: ${error.message}`);
+        } catch (e) {
+          log(`Pattern 1 exception: ${e.message}`);
         }
       }
       
-      // Pattern 3: Lowercase methods
-      if (typeof geotabApi.get === 'function') {
-        log('📞 Trying lowercase get() method...');
+      // Pattern 2: Direct Get method
+      if (typeof window.geotab.Get === 'function') {
+        log('📞 Testing Pattern 2: window.geotab.Get()');
+        apiPattern = 'geotab.Get';
+        geotabApi = window.geotab;
         try {
-          geotabApi.get('User', {
-            search: { name: '%' },
-            resultsLimit: 1
-          }, function(users) {
-            handleApiSuccess(users, apiPath);
-          }, function(error) {
-            log(`❌ Lowercase get() failed: ${error}`);
-            handleApiFailure(error);
-          });
+          window.geotab.Get(testParams, successCallback, errorCallback);
           return;
-        } catch (error) {
-          log(`❌ Lowercase get() exception: ${error.message}`);
+        } catch (e) {
+          log(`Pattern 2 exception: ${e.message}`);
         }
       }
       
-      // Pattern 4: Promise-based
-      if (typeof geotabApi.Get === 'function') {
-        log('📞 Trying promise-based Get()...');
+      // Pattern 3: geotab.api.call
+      if (window.geotab.api && typeof window.geotab.api.call === 'function') {
+        log('📞 Testing Pattern 3: window.geotab.api.call()');
+        apiPattern = 'geotab.api.call';
+        geotabApi = window.geotab.api;
         try {
-          const result = geotabApi.Get('User', {
-            search: { name: '%' },
-            resultsLimit: 1
-          });
-          
+          window.geotab.api.call('Get', testParams, successCallback, errorCallback);
+          return;
+        } catch (e) {
+          log(`Pattern 3 exception: ${e.message}`);
+        }
+      }
+      
+      // Pattern 4: geotab.api.Get
+      if (window.geotab.api && typeof window.geotab.api.Get === 'function') {
+        log('📞 Testing Pattern 4: window.geotab.api.Get()');
+        apiPattern = 'geotab.api.Get';
+        geotabApi = window.geotab.api;
+        try {
+          window.geotab.api.Get(testParams, successCallback, errorCallback);
+          return;
+        } catch (e) {
+          log(`Pattern 4 exception: ${e.message}`);
+        }
+      }
+      
+      // Pattern 5: Promise-based
+      if (typeof window.geotab.Get === 'function') {
+        log('📞 Testing Pattern 5: Promise-based window.geotab.Get()');
+        apiPattern = 'geotab.Get.promise';
+        geotabApi = window.geotab;
+        try {
+          const result = window.geotab.Get(testParams);
           if (result && typeof result.then === 'function') {
-            result.then(users => {
-              handleApiSuccess(users, apiPath);
-            }).catch(error => {
-              log(`❌ Promise-based Get() failed: ${error}`);
-              handleApiFailure(error);
-            });
+            result.then(successCallback).catch(errorCallback);
             return;
           }
-        } catch (error) {
-          log(`❌ Promise-based Get() exception: ${error.message}`);
+        } catch (e) {
+          log(`Pattern 5 exception: ${e.message}`);
         }
       }
       
       // If all patterns fail
-      showStatus(`⚠️ API object found but no compatible call pattern. API Path: ${apiPath}`, 'warning');
-      log('🔍 Showing available methods for manual inspection...');
-      
-      try {
-        const methods = Object.getOwnPropertyNames(geotabApi).filter(prop => 
-          typeof geotabApi[prop] === 'function'
-        );
-        log(`📋 Available methods: ${methods.join(', ')}`);
-        showStatus(`⚠️ API found at ${apiPath} but incompatible. Available methods: ${methods.slice(0, 5).join(', ')}...`, 'warning');
-      } catch (error) {
-        log(`❌ Cannot inspect API methods: ${error.message}`);
-      }
+      showStatus('connectionStatus', '❌ No working API pattern found. Check console for details.', 'error');
+      log('❌ All API patterns failed');
     }
 
-    function handleApiSuccess(users, apiPath) {
-      currentUser = users && users.length > 0 ? users[0] : null;
-      const userName = currentUser ? currentUser.name : 'Unknown User';
-      
-      showStatus(`✅ Connected to Geotab API! Hello, ${userName}`, 'success');
-      showConnectionDetails(apiPath, currentUser);
-      
-      // Show the API testing panels
-      document.getElementById('apiPanel').style.display = 'block';
-      document.getElementById('examplesPanel').style.display = 'block';
-      
-      isInitialized = true;
-      log(`✅ API initialized successfully. User: ${userName}`);
-    }
-
-    function handleApiFailure(error) {
-      showStatus(`⚠️ API found but test call failed: ${error}`, 'warning');
-      log(`⚠️ API test failed: ${error}`);
-    }
-
-    // Run API call
+    // Run API call using detected pattern
     function runApiCall() {
-      if (!geotabApi) {
-        showResult('apiResults', 'Error: Geotab API not connected');
+      if (!geotabApi || !apiPattern) {
+        document.getElementById('apiResults').innerHTML = '<div class="result-box">Error: No API connection established</div>';
         return;
       }
 
@@ -549,13 +463,12 @@
       const typeName = document.getElementById('typeName').value.trim();
       let params = {};
 
-      // Parse parameters
       const paramsText = document.getElementById('params').value.trim();
       if (paramsText) {
         try {
           params = JSON.parse(paramsText);
         } catch (e) {
-          showResult('apiResults', `JSON Parse Error: ${e.message}`);
+          document.getElementById('apiResults').innerHTML = `<div class="result-box">JSON Parse Error: ${e.message}</div>`;
           return;
         }
       }
@@ -564,336 +477,55 @@
         params.typeName = typeName;
       }
 
-      // Make the API call using detected pattern
-      showResult('apiResults', 'Making API call...');
-      log(`🚀 Making API call: ${method} ${typeName}`);
+      document.getElementById('apiResults').innerHTML = '<div class="result-box">Making API call...</div>';
       
       const successCallback = function(result) {
-        const count = Array.isArray(result) ? result.length : (result ? 1 : 0);
-        const output = `SUCCESS! Retrieved ${count} record(s)\n\nCall: ${method} ${typeName}\nTimestamp: ${new Date().toISOString()}\n\n${JSON.stringify(result, null, 2)}`;
-        showResult('apiResults', output);
-        
-        // Store for CSV download
-        lastApiResult = {
-          method: method,
-          typeName: typeName,
-          data: result,
-          timestamp: new Date().toISOString()
-        };
-        
-        log(`✅ API call successful: ${count} records returned`);
+        const count = Array.isArray(result) ? result.length : 1;
+        const output = `SUCCESS! Retrieved ${count} record(s)\nPattern: ${apiPattern}\nCall: ${method} ${typeName}\n\n${JSON.stringify(result, null, 2)}`;
+        document.getElementById('apiResults').innerHTML = `<div class="result-box">${output}</div>`;
       };
       
       const errorCallback = function(error) {
-        const output = `API Error: ${error}\n\nCall: ${method} ${typeName}\nTimestamp: ${new Date().toISOString()}`;
-        showResult('apiResults', output);
-        log(`❌ API call failed: ${error}`);
+        const output = `API Error: ${error}\nPattern: ${apiPattern}\nCall: ${method} ${typeName}`;
+        document.getElementById('apiResults').innerHTML = `<div class="result-box">${output}</div>`;
       };
-      
-      // Try the API call with different patterns
+
+      // Use the detected pattern
       try {
-        // Pattern 1: Standard .call method
-        if (typeof geotabApi.call === 'function') {
+        if (apiPattern === 'geotab.call') {
           geotabApi.call(method, params, successCallback, errorCallback);
-          return;
-        }
-        
-        // Pattern 2: Direct method calls
-        if (typeof geotabApi[method] === 'function') {
-          geotabApi[method](typeName, params, successCallback, errorCallback);
-          return;
-        }
-        
-        // Pattern 3: Lowercase method calls
-        const lowerMethod = method.toLowerCase();
-        if (typeof geotabApi[lowerMethod] === 'function') {
-          geotabApi[lowerMethod](typeName, params, successCallback, errorCallback);
-          return;
-        }
-        
-        // Pattern 4: Promise-based
-        if (typeof geotabApi[method] === 'function') {
-          const result = geotabApi[method](typeName, params);
+        } else if (apiPattern === 'geotab.Get') {
+          geotabApi[method](params, successCallback, errorCallback);
+        } else if (apiPattern === 'geotab.api.call') {
+          geotabApi.call(method, params, successCallback, errorCallback);
+        } else if (apiPattern === 'geotab.api.Get') {
+          geotabApi[method](params, successCallback, errorCallback);
+        } else if (apiPattern === 'geotab.Get.promise') {
+          const result = geotabApi[method](params);
           if (result && typeof result.then === 'function') {
             result.then(successCallback).catch(errorCallback);
-            return;
           }
         }
-        
-        // If no pattern works
-        showResult('apiResults', `Error: No compatible API call pattern found for method: ${method}`);
-        log(`❌ No compatible API call pattern found for method: ${method}`);
-        
       } catch (error) {
-        showResult('apiResults', `API Call Exception: ${error.message}`);
-        log(`❌ API call exception: ${error.message}`);
+        document.getElementById('apiResults').innerHTML = `<div class="result-box">Exception: ${error.message}</div>`;
       }
-    }
-
-    // Download results as CSV
-    function downloadCSV() {
-      if (!lastApiResult) {
-        alert('No data available for download. Run an API call first!');
-        return;
-      }
-      
-      let csvContent = '';
-      const data = lastApiResult.data;
-      
-      if (Array.isArray(data) && data.length > 0) {
-        // Get headers from first object
-        const headers = Object.keys(data[0]);
-        csvContent = headers.map(h => `"${h}"`).join(',') + '\n';
-        
-        // Add data rows
-        data.forEach(row => {
-          const values = headers.map(header => {
-            const value = row[header];
-            if (value === null || value === undefined) return '""';
-            if (typeof value === 'object') return `"${JSON.stringify(value).replace(/"/g, '""')}"`;
-            return `"${String(value).replace(/"/g, '""')}"`;
-          });
-          csvContent += values.join(',') + '\n';
-        });
-      } else if (data) {
-        // Single object or other data
-        csvContent = `"Value"\n"${JSON.stringify(data)}"`;
-      } else {
-        csvContent = '"No Data"';
-      }
-      
-      // Create and download file
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-      const filename = `Geotab_${lastApiResult.method}_${lastApiResult.typeName}_${timestamp}.csv`;
-      
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      
-      if (link.download !== undefined) {
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', filename);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        log(`📊 CSV downloaded: ${filename}`);
-      } else {
-        alert('CSV download not supported in this browser');
-      }
-    }
-
-    // Load example configurations
-    function loadExample(type) {
-      const today = new Date().toISOString().split('T')[0];
-      const yesterday = new Date(Date.now() - 24*60*60*1000).toISOString();
-      const lastWeek = new Date(Date.now() - 7*24*60*60*1000).toISOString();
-      
-      const examples = {
-        users: {
-          method: 'Get',
-          typeName: 'User',
-          params: '{"search":{"name":"%"},"resultsLimit":20}'
-        },
-        devices: {
-          method: 'Get',
-          typeName: 'Device',
-          params: '{"resultsLimit":50}'
-        },
-        groups: {
-          method: 'Get',
-          typeName: 'Group',
-          params: '{"search":{"name":"%"}}'
-        },
-        trips: {
-          method: 'Get',
-          typeName: 'Trip',
-          params: `{"search":{"fromDate":"${lastWeek}"},"resultsLimit":100}`
-        },
-        zones: {
-          method: 'Get',
-          typeName: 'Zone',
-          params: '{"resultsLimit":50}'
-        },
-        diagnostics: {
-          method: 'Get',
-          typeName: 'Diagnostic',
-          params: '{"search":{"name":"%odometer%"}}'
-        },
-        odometer: {
-          method: 'Get',
-          typeName: 'StatusData',
-          params: `{"search":{"diagnosticSearch":{"id":"DiagnosticOdometerId"},"fromDate":"${yesterday}"},"resultsLimit":20}`
-        },
-        gps: {
-          method: 'Get',
-          typeName: 'LogRecord',
-          params: `{"search":{"fromDate":"${yesterday}"},"resultsLimit":100}`
-        }
-      };
-
-      const example = examples[type];
-      if (example) {
-        document.getElementById('method').value = example.method;
-        document.getElementById('typeName').value = example.typeName;
-        document.getElementById('params').value = example.params;
-        log(`📋 Loaded example: ${type}`);
-      }
-    }
-
-    // Show debug information
-    function showDebugInfo() {
-      const debug = {
-        'Current URL': window.location.href,
-        'Origin': window.location.origin,
-        'Protocol': window.location.protocol,
-        'Host': window.location.host,
-        'Pathname': window.location.pathname,
-        'In iframe': window !== window.top,
-        'Parent available': window.parent !== window,
-        'Document ready state': document.readyState,
-        'User agent': navigator.userAgent,
-        'API initialized': isInitialized,
-        'Current user': currentUser ? currentUser.name : 'None',
-        'window.api type': typeof window.api,
-        'window.state type': typeof window.state,
-        'window.geotab type': typeof window.geotab,
-        'window.parent.api type': typeof window.parent?.api,
-        'Geotab API found': !!geotabApi
-      };
-
-      let output = 'Debug Information:\n\n';
-      for (const [key, value] of Object.entries(debug)) {
-        output += `${key}: ${value}\n`;
-      }
-
-      // Detailed geotab object inspection
-      output += '\n--- Geotab Object Analysis ---\n';
-      if (window.geotab) {
-        try {
-          const props = Object.getOwnPropertyNames(window.geotab);
-          output += `window.geotab properties (${props.length}): ${props.join(', ')}\n\n`;
-          
-          const methods = props.filter(prop => {
-            try {
-              return typeof window.geotab[prop] === 'function';
-            } catch (e) {
-              return false;
-            }
-          });
-          output += `window.geotab methods (${methods.length}): ${methods.join(', ')}\n\n`;
-          
-          // Check for nested api object
-          if (window.geotab.api) {
-            const apiProps = Object.getOwnPropertyNames(window.geotab.api);
-            output += `window.geotab.api properties: ${apiProps.join(', ')}\n`;
-          }
-          
-        } catch (error) {
-          output += `Error inspecting window.geotab: ${error.message}\n`;
-        }
-      } else {
-        output += 'window.geotab is not available\n';
-      }
-
-      output += '\n--- All Available Window Properties ---\n';
-      const props = Object.getOwnPropertyNames(window).filter(prop => 
-        prop.toLowerCase().includes('api') || 
-        prop.toLowerCase().includes('geotab') || 
-        prop === 'state'
-      );
-      
-      if (props.length > 0) {
-        props.forEach(prop => {
-          try {
-            const obj = window[prop];
-            const type = typeof obj;
-            output += `${prop}: ${type}`;
-            if (type === 'object' && obj) {
-              try {
-                const subProps = Object.getOwnPropertyNames(obj).slice(0, 5);
-                output += ` (${subProps.join(', ')}...)`;
-              } catch (e) {
-                output += ' (cannot inspect)';
-              }
-            }
-            output += '\n';
-          } catch (e) {
-            output += `${prop}: access denied\n`;
-          }
-        });
-      } else {
-        output += 'No API-related properties found\n';
-      }
-
-      document.getElementById('debugOutput').textContent = output;
-      document.getElementById('debugPanel').style.display = 'block';
-      log('🐛 Debug information displayed');
     }
 
     // Event handlers
-    document.getElementById('testConnection').onclick = function() {
-      log('🔍 Manual connection test triggered');
-      showStatus('Testing connection...', 'info');
-      initializeGeotab();
-    };
-
-    document.getElementById('showDebug').onclick = showDebugInfo;
-
-    document.getElementById('forceRefresh').onclick = function() {
-      log('🔄 Force refresh triggered');
-      geotabApi = null;
-      isInitialized = false;
-      currentUser = null;
-      document.getElementById('apiPanel').style.display = 'none';
-      document.getElementById('examplesPanel').style.display = 'none';
-      document.getElementById('connectionDetails').style.display = 'none';
-      showStatus('Refreshing...', 'info');
-      setTimeout(initializeGeotab, 500);
-    };
-
+    document.getElementById('analyzeGeotab').onclick = analyzeGeotabObject;
+    document.getElementById('testAllPatterns').onclick = testAllApiPatterns;
+    document.getElementById('connectApi').onclick = testAllApiPatterns;
     document.getElementById('runApi').onclick = runApiCall;
-
     document.getElementById('clearResults').onclick = function() {
       document.getElementById('apiResults').innerHTML = '';
-      lastApiResult = null;
-      log('🗑️ Results cleared');
     };
 
-    document.getElementById('downloadCsv').onclick = downloadCSV;
-
-    // Initialize when page loads
+    // Auto-analyze on load
     window.addEventListener('load', function() {
-      log('📄 Page loaded, initializing...');
-      
-      // Try immediately
-      if (!initializeGeotab()) {
-        // Retry after 2 seconds
-        setTimeout(() => {
-          log('🔄 Retrying initialization...');
-          if (!initializeGeotab()) {
-            // Final attempt after 5 seconds
-            setTimeout(() => {
-              log('🔄 Final initialization attempt...');
-              initializeGeotab();
-            }, 3000);
-          }
-        }, 2000);
-      }
+      setTimeout(analyzeGeotabObject, 1000);
     });
 
-    // Also initialize on DOM ready
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function() {
-        setTimeout(initializeGeotab, 1000);
-      });
-    }
-
-    // Log startup
-    log('🚀 Geotab API Runner loaded');
-    log('🌐 Environment: ' + window.location.href);
+    log('🔧 Quick Fix version loaded - specialized for window.geotab detection');
   </script>
 </body>
 </html>
