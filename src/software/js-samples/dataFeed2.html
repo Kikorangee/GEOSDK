@@ -353,6 +353,8 @@
       log('Scanning for Geotab API objects...');
       
       const apiSources = [
+        { name: 'window.geotab', getter: () => window.geotab },
+        { name: 'window.geotab.api', getter: () => window.geotab?.api },
         { name: 'window.api', getter: () => window.api },
         { name: 'window.state.api', getter: () => window.state?.api },
         { name: 'window.parent.api', getter: () => window.parent?.api },
@@ -364,11 +366,36 @@
       for (const source of apiSources) {
         try {
           const api = source.getter();
+          log(`🔍 Checking ${source.name}: ${typeof api}`);
+          
+          // Check if it has a .call method (standard API)
           if (api && typeof api.call === 'function') {
             geotabApi = api;
-            log(`✅ Found Geotab API at: ${source.name}`);
+            log(`✅ Found Geotab API at: ${source.name} (with .call method)`);
             return source.name;
           }
+          
+          // Check if it has .api property
+          if (api && api.api && typeof api.api.call === 'function') {
+            geotabApi = api.api;
+            log(`✅ Found Geotab API at: ${source.name}.api (with .call method)`);
+            return `${source.name}.api`;
+          }
+          
+          // Check if it's the geotab object with different structure
+          if (api && source.name === 'window.geotab') {
+            log(`🔍 Inspecting window.geotab structure:`);
+            const props = Object.getOwnPropertyNames(api);
+            log(`   Properties: ${props.join(', ')}`);
+            
+            // Look for common API methods
+            if (typeof api.Get === 'function' || typeof api.get === 'function') {
+              geotabApi = api;
+              log(`✅ Found Geotab API at: ${source.name} (direct methods)`);
+              return source.name;
+            }
+          }
+          
         } catch (error) {
           log(`❌ Error accessing ${source.name}: ${error.message}`);
         }
@@ -386,32 +413,129 @@
         return false;
       }
 
-      // Test the API with a simple call
-      geotabApi.call('Get', {
-        typeName: 'User',
-        search: { name: '%' },
-        resultsLimit: 1
-      }, 
-      function(users) {
-        currentUser = users && users.length > 0 ? users[0] : null;
-        const userName = currentUser ? currentUser.name : 'Unknown User';
-        
-        showStatus(`✅ Connected to Geotab API! Hello, ${userName}`, 'success');
-        showConnectionDetails(apiPath, currentUser);
-        
-        // Show the API testing panels
-        document.getElementById('apiPanel').style.display = 'block';
-        document.getElementById('examplesPanel').style.display = 'block';
-        
-        isInitialized = true;
-        log(`✅ API initialized successfully. User: ${userName}`);
-      },
-      function(error) {
-        showStatus(`⚠️ API found but test call failed: ${error}`, 'warning');
-        log(`⚠️ API test failed: ${error}`);
-      });
+      // Test the API with a simple call - try different call patterns
+      log('🧪 Testing API call patterns...');
+      
+      // Pattern 1: Standard .call method
+      if (typeof geotabApi.call === 'function') {
+        log('📞 Trying standard .call() method...');
+        geotabApi.call('Get', {
+          typeName: 'User',
+          search: { name: '%' },
+          resultsLimit: 1
+        }, 
+        function(users) {
+          handleApiSuccess(users, apiPath);
+        },
+        function(error) {
+          log(`❌ Standard .call() failed: ${error}`);
+          tryAlternativeApiPatterns(apiPath);
+        });
+      } else {
+        // Try alternative patterns
+        tryAlternativeApiPatterns(apiPath);
+      }
 
       return true;
+    }
+
+    function tryAlternativeApiPatterns(apiPath) {
+      log('🔄 Trying alternative API patterns...');
+      
+      // Pattern 2: Direct method calls
+      if (typeof geotabApi.Get === 'function') {
+        log('📞 Trying direct Get() method...');
+        try {
+          geotabApi.Get('User', {
+            search: { name: '%' },
+            resultsLimit: 1
+          }, function(users) {
+            handleApiSuccess(users, apiPath);
+          }, function(error) {
+            log(`❌ Direct Get() failed: ${error}`);
+            handleApiFailure(error);
+          });
+          return;
+        } catch (error) {
+          log(`❌ Direct Get() exception: ${error.message}`);
+        }
+      }
+      
+      // Pattern 3: Lowercase methods
+      if (typeof geotabApi.get === 'function') {
+        log('📞 Trying lowercase get() method...');
+        try {
+          geotabApi.get('User', {
+            search: { name: '%' },
+            resultsLimit: 1
+          }, function(users) {
+            handleApiSuccess(users, apiPath);
+          }, function(error) {
+            log(`❌ Lowercase get() failed: ${error}`);
+            handleApiFailure(error);
+          });
+          return;
+        } catch (error) {
+          log(`❌ Lowercase get() exception: ${error.message}`);
+        }
+      }
+      
+      // Pattern 4: Promise-based
+      if (typeof geotabApi.Get === 'function') {
+        log('📞 Trying promise-based Get()...');
+        try {
+          const result = geotabApi.Get('User', {
+            search: { name: '%' },
+            resultsLimit: 1
+          });
+          
+          if (result && typeof result.then === 'function') {
+            result.then(users => {
+              handleApiSuccess(users, apiPath);
+            }).catch(error => {
+              log(`❌ Promise-based Get() failed: ${error}`);
+              handleApiFailure(error);
+            });
+            return;
+          }
+        } catch (error) {
+          log(`❌ Promise-based Get() exception: ${error.message}`);
+        }
+      }
+      
+      // If all patterns fail
+      showStatus(`⚠️ API object found but no compatible call pattern. API Path: ${apiPath}`, 'warning');
+      log('🔍 Showing available methods for manual inspection...');
+      
+      try {
+        const methods = Object.getOwnPropertyNames(geotabApi).filter(prop => 
+          typeof geotabApi[prop] === 'function'
+        );
+        log(`📋 Available methods: ${methods.join(', ')}`);
+        showStatus(`⚠️ API found at ${apiPath} but incompatible. Available methods: ${methods.slice(0, 5).join(', ')}...`, 'warning');
+      } catch (error) {
+        log(`❌ Cannot inspect API methods: ${error.message}`);
+      }
+    }
+
+    function handleApiSuccess(users, apiPath) {
+      currentUser = users && users.length > 0 ? users[0] : null;
+      const userName = currentUser ? currentUser.name : 'Unknown User';
+      
+      showStatus(`✅ Connected to Geotab API! Hello, ${userName}`, 'success');
+      showConnectionDetails(apiPath, currentUser);
+      
+      // Show the API testing panels
+      document.getElementById('apiPanel').style.display = 'block';
+      document.getElementById('examplesPanel').style.display = 'block';
+      
+      isInitialized = true;
+      log(`✅ API initialized successfully. User: ${userName}`);
+    }
+
+    function handleApiFailure(error) {
+      showStatus(`⚠️ API found but test call failed: ${error}`, 'warning');
+      log(`⚠️ API test failed: ${error}`);
     }
 
     // Run API call
@@ -440,32 +564,70 @@
         params.typeName = typeName;
       }
 
-      // Make the API call
+      // Make the API call using detected pattern
       showResult('apiResults', 'Making API call...');
       log(`🚀 Making API call: ${method} ${typeName}`);
       
-      geotabApi.call(method, params,
-        function(result) {
-          const count = Array.isArray(result) ? result.length : (result ? 1 : 0);
-          const output = `SUCCESS! Retrieved ${count} record(s)\n\nCall: ${method} ${typeName}\nTimestamp: ${new Date().toISOString()}\n\n${JSON.stringify(result, null, 2)}`;
-          showResult('apiResults', output);
-          
-          // Store for CSV download
-          lastApiResult = {
-            method: method,
-            typeName: typeName,
-            data: result,
-            timestamp: new Date().toISOString()
-          };
-          
-          log(`✅ API call successful: ${count} records returned`);
-        },
-        function(error) {
-          const output = `API Error: ${error}\n\nCall: ${method} ${typeName}\nTimestamp: ${new Date().toISOString()}`;
-          showResult('apiResults', output);
-          log(`❌ API call failed: ${error}`);
+      const successCallback = function(result) {
+        const count = Array.isArray(result) ? result.length : (result ? 1 : 0);
+        const output = `SUCCESS! Retrieved ${count} record(s)\n\nCall: ${method} ${typeName}\nTimestamp: ${new Date().toISOString()}\n\n${JSON.stringify(result, null, 2)}`;
+        showResult('apiResults', output);
+        
+        // Store for CSV download
+        lastApiResult = {
+          method: method,
+          typeName: typeName,
+          data: result,
+          timestamp: new Date().toISOString()
+        };
+        
+        log(`✅ API call successful: ${count} records returned`);
+      };
+      
+      const errorCallback = function(error) {
+        const output = `API Error: ${error}\n\nCall: ${method} ${typeName}\nTimestamp: ${new Date().toISOString()}`;
+        showResult('apiResults', output);
+        log(`❌ API call failed: ${error}`);
+      };
+      
+      // Try the API call with different patterns
+      try {
+        // Pattern 1: Standard .call method
+        if (typeof geotabApi.call === 'function') {
+          geotabApi.call(method, params, successCallback, errorCallback);
+          return;
         }
-      );
+        
+        // Pattern 2: Direct method calls
+        if (typeof geotabApi[method] === 'function') {
+          geotabApi[method](typeName, params, successCallback, errorCallback);
+          return;
+        }
+        
+        // Pattern 3: Lowercase method calls
+        const lowerMethod = method.toLowerCase();
+        if (typeof geotabApi[lowerMethod] === 'function') {
+          geotabApi[lowerMethod](typeName, params, successCallback, errorCallback);
+          return;
+        }
+        
+        // Pattern 4: Promise-based
+        if (typeof geotabApi[method] === 'function') {
+          const result = geotabApi[method](typeName, params);
+          if (result && typeof result.then === 'function') {
+            result.then(successCallback).catch(errorCallback);
+            return;
+          }
+        }
+        
+        // If no pattern works
+        showResult('apiResults', `Error: No compatible API call pattern found for method: ${method}`);
+        log(`❌ No compatible API call pattern found for method: ${method}`);
+        
+      } catch (error) {
+        showResult('apiResults', `API Call Exception: ${error.message}`);
+        log(`❌ API call exception: ${error.message}`);
+      }
     }
 
     // Download results as CSV
@@ -597,6 +759,7 @@
         'Current user': currentUser ? currentUser.name : 'None',
         'window.api type': typeof window.api,
         'window.state type': typeof window.state,
+        'window.geotab type': typeof window.geotab,
         'window.parent.api type': typeof window.parent?.api,
         'Geotab API found': !!geotabApi
       };
@@ -606,7 +769,36 @@
         output += `${key}: ${value}\n`;
       }
 
-      output += '\n--- Available Window Properties ---\n';
+      // Detailed geotab object inspection
+      output += '\n--- Geotab Object Analysis ---\n';
+      if (window.geotab) {
+        try {
+          const props = Object.getOwnPropertyNames(window.geotab);
+          output += `window.geotab properties (${props.length}): ${props.join(', ')}\n\n`;
+          
+          const methods = props.filter(prop => {
+            try {
+              return typeof window.geotab[prop] === 'function';
+            } catch (e) {
+              return false;
+            }
+          });
+          output += `window.geotab methods (${methods.length}): ${methods.join(', ')}\n\n`;
+          
+          // Check for nested api object
+          if (window.geotab.api) {
+            const apiProps = Object.getOwnPropertyNames(window.geotab.api);
+            output += `window.geotab.api properties: ${apiProps.join(', ')}\n`;
+          }
+          
+        } catch (error) {
+          output += `Error inspecting window.geotab: ${error.message}\n`;
+        }
+      } else {
+        output += 'window.geotab is not available\n';
+      }
+
+      output += '\n--- All Available Window Properties ---\n';
       const props = Object.getOwnPropertyNames(window).filter(prop => 
         prop.toLowerCase().includes('api') || 
         prop.toLowerCase().includes('geotab') || 
@@ -616,7 +808,18 @@
       if (props.length > 0) {
         props.forEach(prop => {
           try {
-            output += `${prop}: ${typeof window[prop]}\n`;
+            const obj = window[prop];
+            const type = typeof obj;
+            output += `${prop}: ${type}`;
+            if (type === 'object' && obj) {
+              try {
+                const subProps = Object.getOwnPropertyNames(obj).slice(0, 5);
+                output += ` (${subProps.join(', ')}...)`;
+              } catch (e) {
+                output += ' (cannot inspect)';
+              }
+            }
+            output += '\n';
           } catch (e) {
             output += `${prop}: access denied\n`;
           }
