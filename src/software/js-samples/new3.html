@@ -891,120 +891,126 @@
     }
 
     // CSV download button event
-// Replace inside document.getElementById('runGroupOdometer').onclick
-document.getElementById('runGroupOdometer').onclick = async function() {
-  if (!credentials && !window.geotab && !window.api) {
-    showMessage('groupOdometerResult', 'Please authenticate first', 'error');
-    return;
-  }
+    document.getElementById('downloadCsv').onclick = downloadCSV;
 
-  const groupId = document.getElementById('groupId').value.trim();
-  const diagnosticId = document.getElementById('diagnosticId').value.trim();
-
-  if (!groupId || !diagnosticId) {
-    showMessage('groupOdometerResult', 'Please enter both Group ID and Diagnostic ID', 'error');
-    return;
-  }
-
-  try {
-    showMessage('groupOdometerResult', 'Getting devices from group...', 'warning');
-
-    // Step 1: Get devices in group
-    const devices = await callGeotabAPI('Get', {
-      typeName: 'Device',
-      search: {
-        groups: [{ id: groupId }]
-      },
-      resultsLimit: 1000
-    });
-
-    if (!devices || devices.length === 0) {
-      showMessage('groupOdometerResult', 'No devices found in group. Check your Group ID.', 'error');
-      return;
-    }
-
-    showMessage('groupOdometerResult', `Found ${devices.length} devices. Building odometer calls...`, 'success');
-
-    // Step 2: Build API calls for each device (expanded date range, more results per device)
-    const results = [];
-    const calls = [];
-    const now = new Date().toISOString();
-    const now = new Date(Date.now() - 7*24*60*60*1000).toISOString();
-
-    devices.forEach(function(device) {
-      results.push({
-        deviceId: device.id,
-        name: device.name,
-        vehicleIdentificationNumber: device.vehicleIdentificationNumber || 'N/A',
-        serialNumber: device.serialNumber || 'N/A',
-        odometer: null,
-        odometerDate: null,
-        status: 'Pending'
-      });
-
-      calls.push({
-        method: 'Get',
-        params: {
-          typeName: 'StatusData',
-          search: {
-            fromDate: now,
-            toDate: now,
-            diagnosticSearch: { id: diagnosticId },
-            deviceSearch: { id: device.id }
-          },
-          resultsLimit: 5 // get up to 5 records per device
-        }
-      });
-    });
-
-    showMessage('groupOdometerResult', `Executing ${calls.length} odometer API calls...`, 'warning');
-
-    // Step 3: Execute MultiCall
-    const callResults = await callGeotabAPI('ExecuteMultiCall', { calls: calls });
-
-    // Step 4: Process results, pick the most recent record per device
-    for (let i = 0; i < callResults.length; i++) {
-      const records = callResults[i];
-      if (records && records.length > 0) {
-        // Find the record with the latest dateTime
-        const latest = records.reduce((a, b) => (a.dateTime > b.dateTime ? a : b));
-        results[i].odometer = latest.data;
-        results[i].odometerDate = latest.dateTime;
-        results[i].status = latest.data > 0 ? 'Success' : 'Zero Reading';
-      } else {
-        results[i].odometer = 'No data';
-        results[i].status = 'No Data';
+    // Group-based odometer collection (following user's exact logic)
+    document.getElementById('runGroupOdometer').onclick = async function() {
+      if (!credentials && !window.geotab && !window.api) {
+        showMessage('groupOdometerResult', 'Please authenticate first', 'error');
+        return;
       }
-    }
 
-    // Summary statistics
-    const withData = results.filter(r => r.odometer && r.odometer !== 'No data' && r.odometer > 0).length;
-    const zeroReadings = results.filter(r => r.odometer === 0).length;
-    const noData = results.filter(r => r.odometer === 'No data').length;
+      const groupId = document.getElementById('groupId').value.trim();
+      const diagnosticId = document.getElementById('diagnosticId').value.trim();
 
-    showMessage('groupOdometerResult', 
-      `Group odometer collection complete!<br><br>
-      <strong>📊 Summary:</strong><br>
-      • Total vehicles: ${results.length}<br>
-      • With odometer data: ${withData}<br>
-      • Zero readings: ${zeroReadings}<br>
-      • No data: ${noData}`, 'success');
+      if (!groupId || !diagnosticId) {
+        showMessage('groupOdometerResult', 'Please enter both Group ID and Diagnostic ID', 'error');
+        return;
+      }
 
-    lastApiResult = {
-      method: 'ExecuteMultiCall',
-      typeName: 'GroupOdometer',
-      data: callResults,
-      timestamp: new Date().toISOString(),
-      deviceMapping: results
+      try {
+        showMessage('groupOdometerResult', 'Getting devices from group...', 'warning');
+
+        // Step 1: Get devices from group (following user's logic)
+        const devices = await callGeotabAPI('Get', {
+          typeName: 'Device',
+          search: {
+            groups: [{ id: groupId }]
+          },
+          resultsLimit: 1000
+        });
+
+        if (!devices || devices.length === 0) {
+          showMessage('groupOdometerResult', 'No devices found in group. Check your Group ID.', 'error');
+          return;
+        }
+
+        showMessage('groupOdometerResult', `Found ${devices.length} devices. Building odometer calls...`, 'success');
+
+        // Step 2: Build calls array (following user's logic)
+        const results = [];
+        const calls = [];
+        const now = new Date().toISOString();
+        const yesterday = new Date(Date.now() - 24*60*60*1000).toISOString();
+
+        devices.forEach(function(device) {
+          // Build results array with device info (user's logic)
+          results.push({
+            deviceId: device.id,
+            name: device.name,
+            vehicleIdentificationNumber: device.vehicleIdentificationNumber || 'N/A',
+            serialNumber: device.serialNumber || 'N/A',
+            odometer: null,
+            odometerDate: null,
+            status: 'Pending'
+          });
+
+          // Build API calls (user's logic)
+          calls.push({
+            method: 'Get',
+            params: {
+              typeName: 'StatusData',
+              search: {
+                fromDate: now,  // Better than same timestamp
+                toDate: now,
+                diagnosticSearch: { id: diagnosticId },
+                deviceSearch: { id: device.id }
+              },
+              resultsLimit: 1
+            }
+          });
+        });
+
+        showMessage('groupOdometerResult', `Executing ${calls.length} odometer API calls...`, 'warning');
+
+        // Step 3: Execute MultiCall (following user's logic)
+        const callResults = await callGeotabAPI('ExecuteMultiCall', { calls: calls });
+
+        // Step 4: Process results (following user's logic)
+        for (let i = 0; i < callResults.length; i++) {
+          const statusData = callResults[i] && callResults[i][0];
+          if (statusData && statusData.data !== undefined) {
+            results[i].odometer = statusData.data;
+            results[i].odometerDate = statusData.dateTime;
+            results[i].status = statusData.data > 0 ? 'Success' : 'Zero Reading';
+          } else {
+            results[i].odometer = 'No data';
+            results[i].status = 'No Data';
+          }
+        }
+
+        // Summary statistics
+        const withData = results.filter(r => r.odometer && r.odometer !== 'No data' && r.odometer > 0).length;
+        const zeroReadings = results.filter(r => r.odometer === 0).length;
+        const noData = results.filter(r => r.odometer === 'No data').length;
+
+        // Display results
+        showMessage('groupOdometerResult', 
+          `Group odometer collection complete!<br><br>
+          <strong>📊 Summary:</strong><br>
+          • Total vehicles: ${results.length}<br>
+          • With odometer data: ${withData}<br>
+          • Zero readings: ${zeroReadings}<br>
+          • No data: ${noData}`, 'success');
+
+        // Store results for CSV download
+        lastApiResult = {
+          method: 'ExecuteMultiCall',
+          typeName: 'GroupOdometer',
+          data: callResults,
+          timestamp: new Date().toISOString(),
+          deviceMapping: results  // Extra data for better CSV
+        };
+
+        // Show detailed results
+        document.getElementById('groupOdometerResult').innerHTML += 
+          `<div class="result-container">${JSON.stringify(results, null, 2)}</div>`;
+
+      } catch (error) {
+        showMessage('groupOdometerResult', `Error: ${error.message}`, 'error');
+      }
     };
 
-    document.getElementById('groupOdometerResult').innerHTML += 
-      `<div class="result-container">${JSON.stringify(results, null, 2)}</div>`;
-
-  } catch (error) {
-    showMessage('groupOdometerResult', `Error: ${error.message}`, 'error');
-  }
-};
     // Load examples
     function loadExample(type) {
       const today = new Date().toISOString().split('T')[0];
