@@ -448,6 +448,7 @@
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
    // PATCHED GROUP-BASED ODOMETER COLLECTION: more accurate readings!
+// RUN GROUP ODOMETER HANDLER (fromDate and toDate = now)
 document.getElementById('runGroupOdometer').onclick = async function() {
   if (!credentials && !window.geotab && !window.api) {
     showMessage('groupOdometerResult', 'Please authenticate first', 'error');
@@ -465,7 +466,7 @@ document.getElementById('runGroupOdometer').onclick = async function() {
   try {
     showMessage('groupOdometerResult', 'Getting devices from group...', 'warning');
 
-    // Step 1: Get devices in group
+    // Get devices in group
     const devices = await callGeotabAPI('Get', {
       typeName: 'Device',
       search: { groups: [{ id: groupId }] },
@@ -479,11 +480,9 @@ document.getElementById('runGroupOdometer').onclick = async function() {
 
     showMessage('groupOdometerResult', `Found ${devices.length} devices. Building odometer calls...`, 'success');
 
-    // Step 2: Build API calls (expanded date range, more results per device)
     const results = [];
     const calls = [];
     const now = new Date().toISOString();
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
     devices.forEach(function(device) {
       results.push({
@@ -496,32 +495,30 @@ document.getElementById('runGroupOdometer').onclick = async function() {
         status: 'Pending'
       });
 
+      // Both fromDate and toDate are set to 'now'
       calls.push({
         method: 'Get',
         params: {
           typeName: 'StatusData',
           search: {
-            fromDate: weekAgo,
+            fromDate: now,
             toDate: now,
             diagnosticSearch: { id: diagnosticId },
             deviceSearch: { id: device.id }
           },
-          resultsLimit: 5 // get up to 5 records per device
+          resultsLimit: 1
         }
       });
     });
 
     showMessage('groupOdometerResult', `Executing ${calls.length} odometer API calls...`, 'warning');
 
-    // Step 3: Execute MultiCall
     const callResults = await callGeotabAPI('ExecuteMultiCall', { calls: calls });
 
-    // Step 4: Process results, pick the most recent record per device
     for (let i = 0; i < callResults.length; i++) {
       const records = callResults[i];
       if (records && records.length > 0) {
-        // Find the record with the latest dateTime
-        const latest = records.reduce((a, b) => (a.dateTime > b.dateTime ? a : b));
+        const latest = records[0];
         results[i].odometer = latest.data;
         results[i].odometerDate = latest.dateTime;
         results[i].status = latest.data > 0 ? 'Success' : 'Zero Reading';
@@ -531,12 +528,10 @@ document.getElementById('runGroupOdometer').onclick = async function() {
       }
     }
 
-    // Summary statistics
     const withData = results.filter(r => r.odometer && r.odometer !== 'No data' && r.odometer > 0).length;
     const zeroReadings = results.filter(r => r.odometer === 0).length;
     const noData = results.filter(r => r.odometer === 'No data').length;
 
-    // Display results
     showMessage('groupOdometerResult', 
       `Group odometer collection complete!<br><br>
       <strong>📊 Summary:</strong><br>
@@ -545,7 +540,6 @@ document.getElementById('runGroupOdometer').onclick = async function() {
       • Zero readings: ${zeroReadings}<br>
       • No data: ${noData}`, 'success');
 
-    // Store results for CSV download
     lastApiResult = {
       method: 'ExecuteMultiCall',
       typeName: 'GroupOdometer',
@@ -554,7 +548,6 @@ document.getElementById('runGroupOdometer').onclick = async function() {
       deviceMapping: results
     };
 
-    // Show detailed results
     document.getElementById('groupOdometerResult').innerHTML += 
       `<div class="result-container">${JSON.stringify(results, null, 2)}</div>`;
 
@@ -562,7 +555,6 @@ document.getElementById('runGroupOdometer').onclick = async function() {
     showMessage('groupOdometerResult', `Error: ${error.message}`, 'error');
   }
 };
-
     // CSV download button event
     document.getElementById('downloadCsv').onclick = downloadCSV;
 
