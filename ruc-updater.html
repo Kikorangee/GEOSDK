@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RUC Distance Updater - Geotab Add-In</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #2d3748;
+            font-size: 2.2em;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin: 4px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .form-control {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 15px;
+            background: white;
+        }
+        .status {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .geotab-banner {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(72, 187, 120, 0.3);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+        .updated {
+            background: #d4edda !important;
+        }
+        .file-upload {
+            border: 2px dashed #ddd;
+            padding: 30px;
+            text-align: center;
+            border-radius: 5px;
+            margin: 20px 0;
+            cursor: pointer;
+        }
+        .file-upload:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #007bff;
+            transition: width 0.3s ease;
+        }
+        .device-mapping {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        .mapping-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 15px;
+        }
+        .mapping-row select {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .auth-section {
+            display: none;
+        }
+        .standalone-mode .auth-section {
+            display: block;
+        }
+        .standalone-mode .geotab-banner {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card header">
+            <h1>🚛 RUC Distance Updater</h1>
+            <p>Update Road User Charge spreadsheet with current odometer readings</p>
+            <p><small><strong>Formula:</strong> Distance Remaining = Hubo Paid To (km) - Current Geotab Odometer (meters ÷ 1000)</small></p>
+        </div>
+
+        <!-- Geotab Add-In Banner -->
+        <div class="geotab-banner" id="geotabBanner">
+            <span>✅</span>
+            <div>
+                <strong>Running as Geotab Add-In</strong><br>
+                <small>Connected to your Geotab system - no additional authentication required</small>
+            </div>
+        </div>
+
+        <!-- Standalone Authentication (only shown when not in Geotab) -->
+        <div class="card auth-section" id="authSection">
+            <h3>📡 Connect to Geotab</h3>
+            <div>
+                <input type="text" id="server" class="form-control" placeholder="Server" value="my.geotab.com">
+                <input type="text" id="database" class="form-control" placeholder="Database" value="uccnz">
+                <input type="text" id="username" class="form-control" placeholder="Username" value="francis@directt.co.nz">
+                <input type="password" id="password" class="form-control" placeholder="Password" value="@fr4nc1sWynn5">
+                <button onclick="authenticateGeotab()" id="authBtn" class="btn btn-primary">🔐 Connect to Geotab</button>
+            </div>
+            <div id="authStatus"></div>
+        </div>
+
+        <!-- Step 1: Load CSV -->
+        <div class="card">
+            <h3>📄 Step 1: Load Your RUC CSV</h3>
+            <div class="file-upload" onclick="document.getElementById('csvFile').click()">
+                <p>📁 Click to select your RUC CSV file</p>
+                <input type="file" id="csvFile" accept=".csv" style="display: none;" onchange="loadCSV(event)">
+            </div>
+            <div id="csvStatus"></div>
+        </div>
+
+        <!-- Step 2: Get Devices and Map -->
+        <div class="card" id="deviceSection" style="display: none;">
+            <h3>🚗 Step 2: Get Fleet Devices and Map to RUC Records</h3>
+            <button onclick="getGeotabDevices()" id="devicesBtn" class="btn btn-success">📡 Get All Fleet Devices</button>
+            <div id="deviceStatus"></div>
+            <div id="deviceMapping"></div>
+        </div>
+
+        <!-- Step 3: Update Distances -->
+        <div class="card" id="updateSection" style="display: none;">
+            <h3>⚡ Step 3: Update Distances with Real Odometer Data</h3>
+            <button onclick="updateDistancesFromGeotab()" id="updateBtn" class="btn btn-success">🔄 Update All Distances</button>
+            <div id="updateStatus"></div>
+            <div id="progressContainer" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressBar"></div>
+                </div>
+                <p id="progressText">Processing...</p>
+            </div>
+        </div>
+
+        <!-- Step 4: Download Updated CSV -->
+        <div class="card" id="downloadSection" style="display: none;">
+            <h3>💾 Step 4: Download Updated CSV</h3>
+            <button onclick="downloadUpdatedCSV()" class="btn btn-success">📥 Download Updated RUC CSV</button>
+            <div id="tableContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        let credentials = null;
+        let csvData = [];
+        let geotabDevices = [];
+        let deviceMapping = {};
+        let isGeotabAddIn = false;
+
+        // Auto-detect if we're inside Geotab and initialize
+        window.addEventListener('load', function() {
+            if (window.geotab || window.api || window.location.host.includes('geotab.com')) {
+                console.log('🎯 Geotab Add-In mode detected');
+                isGeotabAddIn = true;
+                
+                // Hide auth section and show Geotab banner
+                document.getElementById('geotabBanner').style.display = 'flex';
+                document.getElementById('authSection').style.display = 'none';
+                
+                // Set dummy credentials for compatibility
+                credentials = { internal: true };
+                
+                console.log('✅ Geotab Add-In initialized successfully');
+            } else {
+                console.log('🌐 Standalone mode detected');
+                document.body.classList.add('standalone-mode');
+            }
+        });
+
+        // Status display function
+        function showStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.className = `status ${type}`;
+            element.innerHTML = message;
+            element.style.display = 'block';
+        }
+
+        // Progress bar functions
+        function showProgress(percent, text) {
+            document.getElementById('progressContainer').style.display = 'block';
+            document.getElementById('progressBar').style.width = percent + '%';
+            document.getElementById('progressText').textContent = text;
+        }
+
+        function hideProgress() {
+            document.getElementById('progressContainer').style.display = 'none';
+        }
+
+        // Enhanced API call function for both Add-In and standalone modes
+        async function callGeotabAPI(method, params = {}) {
+            // If inside Geotab Add-In, use internal API
+            if (isGeotabAddIn) {
+                if (window.geotab && typeof window.geotab.call === 'function') {
+                    console.log(`🔗 Using Geotab Add-In API: ${method}`);
+                    return new Promise((resolve, reject) => {
+                        window.geotab.call(method, params, resolve, reject);
+                    });
+                } else if (window.api && typeof window.api.call === 'function') {
+                    console.log(`🔗 Using window.api: ${method}`);
+                    return new Promise((resolve, reject) => {
+                        window.api.call(method, params, resolve, reject);
+                    });
+                }
+            }
+            
+            // Fallback to external API for standalone mode
+            console.log(`🌐 Using external API: ${method}`);
+            const requestBody = {
+                method: method,
+                params: credentials ? { ...params, credentials: credentials } : params
+            };
+
+            const response = await fetch(`https://${document.getElementById('server').value}/apiv1`, {
+                method: "POST",
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error.message || data.error.name);
+            }
+            
+            return data.result;
+        }
+
+        // Authentication (only for standalone mode)
+        async function authenticateGeotab() {
+            const server = document.getElementById('server').value.trim();
+            const database = document.getElementById('database').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!server || !database || !username || !password) {
+                showStatus('authStatus', 'Please fill in all authentication fields', 'error');
+                return;
+            }
+
+            document.getElementById('authBtn').disabled = true;
+            showStatus('authStatus', 'Connecting to Geotab...', 'info');
+
+            try {
+                const result = await callGeotabAPI('Authenticate', {
+                    userName: username,
+                    password: password,
+                    database: database
+                });
+
+                credentials = result.credentials;
+                showStatus('authStatus', '✅ Successfully connected to Geotab!', 'success');
+                document.getElementById('authBtn').textContent = 'Connected ✅';
+
+            } catch (error) {
+                showStatus('authStatus', '❌ Failed to connect: ' + error.message, 'error');
+                document.getElementById('authBtn').disabled = false;
+            }
+        }
+
+        // Load CSV file
+        function loadCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            showStatus('csvStatus', 'Reading CSV file...', 'info');
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    parseCSV(e.target.result);
+                } catch (error) {
+                    showStatus('csvStatus', 'Error reading file: ' + error.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Parse CSV data
+        function parseCSV(csvText) {
+            const lines = csvText.split('\n');
+            csvData = [];
+            
+            // Skip the first 2 lines (headers) and parse the data
+            for (let i = 2; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (line) {
+                    const cols = parseCSVLine(line);
+                    if (cols.length >= 3 && cols[0]) {
+                        csvData.push({
+                            fleetNumber: parseInt(cols[0]) || cols[0],
+                            huboPaidTo: cols[1] ? cols[1].replace(/[",]/g, '') : '',
+                            huboOdoReading: cols[2] ? cols[2].replace(/[",]/g, '') : '',
+                            distanceRemaining: cols[3] || '',
+                            currentOdometer: null,
+                            calculatedDistance: null,
+                            geotabDeviceId: null
+                        });
+                    }
+                }
+            }
+
+            if (csvData.length > 0) {
+                showStatus('csvStatus', `✅ Successfully loaded ${csvData.length} RUC records`, 'success');
+                document.getElementById('deviceSection').style.display = 'block';
+            } else {
+                showStatus('csvStatus', 'No valid data found in CSV file', 'error');
+            }
+        }
+
+        // Simple CSV line parser
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim());
+            return result;
+        }
+
+        // Get Geotab devices
+        async function getGeotabDevices() {
+            if (!isGeotabAddIn && !credentials) {
+                showStatus('deviceStatus', 'Please authenticate first', 'error');
+                return;
+            }
+
+            document.getElementById('devicesBtn').disabled = true;
+            showStatus('deviceStatus', 'Fetching all fleet devices...', 'info');
+
+            try {
+                geotabDevices = await callGeotabAPI('Get', {
+                    typeName: 'Device',
+                    resultsLimit: 1000
+                });
+
+                showStatus('deviceStatus', `✅ Found ${geotabDevices.length} fleet devices`, 'success');
+                createDeviceMapping();
+
+            } catch (error) {
+                showStatus('deviceStatus', '❌ Failed to get devices: ' + error.message, 'error');
+                document.getElementById('devicesBtn').disabled = false;
+            }
+        }
+
+        // Create device mapping interface
+        function createDeviceMapping() {
+            let html = `
+                <div class="device-mapping">
+                    <h4>🔗 Map Fleet Numbers to Geotab Devices</h4>
+                    <p>Match each fleet number from your CSV to the corresponding Geotab device:</p>
+            `;
+
+            csvData.forEach((row, index) => {
+                html += `
+                    <div class="mapping-row">
+                        <span style="min-width: 100px;"><strong>Fleet ${row.fleetNumber}:</strong></span>
+                        <select id="device_${index}" onchange="updateMapping(${index}, this.value)">
+                            <option value="">Select Geotab Device...</option>
+                `;
+
+                geotabDevices.forEach(device => {
+                    const deviceName = device.name || `Device ${device.id}`;
+                    const selected = deviceName.includes(row.fleetNumber) ? 'selected' : '';
+                    html += `<option value="${device.id}" ${selected}>${deviceName} (${device.id})</option>`;
+                });
+
+                html += `
+                        </select>
+                    </div>
+                `;
+            });
+
+            html += `
+                    <button onclick="validateMapping()" class="btn btn-primary" style="margin-top: 15px;">✅ Validate Mapping</button>
+                </div>
+            `;
+
+            document.getElementById('deviceMapping').innerHTML = html;
+
+            // Auto-match where possible
+            csvData.forEach((row, index) => {
+                const matchingDevice = geotabDevices.find(device => 
+                    device.name && device.name.includes(row.fleetNumber.toString())
+                );
+                if (matchingDevice) {
+                    deviceMapping[index] = matchingDevice.id;
+                    row.geotabDeviceId = matchingDevice.id;
+                }
+            });
+        }
+
+        // Update device mapping
+        function updateMapping(csvIndex, deviceId) {
+            if (deviceId) {
+                deviceMapping[csvIndex] = deviceId;
+                csvData[csvIndex].geotabDeviceId = deviceId;
+            } else {
+                delete deviceMapping[csvIndex];
+                csvData[csvIndex].geotabDeviceId = null;
+            }
+        }
+
+        // Validate mapping
+        function validateMapping() {
+            const mapped = Object.keys(deviceMapping).length;
+            const total = csvData.length;
+
+            if (mapped === 0) {
+                showStatus('deviceStatus', 'Please map at least one device', 'error');
+                return;
+            }
+
+            showStatus('deviceStatus', `✅ Mapped ${mapped} of ${total} fleet vehicles`, 'success');
+            document.getElementById('updateSection').style.display = 'block';
+        }
+
+        // Update distances with real odometer data
+        async function updateDistancesFromGeotab() {
+            if (!isGeotabAddIn && !credentials) {
+                showStatus('updateStatus', 'Please authenticate first', 'error');
+                return;
+            }
+
+            const mappedDevices = csvData.filter(row => row.geotabDeviceId);
+            if (mappedDevices.length === 0) {
+                showStatus('updateStatus', 'No devices mapped. Please map devices first.', 'error');
+                return;
+            }
+
+            document.getElementById('updateBtn').disabled = true;
+            showStatus('updateStatus', 'Fetching real odometer readings from Geotab...', 'info');
+
+            try {
+                // Build API calls for ExecuteMultiCall
+                const calls = [];
+                const now = new Date().toISOString();
+
+                mappedDevices.forEach(row => {
+                    calls.push({
+                        method: 'Get',
+                        params: {
+                            typeName: 'StatusData',
+                            search: {
+                                deviceSearch: { id: row.geotabDeviceId },
+                                diagnosticSearch: { id: 'DiagnosticOdometerAdjustmentId' },
+                                fromDate: now,
+                                toDate: now
+                            },
+                            resultsLimit: 1
+                        }
+                    });
+                });
+
+                showProgress(25, 'Executing odometer API calls...');
+
+                // Execute all calls at once
+                const results = await callGeotabAPI('ExecuteMultiCall', { calls: calls });
+
+                showProgress(75, 'Converting meters to kilometers and calculating distances...');
+
+                // Process results
+                let successCount = 0;
+                mappedDevices.forEach((row, index) => {
+                    const odometerData = results[index];
+                    if (odometerData && odometerData.length > 0 && odometerData[0].data !== undefined) {
+                        // Geotab odometer is in METERS - convert to kilometers
+                        const odometerMeters = odometerData[0].data;
+                        const odometerKilometers = odometerMeters / 1000;
+                        row.currentOdometer = Math.round(odometerKilometers); // Round to nearest km
+                        
+                        // Calculate distance remaining: Hubo Paid To - Current Odometer (in km)
+                        const huboPaidKm = parseInt(row.huboPaidTo.replace(/,/g, '')) || 0;
+                        row.calculatedDistance = Math.max(0, huboPaidKm - row.currentOdometer);
+                        successCount++;
+                    } else {
+                        row.currentOdometer = 'No data';
+                        row.calculatedDistance = 'Unable to calculate';
+                    }
+                });
+
+                hideProgress();
+                showStatus('updateStatus', 
+                    `✅ Successfully updated ${successCount} of ${mappedDevices.length} vehicles!<br>
+                    <small>Geotab odometer readings converted from meters to kilometers for accurate RUC calculation.</small>`, 
+                    'success');
+
+                displayUpdatedData();
+                document.getElementById('downloadSection').style.display = 'block';
+
+            } catch (error) {
+                hideProgress();
+                showStatus('updateStatus', '❌ Error fetching odometer data: ' + error.message, 'error');
+                document.getElementById('updateBtn').disabled = false;
+            }
+        }
+
+        // Display updated data
+        function displayUpdatedData() {
+            let html = `
+                <h4>📊 Updated RUC Data</h4>
+                <p><strong>Note:</strong> Geotab odometer readings converted from meters to kilometers for RUC calculation</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fleet #</th>
+                            <th>Hubo Paid To (km)</th>
+                            <th>Hubo/Odo Reading (km)</th>
+                            <th>Current Odometer (km)</th>
+                            <th>Distance Remaining (km)</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            csvData.forEach(row => {
+                const statusClass = row.calculatedDistance !== null && typeof row.calculatedDistance === 'number' ? 'updated' : '';
+                const status = row.geotabDeviceId ? 
+                    (typeof row.calculatedDistance === 'number' ? '✅ Updated' : '⚠️ No data') : 
+                    '⏸️ Not mapped';
+
+                html += `
+                    <tr class="${statusClass}">
+                        <td>${row.fleetNumber}</td>
+                        <td>${row.huboPaidTo}</td>
+                        <td>${row.huboOdoReading}</td>
+                        <td>${row.currentOdometer || 'Not fetched'}</td>
+                        <td>${row.calculatedDistance !== null ? row.calculatedDistance : row.distanceRemaining}</td>
+                        <td>${status}</td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            document.getElementById('tableContainer').innerHTML = html;
+        }
+
+        // Download updated CSV
+        function downloadUpdatedCSV() {
+            let csvContent = ', ROAD USER (RUC) ,,\n';
+            csvContent += 'Fleet #, Hubo Paid To , Hubo/Odo Reading ,distance remaining\n';
+
+            csvData.forEach(row => {
+                const distanceRemaining = row.calculatedDistance !== null ? row.calculatedDistance : row.distanceRemaining;
+                csvContent += `${row.fleetNumber},"${row.huboPaidTo}","${row.huboOdoReading}","${distanceRemaining}"\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `updated_ruc_data_${new Date().toISOString().slice(0,10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            showStatus('updateStatus', '✅ Updated CSV file downloaded successfully!', 'success');
+        }
+    </script>
+</body>
+</html>
