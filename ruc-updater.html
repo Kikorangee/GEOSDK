@@ -125,6 +125,55 @@
         .updated {
             background: #d4edda !important;
         }
+        .warning-low {
+            background: #fff3cd !important;
+            border-left: 4px solid #ffc107 !important;
+        }
+        .alert-critical {
+            background: #f8d7da !important;
+            border-left: 4px solid #dc3545 !important;
+        }
+        .summary-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .summary-item {
+            display: inline-block;
+            background: white;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 5px;
+            border-left: 4px solid #28a745;
+            min-width: 120px;
+        }
+        .summary-item.warning {
+            border-left-color: #ffc107;
+        }
+        .summary-item.critical {
+            border-left-color: #dc3545;
+        }
+        .filter-buttons {
+            margin: 15px 0;
+        }
+        .filter-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            margin: 3px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .filter-btn.active {
+            background: #007bff;
+        }
+        .filter-btn:hover {
+            opacity: 0.8;
+        }
         .file-upload {
             border: 2px dashed #ddd;
             padding: 30px;
@@ -255,25 +304,154 @@
         let deviceMapping = {};
         let isGeotabAddIn = false;
 
-        // Auto-detect if we're inside Geotab and initialize
+        // Auto-detect if we're inside Geotab and initialize with error handling
         window.addEventListener('load', function() {
+            initializeAddIn();
+        });
+
+        // Initialize Add-In with comprehensive error handling
+        function initializeAddIn() {
+            console.log('🔍 Checking Geotab Add-In environment...');
+            
+            // Check for Geotab context
             if (window.geotab || window.api || window.location.host.includes('geotab.com')) {
-                console.log('🎯 Geotab Add-In mode detected');
-                isGeotabAddIn = true;
+                console.log('🎯 Geotab environment detected');
                 
-                // Hide auth section and show Geotab banner
-                document.getElementById('geotabBanner').style.display = 'flex';
-                document.getElementById('authSection').style.display = 'none';
-                
-                // Set dummy credentials for compatibility
-                credentials = { internal: true };
-                
-                console.log('✅ Geotab Add-In initialized successfully');
+                // Wait for Geotab API to be ready
+                waitForGeotabAPI()
+                    .then(() => {
+                        console.log('✅ Geotab Add-In initialized successfully');
+                        isGeotabAddIn = true;
+                        
+                        // Hide auth section and show Geotab banner
+                        document.getElementById('geotabBanner').style.display = 'flex';
+                        document.getElementById('authSection').style.display = 'none';
+                        
+                        // Set dummy credentials for compatibility
+                        credentials = { internal: true };
+                        
+                        // Show success message
+                        showStatus('csvStatus', 
+                            '✅ Geotab Add-In loaded successfully! You can now upload your RUC CSV file.', 
+                            'success');
+                    })
+                    .catch((error) => {
+                        console.error('❌ Geotab Add-In initialization failed:', error);
+                        handleGeotabMenuError(error);
+                    });
             } else {
                 console.log('🌐 Standalone mode detected');
                 document.body.classList.add('standalone-mode');
+                showStatus('csvStatus', 
+                    'ℹ️ Running in standalone mode. Please authenticate with Geotab first.', 
+                    'info');
             }
-        });
+        }
+
+        // Wait for Geotab API to be available with timeout
+        function waitForGeotabAPI(timeout = 10000) {
+            return new Promise((resolve, reject) => {
+                const startTime = Date.now();
+                
+                function checkAPI() {
+                    // Check if Geotab API is available
+                    if (window.geotab && typeof window.geotab.call === 'function') {
+                        resolve(window.geotab);
+                        return;
+                    }
+                    
+                    if (window.api && typeof window.api.call === 'function') {
+                        resolve(window.api);
+                        return;
+                    }
+                    
+                    // Check timeout
+                    if (Date.now() - startTime > timeout) {
+                        reject(new Error('Geotab API not available after timeout'));
+                        return;
+                    }
+                    
+                    // Try again in 100ms
+                    setTimeout(checkAPI, 100);
+                }
+                
+                checkAPI();
+            });
+        }
+
+        // Handle Geotab menu/loading errors
+        function handleGeotabMenuError(error) {
+            console.error('Geotab menu error:', error);
+            
+            // Show error banner
+            document.getElementById('geotabBanner').innerHTML = `
+                <span>⚠️</span>
+                <div>
+                    <strong>Geotab Add-In Loading Issue</strong><br>
+                    <small>${error.message || 'Unable to connect to Geotab API'}</small>
+                </div>
+            `;
+            document.getElementById('geotabBanner').style.background = 'linear-gradient(135deg, #f56565, #e53e3e)';
+            document.getElementById('geotabBanner').style.display = 'flex';
+            
+            // Show fallback options
+            showGeotabErrorFallback();
+        }
+
+        // Show fallback options when Geotab menu has issues
+        function showGeotabErrorFallback() {
+            const fallbackHtml = `
+                <div class="card" style="border: 2px solid #f56565;">
+                    <h3 style="color: #e53e3e;">⚠️ Geotab Add-In Error - Fallback Options</h3>
+                    
+                    <div style="background: #fed7d7; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4>🔧 Troubleshooting Steps:</h4>
+                        <ol>
+                            <li><strong>Refresh the page</strong> - Simple reload often fixes loading issues</li>
+                            <li><strong>Check Add-In permissions</strong> - Ensure the Add-In has proper access</li>
+                            <li><strong>Try different browser</strong> - Some browsers have stricter security</li>
+                            <li><strong>Contact administrator</strong> - Add-In may need reinstallation</li>
+                        </ol>
+                    </div>
+                    
+                    <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4>🌐 Fallback: Use Standalone Mode</h4>
+                        <p>If the Add-In continues to have issues, you can use this tool in standalone mode:</p>
+                        <button onclick="enableStandaloneMode()" class="btn btn-primary">
+                            🔄 Switch to Standalone Mode
+                        </button>
+                    </div>
+                    
+                    <div style="background: #d1ecf1; padding: 15px; border-radius: 8px;">
+                        <h4>📧 Need Help?</h4>
+                        <p>Contact: <strong>francis@directt.co.nz</strong></p>
+                        <p>Include this error info: <code>${navigator.userAgent}</code></p>
+                    </div>
+                </div>
+            `;
+            
+            // Insert after the header
+            const header = document.querySelector('.header');
+            const fallbackDiv = document.createElement('div');
+            fallbackDiv.innerHTML = fallbackHtml;
+            header.parentNode.insertBefore(fallbackDiv, header.nextSibling);
+        }
+
+        // Enable standalone mode as fallback
+        function enableStandaloneMode() {
+            console.log('🔄 Switching to standalone mode...');
+            isGeotabAddIn = false;
+            credentials = null;
+            
+            // Show auth section and hide Geotab banner
+            document.getElementById('authSection').style.display = 'block';
+            document.getElementById('geotabBanner').style.display = 'none';
+            document.body.classList.add('standalone-mode');
+            
+            showStatus('authStatus', 
+                'ℹ️ Switched to standalone mode. Please enter your Geotab credentials below.', 
+                'info');
+        }
 
         // Status display function
         function showStatus(elementId, message, type = 'info') {
@@ -620,12 +798,47 @@
             }
         }
 
-        // Display updated data
+        // Display updated data with distance warnings
         function displayUpdatedData() {
+            // Calculate summary statistics
+            const totalVehicles = csvData.length;
+            const updatedVehicles = csvData.filter(row => typeof row.calculatedDistance === 'number').length;
+            const warningVehicles = csvData.filter(row => typeof row.calculatedDistance === 'number' && row.calculatedDistance <= 2000 && row.calculatedDistance > 500).length;
+            const criticalVehicles = csvData.filter(row => typeof row.calculatedDistance === 'number' && row.calculatedDistance <= 500).length;
+            
             let html = `
-                <h4>📊 Updated RUC Data</h4>
+                <h4>📊 Updated RUC Data with Distance Warnings</h4>
                 <p><strong>Note:</strong> Geotab odometer readings converted from meters to kilometers for RUC calculation</p>
-                <table>
+                
+                <div class="summary-box">
+                    <h5>📈 Fleet Summary:</h5>
+                    <div class="summary-item">
+                        <strong>${totalVehicles}</strong><br>
+                        <small>Total Vehicles</small>
+                    </div>
+                    <div class="summary-item">
+                        <strong>${updatedVehicles}</strong><br>
+                        <small>Updated</small>
+                    </div>
+                    <div class="summary-item warning">
+                        <strong>${warningVehicles}</strong><br>
+                        <small>⚠️ ≤ 2000km</small>
+                    </div>
+                    <div class="summary-item critical">
+                        <strong>${criticalVehicles}</strong><br>
+                        <small>🚨 ≤ 500km</small>
+                    </div>
+                </div>
+                
+                <div class="filter-buttons">
+                    <strong>Filter View:</strong>
+                    <button class="filter-btn active" onclick="filterTable('all')">All Vehicles</button>
+                    <button class="filter-btn" onclick="filterTable('warning')">⚠️ ≤ 2000km (${warningVehicles})</button>
+                    <button class="filter-btn" onclick="filterTable('critical')">🚨 ≤ 500km (${criticalVehicles})</button>
+                    <button class="filter-btn" onclick="filterTable('updated')">✅ Updated (${updatedVehicles})</button>
+                </div>
+                
+                <table id="rucDataTable">
                     <thead>
                         <tr>
                             <th>Fleet #</th>
@@ -640,48 +853,161 @@
             `;
 
             csvData.forEach(row => {
-                const statusClass = row.calculatedDistance !== null && typeof row.calculatedDistance === 'number' ? 'updated' : '';
-                const status = row.geotabDeviceId ? 
-                    (typeof row.calculatedDistance === 'number' ? '✅ Updated' : '⚠️ No data') : 
-                    '⏸️ Not mapped';
+                let statusClass = '';
+                let status = '';
+                let priorityIcon = '';
+                
+                if (row.geotabDeviceId) {
+                    if (typeof row.calculatedDistance === 'number') {
+                        status = '✅ Updated';
+                        statusClass = 'updated';
+                        
+                        // Add distance-based warnings
+                        if (row.calculatedDistance <= 500) {
+                            statusClass = 'alert-critical';
+                            status = '🚨 CRITICAL - ≤ 500km';
+                            priorityIcon = '🚨 ';
+                        } else if (row.calculatedDistance <= 2000) {
+                            statusClass = 'warning-low';
+                            status = '⚠️ WARNING - ≤ 2000km';
+                            priorityIcon = '⚠️ ';
+                        }
+                    } else {
+                        status = '⚠️ No data';
+                    }
+                } else {
+                    status = '⏸️ Not mapped';
+                }
+
+                const displayDistance = row.calculatedDistance !== null ? 
+                    (typeof row.calculatedDistance === 'number' ? 
+                        `${priorityIcon}${row.calculatedDistance.toLocaleString()}` : 
+                        row.calculatedDistance) : 
+                    row.distanceRemaining;
 
                 html += `
-                    <tr class="${statusClass}">
-                        <td>${row.fleetNumber}</td>
+                    <tr class="${statusClass}" data-filter="${getFilterCategory(row)}">
+                        <td><strong>${row.fleetNumber}</strong></td>
                         <td>${row.huboPaidTo}</td>
                         <td>${row.huboOdoReading}</td>
                         <td>${row.currentOdometer || 'Not fetched'}</td>
-                        <td>${row.calculatedDistance !== null ? row.calculatedDistance : row.distanceRemaining}</td>
+                        <td><strong>${displayDistance}</strong></td>
                         <td>${status}</td>
                     </tr>
                 `;
             });
 
             html += '</tbody></table>';
+            
+            // Add legend
+            html += `
+                <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <h5>🏷️ Distance Warning Levels:</h5>
+                    <div style="margin: 10px 0;">
+                        <span style="background: #f8d7da; padding: 5px 10px; border-radius: 3px; margin-right: 10px;">
+                            🚨 CRITICAL: ≤ 500km remaining
+                        </span>
+                        <span style="background: #fff3cd; padding: 5px 10px; border-radius: 3px; margin-right: 10px;">
+                            ⚠️ WARNING: ≤ 2000km remaining
+                        </span>
+                        <span style="background: #d4edda; padding: 5px 10px; border-radius: 3px;">
+                            ✅ NORMAL: > 2000km remaining
+                        </span>
+                    </div>
+                    <p><small><strong>Recommendation:</strong> Plan RUC renewal for vehicles with ≤ 2000km remaining</small></p>
+                </div>
+            `;
+            
             document.getElementById('tableContainer').innerHTML = html;
         }
 
-        // Download updated CSV
+        // Helper function to determine filter category
+        function getFilterCategory(row) {
+            if (!row.geotabDeviceId) return 'not-mapped';
+            if (typeof row.calculatedDistance !== 'number') return 'no-data';
+            
+            if (row.calculatedDistance <= 500) return 'critical';
+            if (row.calculatedDistance <= 2000) return 'warning';
+            return 'updated';
+        }
+
+        // Filter table function (global scope)
+        window.filterTable = function(filter) {
+            // Update active button
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Show/hide rows
+            const rows = document.querySelectorAll('#rucDataTable tbody tr');
+            rows.forEach(row => {
+                const rowFilter = row.getAttribute('data-filter');
+                
+                if (filter === 'all') {
+                    row.style.display = '';
+                } else if (filter === 'warning' && (rowFilter === 'warning' || rowFilter === 'critical')) {
+                    row.style.display = '';
+                } else if (filter === 'critical' && rowFilter === 'critical') {
+                    row.style.display = '';
+                } else if (filter === 'updated' && (rowFilter === 'updated' || rowFilter === 'warning' || rowFilter === 'critical')) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        };
+
+        // Download updated CSV with warning indicators
         function downloadUpdatedCSV() {
             let csvContent = ', ROAD USER (RUC) ,,\n';
-            csvContent += 'Fleet #, Hubo Paid To , Hubo/Odo Reading ,distance remaining\n';
+            csvContent += 'Fleet #, Hubo Paid To , Hubo/Odo Reading ,distance remaining,Warning Level,Action Required\n';
 
             csvData.forEach(row => {
                 const distanceRemaining = row.calculatedDistance !== null ? row.calculatedDistance : row.distanceRemaining;
-                csvContent += `${row.fleetNumber},"${row.huboPaidTo}","${row.huboOdoReading}","${distanceRemaining}"\n`;
+                let warningLevel = 'NORMAL';
+                let actionRequired = 'Monitor';
+                
+                if (typeof row.calculatedDistance === 'number') {
+                    if (row.calculatedDistance <= 500) {
+                        warningLevel = 'CRITICAL';
+                        actionRequired = 'URGENT - Renew RUC immediately';
+                    } else if (row.calculatedDistance <= 2000) {
+                        warningLevel = 'WARNING';
+                        actionRequired = 'Plan RUC renewal soon';
+                    } else {
+                        warningLevel = 'NORMAL';
+                        actionRequired = 'Continue monitoring';
+                    }
+                } else if (row.calculatedDistance === 'Unable to calculate') {
+                    warningLevel = 'NO DATA';
+                    actionRequired = 'Check Geotab connection';
+                }
+                
+                csvContent += `${row.fleetNumber},"${row.huboPaidTo}","${row.huboOdoReading}","${distanceRemaining}","${warningLevel}","${actionRequired}"\n`;
             });
+
+            // Add summary at the end
+            const totalVehicles = csvData.length;
+            const warningVehicles = csvData.filter(row => typeof row.calculatedDistance === 'number' && row.calculatedDistance <= 2000 && row.calculatedDistance > 500).length;
+            const criticalVehicles = csvData.filter(row => typeof row.calculatedDistance === 'number' && row.calculatedDistance <= 500).length;
+            
+            csvContent += '\n';
+            csvContent += 'SUMMARY:,,,,,\n';
+            csvContent += `Total Vehicles:,${totalVehicles},,,,\n`;
+            csvContent += `Vehicles ≤ 2000km:,${warningVehicles},,,,\n`;
+            csvContent += `Vehicles ≤ 500km:,${criticalVehicles},,,,\n`;
+            csvContent += `Generated:,"${new Date().toISOString()}",,,,\n`;
 
             const blob = new Blob([csvContent], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `updated_ruc_data_${new Date().toISOString().slice(0,10)}.csv`;
+            a.download = `ruc_data_with_warnings_${new Date().toISOString().slice(0,10)}.csv`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
 
-            showStatus('updateStatus', '✅ Updated CSV file downloaded successfully!', 'success');
+            showStatus('updateStatus', '✅ Updated CSV with warning levels downloaded successfully!', 'success');
         }
     </script>
 </body>
