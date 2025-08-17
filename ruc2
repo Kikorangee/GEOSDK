@@ -1,0 +1,1550 @@
+      <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RUC Distance Updater - Geotab Add-In</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #2d3748;
+            font-size: 2.2em;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin: 4px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .form-control {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 15px;
+            background: white;
+        }
+        .status {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .geotab-banner {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(72, 187, 120, 0.3);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+        .updated {
+            background: #d4edda !important;
+        }
+        .editable-value {
+            transition: all 0.2s ease;
+        }
+        .editable-value:hover {
+            background: #fff3cd !important;
+        }
+        .manually-edited {
+            background: #e2f8f5 !important;
+            border-left: 3px solid #48bb78 !important;
+        }
+        .file-upload {
+            border: 2px dashed #ddd;
+            padding: 30px;
+            text-align: center;
+            border-radius: 5px;
+            margin: 20px 0;
+            cursor: pointer;
+        }
+        .file-upload:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #007bff;
+            transition: width 0.3s ease;
+        }
+        .device-mapping {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        .mapping-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 15px;
+        }
+        .mapping-row select {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .auth-section {
+            display: none;
+        }
+        .standalone-mode .auth-section {
+            display: block;
+        }
+        .standalone-mode .geotab-banner {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card header">
+            <h1>🚛 RUC Distance Updater</h1>
+            <p>Update Road User Charge spreadsheet with current odometer readings</p>
+            <p><small><strong>Formula:</strong> Distance Remaining = Hubo Paid To (km) - Current Geotab Odometer (meters ÷ 1000)</small></p>
+        </div>
+
+        <!-- Geotab Add-In Banner -->
+        <div class="geotab-banner" id="geotabBanner">
+            <span>✅</span>
+            <div>
+                <strong>Running as Geotab Add-In</strong><br>
+                <small>Connected to your Geotab system - no additional authentication required</small>
+            </div>
+        </div>
+
+        <!-- Standalone Authentication (only shown when not in Geotab) -->
+        <div class="card auth-section" id="authSection">
+            <h3>📡 Connect to Geotab</h3>
+            <div>
+                <input type="text" id="server" class="form-control" placeholder="Server" value="my.geotab.com">
+                <input type="text" id="database" class="form-control" placeholder="Database" value="uccnz">
+                <input type="text" id="username" class="form-control" placeholder="Username" value="francis@directt.co.nz">
+                <input type="password" id="password" class="form-control" placeholder="Password" value="@fr4nc1sWynn5">
+                <button onclick="authenticateGeotab()" id="authBtn" class="btn btn-primary">🔐 Connect to Geotab</button>
+            </div>
+            <div id="authStatus"></div>
+        </div>
+
+        <!-- Step 1: Load CSV -->
+        <div class="card">
+            <h3>📄 Step 1: Load Your RUC CSV</h3>
+            <div class="file-upload" onclick="document.getElementById('csvFile').click()">
+                <p>📁 Click to select your RUC CSV file</p>
+                <input type="file" id="csvFile" accept=".csv" style="display: none;" onchange="loadCSV(event)">
+            </div>
+            <div id="csvStatus"></div>
+        </div>
+
+        <!-- Step 2: Get Devices and Map -->
+        <div class="card" id="deviceSection" style="display: none;">
+            <h3>🚗 Step 2: Get Fleet Devices and Map to RUC Records</h3>
+            <button onclick="getGeotabDevices()" id="devicesBtn" class="btn btn-success">📡 Get All Fleet Devices</button>
+            <div id="deviceStatus"></div>
+            <div id="deviceMapping"></div>
+        </div>
+
+        <!-- Step 3: Update Distances -->
+        <div class="card" id="updateSection" style="display: none;">
+            <h3>⚡ Step 3: Update Distances with Real Odometer Data</h3>
+            <button onclick="updateDistancesFromGeotab()" id="updateBtn" class="btn btn-success">🔄 Update All Distances</button>
+            <div id="updateStatus"></div>
+            <div id="progressContainer" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressBar"></div>
+                </div>
+                <p id="progressText">Processing...</p>
+            </div>
+        </div>
+
+        <!-- Step 4: Email Notifications -->
+        <div class="card" id="emailSection" style="display: none;">
+            <h3>📧 Step 4: Email Notifications for RUC Due Soon</h3>
+            <p>Send automatic email alerts when RUC licenses are due within 200km</p>
+            
+            <div style="margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                <div style="margin-bottom: 15px;">
+                    <label>⚠️ Alert Threshold (km):</label>
+                    <input type="number" id="alertThreshold" value="200" style="width: 100px; margin-left: 10px; padding: 5px;">
+                </div>
+                <button onclick="checkRUCDue()" class="btn btn-success" id="checkRUCBtn">🔍 Check RUC Due Soon</button>
+                <button onclick="sendRUCEmails()" class="btn" style="background: #f56565; color: white; display: none;" id="sendEmailBtn">📧 Send Email Alerts</button>
+            </div>
+            
+            <div id="emailStatus"></div>
+            <div id="dueVehiclesList"></div>
+        </div>
+
+        <!-- Step 5: Download Updated CSV -->
+        <div class="card" id="downloadSection" style="display: none;">
+            <h3>💾 Step 5: Download Updated CSV</h3>
+            <button onclick="downloadUpdatedCSV()" class="btn btn-success">📥 Download Updated RUC CSV</button>
+            <div id="tableContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        let credentials = null;
+        let csvData = [];
+        let geotabDevices = [];
+        let deviceMapping = {};
+        let isGeotabAddIn = false;
+
+        // Auto-detect if we're inside Geotab and initialize with error handling
+        window.addEventListener('load', function() {
+            initializeAddIn();
+        });
+
+        // Initialize Add-In with comprehensive error handling
+        function initializeAddIn() {
+            console.log('🔍 Checking Geotab Add-In environment...');
+            
+            // Check for Geotab context
+            if (window.geotab || window.api || window.location.host.includes('geotab.com')) {
+                console.log('🎯 Geotab environment detected');
+                
+                // Wait for Geotab API to be ready
+                waitForGeotabAPI()
+                    .then(() => {
+                        console.log('✅ Geotab Add-In initialized successfully');
+                        isGeotabAddIn = true;
+                        
+                        // Hide auth section and show Geotab banner
+                        document.getElementById('geotabBanner').style.display = 'flex';
+                        document.getElementById('authSection').style.display = 'none';
+                        
+                        // Set dummy credentials for compatibility
+                        credentials = { internal: true };
+                        
+                        // Show success message
+                        showStatus('csvStatus', 
+                            '✅ Geotab Add-In loaded successfully! You can now upload your RUC CSV file.', 
+                            'success');
+                    })
+                    .catch((error) => {
+                        console.error('❌ Geotab Add-In initialization failed:', error);
+                        handleGeotabMenuError(error);
+                    });
+            } else {
+                console.log('🌐 Standalone mode detected');
+                document.body.classList.add('standalone-mode');
+                showStatus('csvStatus', 
+                    'ℹ️ Running in standalone mode. Please authenticate with Geotab first.', 
+                    'info');
+            }
+        }
+
+        // Wait for Geotab API to be available with timeout
+        function waitForGeotabAPI(timeout = 10000) {
+            return new Promise((resolve, reject) => {
+                const startTime = Date.now();
+                
+                function checkAPI() {
+                    // Check if Geotab API is available
+                    if (window.geotab && typeof window.geotab.call === 'function') {
+                        resolve(window.geotab);
+                        return;
+                    }
+                    
+                    if (window.api && typeof window.api.call === 'function') {
+                        resolve(window.api);
+                        return;
+                    }
+                    
+                    // Check timeout
+                    if (Date.now() - startTime > timeout) {
+                        reject(new Error('Geotab API not available after timeout'));
+                        return;
+                    }
+                    
+                    // Try again in 100ms
+                    setTimeout(checkAPI, 100);
+                }
+                
+                checkAPI();
+            });
+        }
+
+        // Handle Geotab menu/loading errors
+        function handleGeotabMenuError(error) {
+            console.error('Geotab menu error:', error);
+            
+            // Show error banner
+            document.getElementById('geotabBanner').innerHTML = `
+                <span>⚠️</span>
+                <div>
+                    <strong>Geotab Add-In Loading Issue</strong><br>
+                    <small>${error.message || 'Unable to connect to Geotab API'}</small>
+                </div>
+            `;
+            document.getElementById('geotabBanner').style.background = 'linear-gradient(135deg, #f56565, #e53e3e)';
+            document.getElementById('geotabBanner').style.display = 'flex';
+            
+            // Show fallback options
+            showGeotabErrorFallback();
+        }
+
+        // Show fallback options when Geotab menu has issues
+        function showGeotabErrorFallback() {
+            const fallbackHtml = `
+                <div class="card" style="border: 2px solid #f56565;">
+                    <h3 style="color: #e53e3e;">⚠️ Geotab Add-In Error - Fallback Options</h3>
+                    
+                    <div style="background: #fed7d7; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4>🔧 Troubleshooting Steps:</h4>
+                        <ol>
+                            <li><strong>Refresh the page</strong> - Simple reload often fixes loading issues</li>
+                            <li><strong>Check Add-In permissions</strong> - Ensure the Add-In has proper access</li>
+                            <li><strong>Try different browser</strong> - Some browsers have stricter security</li>
+                            <li><strong>Contact administrator</strong> - Add-In may need reinstallation</li>
+                        </ol>
+                    </div>
+                    
+                    <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4>🌐 Fallback: Use Standalone Mode</h4>
+                        <p>If the Add-In continues to have issues, you can use this tool in standalone mode:</p>
+                        <button onclick="enableStandaloneMode()" class="btn btn-primary">
+                            🔄 Switch to Standalone Mode
+                        </button>
+                    </div>
+                    
+                    <div style="background: #d1ecf1; padding: 15px; border-radius: 8px;">
+                        <h4>📧 Need Help?</h4>
+                        <p>Contact: <strong>francis@directt.co.nz</strong></p>
+                        <p>Include this error info: <code>${navigator.userAgent}</code></p>
+                    </div>
+                </div>
+            `;
+            
+            // Insert after the header
+            const header = document.querySelector('.header');
+            const fallbackDiv = document.createElement('div');
+            fallbackDiv.innerHTML = fallbackHtml;
+            header.parentNode.insertBefore(fallbackDiv, header.nextSibling);
+        }
+
+        // Enable standalone mode as fallback
+        function enableStandaloneMode() {
+            console.log('🔄 Switching to standalone mode...');
+            isGeotabAddIn = false;
+            credentials = null;
+            
+            // Show auth section and hide Geotab banner
+            document.getElementById('authSection').style.display = 'block';
+            document.getElementById('geotabBanner').style.display = 'none';
+            document.body.classList.add('standalone-mode');
+            
+            showStatus('authStatus', 
+                'ℹ️ Switched to standalone mode. Please enter your Geotab credentials below.', 
+                'info');
+        }
+
+        // Status display function
+        function showStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.className = `status ${type}`;
+            element.innerHTML = message;
+            element.style.display = 'block';
+        }
+
+        // Progress bar functions
+        function showProgress(percent, text) {
+            document.getElementById('progressContainer').style.display = 'block';
+            document.getElementById('progressBar').style.width = percent + '%';
+            document.getElementById('progressText').textContent = text;
+        }
+
+        function hideProgress() {
+            document.getElementById('progressContainer').style.display = 'none';
+        }
+
+        // Enhanced API call function for both Add-In and standalone modes
+        async function callGeotabAPI(method, params = {}) {
+            // If inside Geotab Add-In, use internal API
+            if (isGeotabAddIn) {
+                if (window.geotab && typeof window.geotab.call === 'function') {
+                    console.log(`🔗 Using Geotab Add-In API: ${method}`);
+                    return new Promise((resolve, reject) => {
+                        window.geotab.call(method, params, resolve, reject);
+                    });
+                } else if (window.api && typeof window.api.call === 'function') {
+                    console.log(`🔗 Using window.api: ${method}`);
+                    return new Promise((resolve, reject) => {
+                        window.api.call(method, params, resolve, reject);
+                    });
+                }
+            }
+            
+            // Fallback to external API for standalone mode
+            console.log(`🌐 Using external API: ${method}`);
+            const requestBody = {
+                method: method,
+                params: credentials ? { ...params, credentials: credentials } : params
+            };
+
+            const response = await fetch(`https://${document.getElementById('server').value}/apiv1`, {
+                method: "POST",
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error.message || data.error.name);
+            }
+            
+            return data.result;
+        }
+
+        // Authentication (only for standalone mode)
+        async function authenticateGeotab() {
+            const server = document.getElementById('server').value.trim();
+            const database = document.getElementById('database').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!server || !database || !username || !password) {
+                showStatus('authStatus', 'Please fill in all authentication fields', 'error');
+                return;
+            }
+
+            document.getElementById('authBtn').disabled = true;
+            showStatus('authStatus', 'Connecting to Geotab...', 'info');
+
+            try {
+                const result = await callGeotabAPI('Authenticate', {
+                    userName: username,
+                    password: password,
+                    database: database
+                });
+
+                credentials = result.credentials;
+                showStatus('authStatus', '✅ Successfully connected to Geotab!', 'success');
+                document.getElementById('authBtn').textContent = 'Connected ✅';
+
+            } catch (error) {
+                showStatus('authStatus', '❌ Failed to connect: ' + error.message, 'error');
+                document.getElementById('authBtn').disabled = false;
+            }
+        }
+
+        // Load CSV file
+        function loadCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            showStatus('csvStatus', 'Reading CSV file...', 'info');
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    parseCSV(e.target.result);
+                } catch (error) {
+                    showStatus('csvStatus', 'Error reading file: ' + error.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Parse CSV data - UPDATED for new format with emails
+        function parseCSV(csvText) {
+            const lines = csvText.split('\n');
+            csvData = [];
+            
+            // Skip the first 2 lines (headers) and parse the data
+            for (let i = 2; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (line) {
+                    const cols = parseCSVLine(line);
+                    if (cols.length >= 6 && cols[0]) {
+                        csvData.push({
+                            fleetNumber: parseInt(cols[0]) || cols[0],
+                            huboPaidTo: cols[1] ? cols[1].replace(/[",]/g, '') : '',
+                            huboOdoReading: cols[2] ? cols[2].replace(/[",]/g, '') : '',
+                            distanceRemaining: cols[3] || '',
+                            driverName: cols[4] ? cols[4].trim() : '',
+                            driverEmail: cols[5] ? cols[5].trim() : '',
+                            rucAdminEmail: cols[6] ? cols[6].trim() : '',
+                            currentOdometer: null,
+                            calculatedDistance: null,
+                            geotabDeviceId: null
+                        });
+                    }
+                }
+            }
+
+            if (csvData.length > 0) {
+                showStatus('csvStatus', `✅ Successfully loaded ${csvData.length} RUC records with driver emails`, 'success');
+                document.getElementById('deviceSection').style.display = 'block';
+            } else {
+                showStatus('csvStatus', 'No valid data found in CSV file', 'error');
+            }
+        }
+
+        // Simple CSV line parser
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim());
+            return result;
+        }
+
+        // Get Geotab devices
+        async function getGeotabDevices() {
+            if (!isGeotabAddIn && !credentials) {
+                showStatus('deviceStatus', 'Please authenticate first', 'error');
+                return;
+            }
+
+            document.getElementById('devicesBtn').disabled = true;
+            showStatus('deviceStatus', 'Fetching all fleet devices...', 'info');
+
+            try {
+                geotabDevices = await callGeotabAPI('Get', {
+                    typeName: 'Device',
+                    resultsLimit: 1000
+                });
+
+                showStatus('deviceStatus', `✅ Found ${geotabDevices.length} fleet devices`, 'success');
+                createDeviceMapping();
+
+            } catch (error) {
+                showStatus('deviceStatus', '❌ Failed to get devices: ' + error.message, 'error');
+                document.getElementById('devicesBtn').disabled = false;
+            }
+        }
+
+        // Create device mapping interface
+        function createDeviceMapping() {
+            let html = `
+                <div class="device-mapping">
+                    <h4>🔗 Map Fleet Numbers to Geotab Devices</h4>
+                    <p>Match each fleet number from your CSV to the corresponding Geotab device:</p>
+            `;
+
+            csvData.forEach((row, index) => {
+                html += `
+                    <div class="mapping-row">
+                        <span style="min-width: 100px;"><strong>Fleet ${row.fleetNumber}:</strong></span>
+                        <select id="device_${index}" onchange="updateMapping(${index}, this.value)">
+                            <option value="">Select Geotab Device...</option>
+                `;
+
+                geotabDevices.forEach(device => {
+                    const deviceName = device.name || `Device ${device.id}`;
+                    const selected = deviceName.includes(row.fleetNumber) ? 'selected' : '';
+                    html += `<option value="${device.id}" ${selected}>${deviceName} (${device.id})</option>`;
+                });
+
+                html += `
+                        </select>
+                    </div>
+                `;
+            });
+
+            html += `
+                    <button onclick="validateMapping()" class="btn btn-primary" style="margin-top: 15px;">✅ Validate Mapping</button>
+                </div>
+            `;
+
+            document.getElementById('deviceMapping').innerHTML = html;
+
+            // Auto-match where possible
+            csvData.forEach((row, index) => {
+                const matchingDevice = geotabDevices.find(device => 
+                    device.name && device.name.includes(row.fleetNumber.toString())
+                );
+                if (matchingDevice) {
+                    deviceMapping[index] = matchingDevice.id;
+                    row.geotabDeviceId = matchingDevice.id;
+                }
+            });
+        }
+
+        // Update device mapping
+        function updateMapping(csvIndex, deviceId) {
+            if (deviceId) {
+                deviceMapping[csvIndex] = deviceId;
+                csvData[csvIndex].geotabDeviceId = deviceId;
+            } else {
+                delete deviceMapping[csvIndex];
+                csvData[csvIndex].geotabDeviceId = null;
+            }
+        }
+
+        // Validate mapping
+        function validateMapping() {
+            const mapped = Object.keys(deviceMapping).length;
+            const total = csvData.length;
+
+            if (mapped === 0) {
+                showStatus('deviceStatus', 'Please map at least one device', 'error');
+                return;
+            }
+
+            showStatus('deviceStatus', `✅ Mapped ${mapped} of ${total} fleet vehicles`, 'success');
+            document.getElementById('updateSection').style.display = 'block';
+        }
+
+        // Update distances with real odometer data
+        async function updateDistancesFromGeotab() {
+            if (!isGeotabAddIn && !credentials) {
+                showStatus('updateStatus', 'Please authenticate first', 'error');
+                return;
+            }
+
+            const mappedDevices = csvData.filter(row => row.geotabDeviceId);
+            if (mappedDevices.length === 0) {
+                showStatus('updateStatus', 'No devices mapped. Please map devices first.', 'error');
+                return;
+            }
+
+            document.getElementById('updateBtn').disabled = true;
+            showStatus('updateStatus', 'Fetching real odometer readings from Geotab...', 'info');
+
+            try {
+                // Build API calls for ExecuteMultiCall
+                const calls = [];
+                const now = new Date().toISOString();
+
+                mappedDevices.forEach(row => {
+                    calls.push({
+                        method: 'Get',
+                        params: {
+                            typeName: 'StatusData',
+                            search: {
+                                deviceSearch: { id: row.geotabDeviceId },
+                                diagnosticSearch: { id: 'DiagnosticOdometerAdjustmentId' },
+                                fromDate: now,
+                                toDate: now
+                            },
+                            resultsLimit: 1
+                        }
+                    });
+                });
+
+                showProgress(25, 'Executing odometer API calls...');
+
+                // Execute all calls at once
+                const results = await callGeotabAPI('ExecuteMultiCall', { calls: calls });
+
+                showProgress(75, 'Converting meters to kilometers and calculating distances...');
+
+                // Process results
+                let successCount = 0;
+                mappedDevices.forEach((row, index) => {
+                    const odometerData = results[index];
+                    if (odometerData && odometerData.length > 0 && odometerData[0].data !== undefined) {
+                        // Geotab odometer is in METERS - convert to kilometers
+                        const odometerMeters = odometerData[0].data;
+                        const odometerKilometers = odometerMeters / 1000;
+                        row.currentOdometer = Math.round(odometerKilometers); // Round to nearest km
+                        
+                        // Calculate distance remaining: Hubo Paid To - Current Odometer (in km)
+                        const huboPaidKm = parseInt(row.huboPaidTo.replace(/,/g, '')) || 0;
+                        row.calculatedDistance = Math.max(0, huboPaidKm - row.currentOdometer);
+                        successCount++;
+                    } else {
+                        row.currentOdometer = 'No data';
+                        row.calculatedDistance = 'Unable to calculate';
+                    }
+                });
+
+                hideProgress();
+                showStatus('updateStatus', 
+                    `✅ Successfully updated ${successCount} of ${mappedDevices.length} vehicles!<br>
+                    <small>Geotab odometer readings converted from meters to kilometers for accurate RUC calculation.</small>`, 
+                    'success');
+
+                displayUpdatedData();
+                document.getElementById('downloadSection').style.display = 'block';
+
+            } catch (error) {
+                hideProgress();
+                showStatus('updateStatus', '❌ Error fetching odometer data: ' + error.message, 'error');
+                document.getElementById('updateBtn').disabled = false;
+            }
+        }
+
+        // Display updated data with simple button-based editing (more reliable)
+        function displayUpdatedData() {
+            let html = `
+                <h4>📊 Updated RUC Data</h4>
+                <p><strong>Note:</strong> Geotab odometer readings converted from meters to kilometers for RUC calculation</p>
+                <p><strong>✏️ Manual Override:</strong> Click the "Edit" buttons to modify values</p>
+                
+                <div style="margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <button onclick="recalculateAll()" class="btn btn-success" id="recalcAllBtn">🔄 Recalculate All</button>
+                    <button onclick="resetToOriginal()" class="btn" style="background: #f56565; color: white;" id="resetBtn">↩️ Reset to Original</button>
+                    <button onclick="testRecalculate()" class="btn" style="background: #805ad5; color: white;" id="testRecalcBtn">🧪 Test Recalculate</button>
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fleet #</th>
+                            <th>Hubo Paid To (km)</th>
+                            <th>Edit</th>
+                            <th>Hubo/Odo Reading (km)</th>
+                            <th>Edit</th>
+                            <th>Current Odometer (km)</th>
+                            <th>Distance Remaining (km)</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            csvData.forEach((row, index) => {
+                const statusClass = row.calculatedDistance !== null && typeof row.calculatedDistance === 'number' ? 'updated' : '';
+                const status = row.geotabDeviceId ? 
+                    (typeof row.calculatedDistance === 'number' ? '✅ Updated' : '⚠️ No data') : 
+                    '⏸️ Not mapped';
+
+                // Store original values if not already stored
+                if (!row.originalHuboPaidTo) {
+                    row.originalHuboPaidTo = row.huboPaidTo;
+                    row.originalHuboOdoReading = row.huboOdoReading;
+                }
+
+                html += `
+                    <tr class="${statusClass}">
+                        <td>${row.fleetNumber}</td>
+                        <td id="huboPaidTo_${index}" style="padding: 8px; min-width: 100px;">${row.huboPaidTo}</td>
+                        <td>
+                            <button onclick="editField(${index}, 'huboPaidTo')" class="btn" 
+                                    style="background: #667eea; color: white; padding: 4px 8px; font-size: 12px;">
+                                ✏️ Edit
+                            </button>
+                        </td>
+                        <td id="huboOdoReading_${index}" style="padding: 8px; min-width: 100px;">${row.huboOdoReading}</td>
+                        <td>
+                            <button onclick="editField(${index}, 'huboOdoReading')" class="btn" 
+                                    style="background: #667eea; color: white; padding: 4px 8px; font-size: 12px;">
+                                ✏️ Edit
+                            </button>
+                        </td>
+                        <td>${row.currentOdometer || 'Not fetched'}</td>
+                        <td id="distance_${index}">${row.calculatedDistance !== null ? row.calculatedDistance : row.distanceRemaining}</td>
+                        <td>${status}</td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            document.getElementById('tableContainer').innerHTML = html;
+        }
+
+        // Simple edit field function using prompt (guaranteed to work)
+        function editField(rowIndex, field) {
+            console.log(`editField called: rowIndex=${rowIndex}, field=${field}`);
+            
+            if (rowIndex >= csvData.length) {
+                alert(`Error: Invalid row index ${rowIndex}`);
+                return;
+            }
+
+            const currentValue = csvData[rowIndex][field];
+            const fieldName = field === 'huboPaidTo' ? 'Hubo Paid To' : 'Hubo/Odo Reading';
+            const fleetNumber = csvData[rowIndex].fleetNumber;
+            
+            // Use prompt for simple, reliable input
+            const newValue = prompt(`Edit ${fieldName} for Fleet ${fleetNumber}:\n(Current value: ${currentValue})`, currentValue);
+            
+            if (newValue !== null && newValue.trim() !== '' && newValue !== currentValue) {
+                // Update the data
+                csvData[rowIndex][field] = newValue.trim();
+                
+                // Update the display
+                const cellElement = document.getElementById(`${field}_${rowIndex}`);
+                if (cellElement) {
+                    cellElement.textContent = newValue.trim();
+                    cellElement.style.background = '#d4edda'; // Green to show it was changed
+                    cellElement.style.border = '2px solid #48bb78';
+                    cellElement.style.fontWeight = 'bold';
+                }
+                
+                // Auto-recalculate this row
+                recalculateRow(rowIndex);
+                
+                showStatus('updateStatus', `✅ Updated ${fieldName} for Fleet ${fleetNumber} from "${currentValue}" to "${newValue.trim()}"`, 'success');
+            } else if (newValue === '') {
+                alert('Value cannot be empty. Edit cancelled.');
+            }
+        }
+
+        // Toggle edit mode function (simplified since we're using buttons now)
+        function toggleEditMode() {
+            // This function is kept for compatibility but edit mode is always on with buttons
+            showStatus('updateStatus', 'ℹ️ Edit mode is always available with the Edit buttons. Click any "Edit" button to modify values.', 'info');
+        }
+
+        // Start editing a cell - IMPROVED VERSION
+        function startEdit(rowIndex, field) {
+            if (!editModeEnabled) {
+                showStatus('updateStatus', '⚠️ Please enable edit mode first by clicking "Enable Edit Mode"', 'error');
+                return;
+            }
+
+            const cellId = `${field}_${rowIndex}`;
+            const cell = document.getElementById(cellId);
+            
+            // Prevent multiple edits on the same cell
+            if (cell.querySelector('input')) {
+                return;
+            }
+            
+            const currentValue = cell.textContent.trim();
+            
+            // Create input field with better styling and events
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentValue;
+            input.className = 'edit-input';
+            input.style.cssText = `
+                width: 100% !important;
+                padding: 8px !important;
+                border: 3px solid #667eea !important;
+                border-radius: 4px !important;
+                font-size: 14px !important;
+                background: white !important;
+                box-sizing: border-box !important;
+                margin: 0 !important;
+                outline: none !important;
+                z-index: 1000 !important;
+                position: relative !important;
+            `;
+            
+            // Store original cell content and styling
+            const originalContent = cell.innerHTML;
+            const originalStyle = cell.style.cssText;
+            
+            // Replace cell content with input
+            cell.innerHTML = '';
+            cell.style.padding = '0';
+            cell.appendChild(input);
+            
+            // Focus and select all text
+            setTimeout(() => {
+                input.focus();
+                input.select();
+            }, 10);
+            
+            // Save function
+            function saveEdit() {
+                const newValue = input.value.trim();
+                
+                if (newValue && newValue !== currentValue) {
+                    // Update the data
+                    csvData[rowIndex][field] = newValue;
+                    
+                    // Update display with new value
+                    cell.innerHTML = newValue;
+                    cell.style.cssText = originalStyle;
+                    cell.style.background = '#d4edda';
+                    cell.style.border = '2px solid #48bb78';
+                    
+                    // Auto-recalculate this row
+                    recalculateRow(rowIndex);
+                    
+                    showStatus('updateStatus', `✅ Updated ${field.replace(/([A-Z])/g, ' $1')} for Fleet ${csvData[rowIndex].fleetNumber}`, 'success');
+                } else {
+                    // Restore original content
+                    cell.innerHTML = originalContent;
+                    cell.style.cssText = originalStyle;
+                    
+                    if (editModeEnabled) {
+                        cell.style.background = '#fff3cd';
+                        cell.style.border = '2px dashed #d69e2e';
+                    }
+                }
+                
+                // Re-enable double-click
+                cell.ondblclick = () => startEdit(rowIndex, field);
+            }
+            
+            // Cancel function
+            function cancelEdit() {
+                cell.innerHTML = originalContent;
+                cell.style.cssText = originalStyle;
+                
+                if (editModeEnabled) {
+                    cell.style.background = '#fff3cd';
+                    cell.style.border = '2px dashed #d69e2e';
+                }
+                
+                // Re-enable double-click
+                cell.ondblclick = () => startEdit(rowIndex, field);
+            }
+            
+            // Event handlers
+            input.addEventListener('keydown', function(e) {
+                e.stopPropagation();
+                
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveEdit();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cancelEdit();
+                }
+            });
+            
+            input.addEventListener('keypress', function(e) {
+                e.stopPropagation();
+            });
+            
+            input.addEventListener('keyup', function(e) {
+                e.stopPropagation();
+            });
+            
+            // Save when clicking outside (with delay to prevent immediate trigger)
+            let saveTimeout;
+            input.addEventListener('blur', function(e) {
+                saveTimeout = setTimeout(() => {
+                    if (document.activeElement !== input) {
+                        saveEdit();
+                    }
+                }, 150);
+            });
+            
+            input.addEventListener('focus', function() {
+                if (saveTimeout) {
+                    clearTimeout(saveTimeout);
+                }
+            });
+            
+            // Prevent cell click from interfering
+            cell.ondblclick = null;
+        }
+
+        // Test recalculate function for debugging
+        function testRecalculate() {
+            console.log('🧪 Testing recalculate function');
+            console.log('csvData length:', csvData ? csvData.length : 'csvData is null/undefined');
+            console.log('csvData sample:', csvData ? csvData[0] : 'No data');
+            
+            if (!csvData || csvData.length === 0) {
+                alert('No CSV data found! Please load CSV and get device data first.');
+                return;
+            }
+            
+            alert(`Found ${csvData.length} rows of data. Now testing recalculation...`);
+            recalculateAll();
+        }
+
+        // Recalculate all distances - FIXED to respect manual edits
+        function recalculateAll() {
+            console.log('🔄 recalculateAll() called');
+            
+            try {
+                if (!csvData || csvData.length === 0) {
+                    console.error('No csvData available');
+                    showStatus('updateStatus', '⚠️ No data available to recalculate. Please load CSV data first.', 'error');
+                    return;
+                }
+
+                console.log(`Processing ${csvData.length} rows for recalculation`);
+                let updatedCount = 0;
+                let geotabCount = 0;
+                let manualEditCount = 0;
+                let csvFallbackCount = 0;
+                let errorCount = 0;
+                
+                csvData.forEach((row, index) => {
+                    try {
+                        console.log(`Processing row ${index}: Fleet ${row.fleetNumber}`);
+                        
+                        const oldDistance = row.calculatedDistance;
+                        
+                        // Clean and parse Hubo Paid To value
+                        const huboPaidStr = String(row.huboPaidTo || '0').replace(/[,\s]/g, '');
+                        const huboPaidKm = parseInt(huboPaidStr) || 0;
+                        
+                        console.log(`Row ${index}: Hubo Paid To = ${huboPaidKm}`);
+                        
+                        // Check if huboOdoReading was manually edited
+                        const currentHuboReading = String(row.huboOdoReading || '0').replace(/[,\s]/g, '');
+                        const originalHuboReading = String(row.originalHuboOdoReading || '0').replace(/[,\s]/g, '');
+                        const wasHuboManuallyEdited = currentHuboReading !== originalHuboReading;
+                        
+                        let newDistance;
+                        let dataSource;
+                        
+                        if (wasHuboManuallyEdited) {
+                            // PRIORITY 1: Use manually edited huboOdoReading
+                            const huboReading = parseInt(currentHuboReading) || 0;
+                            newDistance = Math.max(0, huboPaidKm - huboReading);
+                            dataSource = `Manual Edit (${huboReading} km)`;
+                            manualEditCount++;
+                            console.log(`Row ${index}: Using MANUAL EDIT ${huboReading}, distance = ${newDistance}`);
+                        } else if (row.currentOdometer && typeof row.currentOdometer === 'number' && row.currentOdometer > 0) {
+                            // PRIORITY 2: Use current Geotab odometer if available and no manual edit
+                            newDistance = Math.max(0, huboPaidKm - row.currentOdometer);
+                            dataSource = `Geotab API (${row.currentOdometer} km)`;
+                            geotabCount++;
+                            console.log(`Row ${index}: Using Geotab odometer ${row.currentOdometer}, distance = ${newDistance}`);
+                        } else {
+                            // PRIORITY 3: Fallback to original CSV reading
+                            const huboReading = parseInt(currentHuboReading) || 0;
+                            newDistance = Math.max(0, huboPaidKm - huboReading);
+                            dataSource = `CSV Fallback (${huboReading} km)`;
+                            csvFallbackCount++;
+                            console.log(`Row ${index}: Using CSV reading ${huboReading}, distance = ${newDistance}`);
+                        }
+                        
+                        // Update the data
+                        row.calculatedDistance = newDistance;
+                        row.dataSource = dataSource; // Track what data was used
+                        
+                        // Update the distance cell in the table
+                        const distanceCell = document.getElementById(`distance_${index}`);
+                        if (distanceCell) {
+                            distanceCell.textContent = newDistance;
+                            
+                            // Color-code based on data source
+                            if (wasHuboManuallyEdited) {
+                                distanceCell.style.background = '#e2f8f5'; // Teal for manual edits
+                                distanceCell.style.border = '2px solid #48bb78';
+                                distanceCell.title = `Manual Edit: ${dataSource}`;
+                            } else if (row.currentOdometer) {
+                                distanceCell.style.background = '#d4edda'; // Green for Geotab
+                                distanceCell.style.border = '2px solid #38a169';
+                                distanceCell.title = `Geotab Data: ${dataSource}`;
+                            } else {
+                                distanceCell.style.background = '#fff3cd'; // Yellow for CSV fallback
+                                distanceCell.style.border = '2px solid #d69e2e';
+                                distanceCell.title = `CSV Data: ${dataSource}`;
+                            }
+                            
+                            distanceCell.style.fontWeight = 'bold';
+                            console.log(`Updated cell distance_${index} with value ${newDistance} from ${dataSource}`);
+                        } else {
+                            console.warn(`Could not find distance cell: distance_${index}`);
+                        }
+                        
+                        if (oldDistance !== newDistance) {
+                            updatedCount++;
+                        }
+                        
+                    } catch (rowError) {
+                        console.error(`Error processing row ${index}:`, rowError);
+                        errorCount++;
+                    }
+                });
+                
+                const message = `✅ Recalculation complete! 
+                    <br>• Total rows: ${csvData.length}
+                    <br>• Values changed: ${updatedCount}
+                    <br>• <span style="color: #48bb78;">Manual edits: ${manualEditCount}</span>
+                    <br>• <span style="color: #38a169;">Geotab data: ${geotabCount}</span>
+                    <br>• <span style="color: #d69e2e;">CSV fallback: ${csvFallbackCount}</span>
+                    ${errorCount > 0 ? `<br>• Errors: ${errorCount}` : ''}
+                    <br><small>💡 Hover over distance values to see data source</small>`;
+                
+                showStatus('updateStatus', message, 'success');
+                console.log(`Recalculation complete: ${updatedCount} changed, ${manualEditCount} manual, ${geotabCount} Geotab, ${csvFallbackCount} CSV, ${errorCount} errors`);
+                
+            } catch (error) {
+                console.error('Error in recalculateAll:', error);
+                showStatus('updateStatus', `❌ Error during recalculation: ${error.message}`, 'error');
+            }
+        }
+
+        // Recalculate distance for a specific row - FIXED to respect manual edits
+        function recalculateRow(rowIndex) {
+            try {
+                if (rowIndex >= csvData.length || rowIndex < 0) {
+                    console.error(`Invalid row index for recalculation: ${rowIndex}`);
+                    return;
+                }
+
+                console.log(`Recalculating single row ${rowIndex}`);
+                const row = csvData[rowIndex];
+                
+                // Clean and parse values
+                const huboPaidStr = String(row.huboPaidTo || '0').replace(/[,\s]/g, '');
+                const huboPaidKm = parseInt(huboPaidStr) || 0;
+                
+                // Check if huboOdoReading was manually edited
+                const currentHuboReading = String(row.huboOdoReading || '0').replace(/[,\s]/g, '');
+                const originalHuboReading = String(row.originalHuboOdoReading || '0').replace(/[,\s]/g, '');
+                const wasHuboManuallyEdited = currentHuboReading !== originalHuboReading;
+                
+                let newDistance;
+                if (wasHuboManuallyEdited) {
+                    // Use manually edited huboOdoReading
+                    const huboReading = parseInt(currentHuboReading) || 0;
+                    newDistance = Math.max(0, huboPaidKm - huboReading);
+                    console.log(`Row ${rowIndex}: Using MANUAL EDIT ${huboReading}`);
+                } else if (row.currentOdometer && typeof row.currentOdometer === 'number' && row.currentOdometer > 0) {
+                    // Use Geotab odometer
+                    newDistance = Math.max(0, huboPaidKm - row.currentOdometer);
+                    console.log(`Row ${rowIndex}: Using Geotab ${row.currentOdometer}`);
+                } else {
+                    // Use original CSV reading
+                    const huboReading = parseInt(currentHuboReading) || 0;
+                    newDistance = Math.max(0, huboPaidKm - huboReading);
+                    console.log(`Row ${rowIndex}: Using CSV ${huboReading}`);
+                }
+                
+                row.calculatedDistance = newDistance;
+                
+                // Update the distance cell with appropriate color
+                const distanceCell = document.getElementById(`distance_${rowIndex}`);
+                if (distanceCell) {
+                    distanceCell.textContent = newDistance;
+                    
+                    if (wasHuboManuallyEdited) {
+                        distanceCell.style.background = '#e2f8f5'; // Teal for manual
+                        distanceCell.style.border = '2px solid #48bb78';
+                    } else {
+                        distanceCell.style.background = '#d4edda'; // Green for auto
+                        distanceCell.style.border = '2px solid #38a169';
+                    }
+                    distanceCell.style.fontWeight = 'bold';
+                }
+                
+                console.log(`Recalculated row ${rowIndex}: Fleet ${row.fleetNumber}, Distance: ${newDistance}`);
+                
+            } catch (error) {
+                console.error(`Error recalculating row ${rowIndex}:`, error);
+            }
+        }
+
+        // Test edit function for debugging
+        function testEdit() {
+            if (csvData.length === 0) {
+                showStatus('updateStatus', '⚠️ Please load CSV data first', 'error');
+                return;
+            }
+            
+            if (!editModeEnabled) {
+                editModeEnabled = true;
+                toggleEditMode(); // This will enable edit mode
+            }
+            
+            // Try to edit the first row automatically
+            showStatus('updateStatus', '🧪 Testing edit on first row - an input field should appear', 'info');
+            setTimeout(() => {
+                startEdit(0, 'huboPaidTo');
+            }, 500);
+        }
+
+        // Check for RUC licenses due soon
+        function checkRUCDue() {
+            const threshold = parseInt(document.getElementById('alertThreshold').value) || 200;
+            
+            if (!csvData || csvData.length === 0) {
+                showStatus('emailStatus', '⚠️ No data available. Please complete the odometer update process first.', 'error');
+                return;
+            }
+
+            // Find vehicles with RUC due soon
+            const dueVehicles = [];
+            csvData.forEach((row, index) => {
+                const distanceRemaining = row.calculatedDistance !== null ? row.calculatedDistance : 
+                    (row.distanceRemaining && row.distanceRemaining !== '' ? parseInt(row.distanceRemaining) : null);
+                
+                if (distanceRemaining !== null && typeof distanceRemaining === 'number' && distanceRemaining <= threshold) {
+                    dueVehicles.push({
+                        ...row,
+                        distanceRemaining: distanceRemaining,
+                        urgency: distanceRemaining <= 50 ? 'URGENT' : distanceRemaining <= 200 ? 'DUE SOON' : 'WARNING'
+                    });
+                }
+            });
+
+            // Sort by urgency (lowest distance first)
+            dueVehicles.sort((a, b) => a.distanceRemaining - b.distanceRemaining);
+
+            if (dueVehicles.length === 0) {
+                showStatus('emailStatus', `✅ Great news! No vehicles have RUC due within ${threshold}km`, 'success');
+                document.getElementById('dueVehiclesList').innerHTML = '';
+                document.getElementById('sendEmailBtn').style.display = 'none';
+                return;
+            }
+
+            // Display due vehicles
+            showStatus('emailStatus', `⚠️ Found ${dueVehicles.length} vehicles with RUC due within ${threshold}km`, 'error');
+            
+            let html = `
+                <div style="background: #fed7d7; padding: 15px; border-radius: 8px; margin-top: 15px;">
+                    <h4 style="color: #c53030;">🚨 Vehicles Requiring RUC Renewal</h4>
+                    <table style="width: 100%; margin-top: 10px;">
+                        <thead>
+                            <tr style="background: #c53030; color: white;">
+                                <th>Fleet #</th>
+                                <th>Driver</th>
+                                <th>Distance Remaining</th>
+                                <th>Urgency</th>
+                                <th>Driver Email</th>
+                                <th>RUC Admin</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            dueVehicles.forEach(vehicle => {
+                const urgencyColor = vehicle.urgency === 'URGENT' ? '#c53030' : 
+                                   vehicle.urgency === 'DUE SOON' ? '#d69e2e' : '#38a169';
+                
+                html += `
+                    <tr style="background: white;">
+                        <td><strong>${vehicle.fleetNumber}</strong></td>
+                        <td>${vehicle.driverName || 'No Driver'}</td>
+                        <td><strong>${vehicle.distanceRemaining}km</strong></td>
+                        <td style="color: ${urgencyColor}; font-weight: bold;">${vehicle.urgency}</td>
+                        <td><small>${vehicle.driverEmail || 'No email'}</small></td>
+                        <td><small>${vehicle.rucAdminEmail || 'No email'}</small></td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            document.getElementById('dueVehiclesList').innerHTML = html;
+            document.getElementById('sendEmailBtn').style.display = 'inline-flex';
+            
+            // Store due vehicles for email function
+            window.dueVehicles = dueVehicles;
+        }
+
+        // Send RUC email notifications
+        function sendRUCEmails() {
+            if (!window.dueVehicles || window.dueVehicles.length === 0) {
+                showStatus('emailStatus', '⚠️ No vehicles found that need RUC renewal alerts', 'error');
+                return;
+            }
+
+            // Create email modal
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.7);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+
+            // Group vehicles by email address to avoid duplicate emails
+            const emailGroups = {};
+            window.dueVehicles.forEach(vehicle => {
+                if (vehicle.driverEmail) {
+                    if (!emailGroups[vehicle.driverEmail]) {
+                        emailGroups[vehicle.driverEmail] = {
+                            email: vehicle.driverEmail,
+                            rucAdmin: vehicle.rucAdminEmail,
+                            vehicles: []
+                        };
+                    }
+                    emailGroups[vehicle.driverEmail].vehicles.push(vehicle);
+                }
+            });
+
+            let emailContent = '';
+            let mailtoLinks = [];
+            
+            // Generate individual emails for each driver
+            Object.values(emailGroups).forEach(group => {
+                const subject = `🚨 RUC License Renewal Required - ${group.vehicles.length} Vehicle(s)`;
+                
+                let vehicleList = '';
+                group.vehicles.forEach(vehicle => {
+                    vehicleList += `• Fleet ${vehicle.fleetNumber}: ${vehicle.distanceRemaining}km remaining (${vehicle.urgency})\n`;
+                });
+
+                const emailBody = `Dear ${group.vehicles[0].driverName || 'Driver'},
+
+This is an automated notification that your RUC (Road User Charge) license requires renewal for the following vehicle(s):
+
+${vehicleList}
+
+Please arrange for RUC renewal as soon as possible to avoid penalties.
+
+For assistance, contact the RUC Admin: ${group.rucAdmin}
+
+Best regards,
+Fleet Management System`;
+
+                const mailtoLink = `mailto:${group.email}?cc=${group.rucAdmin}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(emailBody)}`;
+                mailtoLinks.push({
+                    driver: group.vehicles[0].driverName,
+                    email: group.email,
+                    link: mailtoLink,
+                    vehicles: group.vehicles.length
+                });
+            });
+
+            // Create modal content
+            modal.innerHTML = `
+                <div style="background: white; padding: 30px; border-radius: 15px; max-width: 800px; max-height: 80vh; overflow-y: auto;">
+                    <h3 style="color: #c53030; margin-bottom: 20px;">📧 Send RUC Renewal Notifications</h3>
+                    
+                    <p style="margin-bottom: 20px;">Ready to send email alerts to <strong>${mailtoLinks.length} drivers</strong> for <strong>${window.dueVehicles.length} vehicles</strong> with RUC due soon.</p>
+                    
+                    <div style="background: #f7fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4>📋 Email Summary:</h4>
+                        ${mailtoLinks.map(link => `
+                            <div style="margin: 10px 0; padding: 10px; background: white; border-radius: 5px;">
+                                <strong>${link.driver}</strong> (${link.email})<br>
+                                <small>${link.vehicles} vehicle(s) requiring RUC renewal</small>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <h4>🚀 Send Options:</h4>
+                        <button onclick="sendAllEmails()" class="btn btn-success" style="margin: 5px;">
+                            📧 Open All Emails in Mail Client
+                        </button>
+                        <button onclick="copyEmailList()" class="btn btn-primary" style="margin: 5px;">
+                            📋 Copy Email Addresses
+                        </button>
+                        <button onclick="downloadEmailReport()" class="btn" style="background: #805ad5; color: white; margin: 5px;">
+                            📄 Download Email Report
+                        </button>
+                    </div>
+                    
+                    <div style="text-align: right;">
+                        <button onclick="this.closest('div').parentElement.remove()" class="btn" style="background: #666; color: white;">
+                            ❌ Close
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // Store mailto links globally for the modal functions
+            window.currentMailtoLinks = mailtoLinks;
+        }
+
+        // Send all emails by opening mailto links
+        function sendAllEmails() {
+            if (!window.currentMailtoLinks) return;
+            
+            let delay = 0;
+            window.currentMailtoLinks.forEach(link => {
+                setTimeout(() => {
+                    window.open(link.link);
+                }, delay);
+                delay += 1000; // 1 second delay between each email
+            });
+            
+            showStatus('emailStatus', `✅ Opening ${window.currentMailtoLinks.length} email drafts in your mail client...`, 'success');
+        }
+
+        // Copy all email addresses to clipboard
+        function copyEmailList() {
+            if (!window.currentMailtoLinks) return;
+            
+            const emailList = window.currentMailtoLinks.map(link => link.email).join('; ');
+            
+            navigator.clipboard.writeText(emailList).then(() => {
+                alert(`Copied ${window.currentMailtoLinks.length} email addresses to clipboard:\n\n${emailList}`);
+            }).catch(() => {
+                // Fallback for older browsers
+                const textarea = document.createElement('textarea');
+                textarea.value = emailList;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                alert(`Email addresses copied to clipboard:\n\n${emailList}`);
+            });
+        }
+
+        // Download email report as CSV
+        function downloadEmailReport() {
+            if (!window.dueVehicles) return;
+            
+            let csvContent = 'Fleet,Driver_Name,Driver_Email,RUC_Admin_Email,Distance_Remaining_km,Urgency,Current_Date\n';
+            
+            window.dueVehicles.forEach(vehicle => {
+                csvContent += `${vehicle.fleetNumber},"${vehicle.driverName}","${vehicle.driverEmail}","${vehicle.rucAdminEmail}",${vehicle.distanceRemaining},"${vehicle.urgency}","${new Date().toISOString().split('T')[0]}"\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ruc_due_report_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            showStatus('emailStatus', '✅ RUC due report downloaded successfully!', 'success');
+        }
+
+        // Reset to original values
+        function resetToOriginal() {
+            csvData.forEach((row, index) => {
+                if (row.originalHuboPaidTo) {
+                    row.huboPaidTo = row.originalHuboPaidTo;
+                    row.huboOdoReading = row.originalHuboOdoReading;
+                }
+            });
+            
+            displayUpdatedData();
+            showStatus('updateStatus', '↩️ Reset all values to original CSV data', 'info');
+        }
+
+        // Download updated CSV with driver information and manual override tracking
+        function downloadUpdatedCSV() {
+            let csvContent = ', ROAD USER (RUC) ,,, ,,\n';
+            csvContent += 'Fleet #, Hubo Paid To , Hubo/Odo Reading ,distance remaining,Driver,Driver Email,RUC Admin\n';
+
+            let manualEditCount = 0;
+            
+            csvData.forEach(row => {
+                // Check if values were manually edited
+                if (row.originalHuboPaidTo && 
+                    (row.huboPaidTo !== row.originalHuboPaidTo || row.huboOdoReading !== row.originalHuboOdoReading)) {
+                    manualEditCount++;
+                }
+                
+                const distanceRemaining = row.calculatedDistance !== null ? row.calculatedDistance : row.distanceRemaining;
+                csvContent += `${row.fleetNumber},"${row.huboPaidTo}","${row.huboOdoReading}","${distanceRemaining}","${row.driverName || ''}","${row.driverEmail || ''}","${row.rucAdminEmail || ''}"\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `updated_ruc_data_with_emails_${new Date().toISOString().slice(0,10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            const editInfo = manualEditCount > 0 ? ` (${manualEditCount} manual edits included)` : '';
+            showStatus('updateStatus', `✅ Updated CSV file with driver emails downloaded successfully!${editInfo}`, 'success');
+        }
+    </script>
+</body>
+</html>
