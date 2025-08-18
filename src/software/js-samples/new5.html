@@ -368,6 +368,14 @@
           <span class="icon">🔑</span>
           Authenticate
         </button>
+        <button id="forceAuth" class="btn btn-warning" onclick="forceManualAuth()">
+          <span class="icon">🔧</span>
+          Force Manual Auth
+        </button>
+        <button id="debugBtn" class="btn btn-info" onclick="debugGeotabAPI()">
+          <span class="icon">🔍</span>
+          Debug API
+        </button>
       </div>
       <div id="authResult"></div>
     </div>
@@ -498,10 +506,27 @@
     let serverUsed = null;
     let lastApiResult = null;
 
-    // Auto-detect if we're inside Geotab and skip authentication
-    window.addEventListener('load', function() {
-      if (window.geotab || window.api || window.location.host.includes('geotab.com')) {
-        console.log('🎯 Inside Geotab detected - auto-authenticating...');
+    // Check for Geotab environment - improved detection
+    function checkGeotabEnvironment() {
+      console.log('🔍 Checking Geotab environment...');
+      console.log('🌐 Host:', window.location.host);
+      console.log('🔗 Path:', window.location.pathname);
+      console.log('🎯 window.geotab exists:', !!window.geotab);
+      console.log('🎯 window.api exists:', !!window.api);
+      
+      // Check multiple ways to detect Geotab
+      const isGeotabHost = window.location.host.includes('geotab.com') || 
+                         window.location.host.includes('my.geotab.com');
+      const hasGeotabAPI = window.geotab && typeof window.geotab.call === 'function';
+      const hasWindowAPI = window.api && typeof window.api.call === 'function';
+      
+      console.log('✅ Detection results:');
+      console.log('  - Is Geotab host:', isGeotabHost);
+      console.log('  - Has geotab.call:', hasGeotabAPI);
+      console.log('  - Has window.api.call:', hasWindowAPI);
+      
+      if (hasGeotabAPI || hasWindowAPI) {
+        console.log('🎯 Internal Geotab API detected - auto-authenticating...');
         
         // We're inside Geotab - skip authentication
         document.getElementById('authResult').innerHTML = '';
@@ -516,7 +541,95 @@
         document.getElementById('connectedDB').textContent = window.location.pathname.split('/')[1] || 'Current Database';
         document.getElementById('connectedUser').textContent = 'Current User';
         
+        showMessage('authResult', '✅ Connected to internal Geotab API', 'success');
         console.log('✅ Auto-authentication complete');
+        return true;
+      }
+      
+      console.log('📋 External authentication required');
+      return false;
+    }
+
+    // Try detection multiple times as Geotab API might load later
+    let detectionAttempts = 0;
+    function attemptGeotabDetection() {
+      detectionAttempts++;
+      console.log(`🔄 Geotab detection attempt ${detectionAttempts}`);
+      
+      if (checkGeotabEnvironment()) {
+        return; // Success, stop trying
+      }
+      
+      // Try again if we haven't exceeded max attempts
+      if (detectionAttempts < 5) {
+        setTimeout(attemptGeotabDetection, 1000); // Try again in 1 second
+      } else {
+        console.log('⚠️ Max detection attempts reached. Manual authentication required.');
+      }
+    }
+
+    // Force manual authentication
+    function forceManualAuth() {
+      console.log('🔧 Forcing manual authentication...');
+      
+      // Reset state
+      credentials = null;
+      serverUsed = null;
+      
+      // Hide API section
+      document.getElementById('apiSection').classList.add('hidden');
+      document.getElementById('authResult').innerHTML = '';
+      
+      showMessage('authResult', '🔧 Manual authentication mode. Please fill in credentials and click Authenticate.', 'warning');
+    }
+    
+    // Debug Geotab API availability
+    function debugGeotabAPI() {
+      console.log('🔍 === GEOTAB API DEBUG ===');
+      console.log('🌐 Current URL:', window.location.href);
+      console.log('🏠 Host:', window.location.host);
+      console.log('📁 Pathname:', window.location.pathname);
+      console.log('🎯 window.geotab:', window.geotab);
+      console.log('🎯 window.api:', window.api);
+      console.log('🔑 credentials:', credentials);
+      console.log('🖥️ serverUsed:', serverUsed);
+      
+      // Test if APIs are callable
+      if (window.geotab) {
+        console.log('🧪 Testing window.geotab.call...');
+        console.log('  - Type:', typeof window.geotab.call);
+        console.log('  - Is function:', typeof window.geotab.call === 'function');
+      }
+      
+      if (window.api) {
+        console.log('🧪 Testing window.api.call...');
+        console.log('  - Type:', typeof window.api.call);
+        console.log('  - Is function:', typeof window.api.call === 'function');
+      }
+      
+      // Check global scope for Geotab objects
+      const geotabKeys = Object.keys(window).filter(key => key.toLowerCase().includes('geotab'));
+      console.log('🔑 Window keys containing "geotab":', geotabKeys);
+      
+      // Show user-friendly debug info
+      let debugMessage = '🔍 Debug Info:<br>';
+      debugMessage += `• URL: ${window.location.href}<br>`;
+      debugMessage += `• Host: ${window.location.host}<br>`;
+      debugMessage += `• window.geotab: ${!!window.geotab}<br>`;
+      debugMessage += `• window.api: ${!!window.api}<br>`;
+      debugMessage += `• Auth state: ${credentials ? 'Authenticated' : 'Not authenticated'}<br>`;
+      debugMessage += `• Server: ${serverUsed || 'None'}<br>`;
+      debugMessage += `<br>Check browser console for detailed logs.`;
+      
+      showMessage('authResult', debugMessage, 'info');
+    }
+
+    // Start detection when page loads
+    window.addEventListener('load', function() {
+      // Try immediate detection
+      if (!checkGeotabEnvironment()) {
+        // If immediate detection fails, try again with delays
+        setTimeout(attemptGeotabDetection, 500);
       }
     });
 
@@ -532,51 +645,66 @@
       </div>`;
     }
 
-    // Direct API call function - Same as your working file
+    // Direct API call function - Enhanced with better detection
     async function callGeotabAPI(method, params = {}) {
-      // If inside Geotab, use internal API
+      console.log(`🔗 Attempting API call: ${method}`);
+      console.log(`📋 Parameters:`, params);
+      
+      // Try internal Geotab API first
       if (window.geotab && typeof window.geotab.call === 'function') {
-        console.log(`🔗 Using internal Geotab API: ${method}`);
+        console.log(`✅ Using window.geotab.call for: ${method}`);
         return new Promise((resolve, reject) => {
           window.geotab.call(method, params, resolve, reject);
         });
       }
       
-      // If window.api exists, try that
+      // Try window.api second
       if (window.api && typeof window.api.call === 'function') {
-        console.log(`🔗 Using window.api: ${method}`);
+        console.log(`✅ Using window.api.call for: ${method}`);
         return new Promise((resolve, reject) => {
           window.api.call(method, params, resolve, reject);
         });
       }
       
-      // Otherwise use external API (original code)
-      console.log(`🌐 Using external API: ${method}`);
-      const requestBody = {
-        method: method,
-        params: credentials ? { ...params, credentials: credentials } : params
-      };
+      // If we have credentials, use external API
+      if (credentials && credentials !== { internal: true }) {
+        console.log(`🌐 Using external API for: ${method}`);
+        const requestBody = {
+          method: method,
+          params: { ...params, credentials: credentials }
+        };
 
-      const response = await fetch(`https://${serverUsed}/apiv1`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify(requestBody)
-      });
+        const response = await fetch(`https://${serverUsed}/apiv1`, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify(requestBody)
+        });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.error) {
+          throw new Error(data.error.message || data.error.name);
+        }
+        
+        return data.result;
       }
-
-      const data = await response.json();
       
-      if (data.error) {
-        throw new Error(data.error.message || data.error.name);
-      }
+      // No API available
+      console.error('❌ No Geotab API available');
+      console.log('🔍 Debug info:');
+      console.log('  - window.geotab:', !!window.geotab);
+      console.log('  - window.api:', !!window.api);
+      console.log('  - credentials:', !!credentials);
+      console.log('  - serverUsed:', serverUsed);
       
-      return data.result;
+      throw new Error('Geotab API not available. Please authenticate or ensure you are running inside Geotab.');
     }
 
     // Authentication - Same as your working file
