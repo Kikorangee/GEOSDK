@@ -832,45 +832,89 @@
     }
 
     function downloadCSV() {
+      console.log('📊 CSV Download button clicked');
+      console.log('📋 Last API Result:', lastApiResult);
+      
       if (!lastApiResult) {
-        showMessage('apiResult', 'No data available for download. Run an API call first!', 'warning');
+        showMessage('apiResult', '❌ No data available for download. Run an API call first!', 'warning');
         return;
       }
       
-      const csvContent = convertToCSV(lastApiResult.data, lastApiResult.method, lastApiResult.typeName);
-      
-      if (!csvContent) {
-        showMessage('apiResult', 'No data to export', 'warning');
+      if (!lastApiResult.data) {
+        showMessage('apiResult', '❌ No data in results. Try running the API call again.', 'warning');
         return;
       }
       
-      // Create filename
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-      const method = lastApiResult.method || 'API';
-      const typeName = lastApiResult.typeName || 'Data';
-      const filename = `DVIR_${method}_${typeName}_${timestamp}.csv`;
-      
-      // Create and download file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      
-      if (link.download !== undefined) {
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', filename);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+      try {
+        console.log('🔄 Converting data to CSV...');
+        const csvContent = convertToCSV(lastApiResult.data, lastApiResult.method, lastApiResult.typeName);
         
-        showMessage('apiResult', `📊 CSV file "${filename}" downloaded successfully!`, 'success');
-      } else {
-        alert('CSV download not supported in this browser');
+        if (!csvContent || csvContent.trim() === '') {
+          showMessage('apiResult', '❌ Failed to generate CSV content', 'error');
+          return;
+        }
+        
+        console.log('✅ CSV content generated, length:', csvContent.length);
+        
+        // Create filename
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+        const method = lastApiResult.method || 'API';
+        const typeName = lastApiResult.typeName || 'Data';
+        const filename = `DVIR_${method}_${typeName}_${timestamp}.csv`;
+        
+        console.log('📁 Creating file:', filename);
+        
+        // Create and download file
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        console.log('📦 Blob created, size:', blob.size);
+        
+        // Try multiple download methods for better compatibility
+        if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+          // IE/Edge
+          window.navigator.msSaveOrOpenBlob(blob, filename);
+          showMessage('apiResult', `📊 CSV file "${filename}" downloaded successfully!`, 'success');
+        } else {
+          // Modern browsers
+          const link = document.createElement('a');
+          const url = URL.createObjectURL(blob);
+          
+          link.setAttribute('href', url);
+          link.setAttribute('download', filename);
+          link.style.visibility = 'hidden';
+          link.style.display = 'none';
+          
+          // Add to document, click, then remove
+          document.body.appendChild(link);
+          console.log('🖱️ Triggering download...');
+          link.click();
+          document.body.removeChild(link);
+          
+          // Clean up URL
+          setTimeout(() => URL.revokeObjectURL(url), 100);
+          
+          showMessage('apiResult', `📊 CSV file "${filename}" downloaded successfully!`, 'success');
+        }
+        
+      } catch (error) {
+        console.error('❌ CSV Download Error:', error);
+        showMessage('apiResult', `❌ Failed to download CSV: ${error.message}`, 'error');
       }
     }
 
-    // CSV download button event
-    document.getElementById('downloadCsv').onclick = downloadCSV;
+    // Enhanced CSV download button event with error handling
+    document.addEventListener('DOMContentLoaded', function() {
+      const downloadBtn = document.getElementById('downloadCsv');
+      if (downloadBtn) {
+        downloadBtn.onclick = function(e) {
+          e.preventDefault();
+          console.log('📊 Download CSV button clicked');
+          downloadCSV();
+        };
+        console.log('✅ CSV download button event listener attached');
+      } else {
+        console.error('❌ Download CSV button not found');
+      }
+    });
 
     // Load examples - Same format as your working file
     function loadExample(type) {
