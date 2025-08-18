@@ -869,23 +869,20 @@
     function displayMappedData(data) {
       const resultDiv = document.getElementById('dvirResult');
       
-      let html = `
-        <table class="dvir-table">
-          <thead>
-            <tr>
-              <th>Date/Time</th>
-              <th>Driver Name</th>
-              <th>Vehicle Name</th>
-              <th>Safe to Operate</th>
-              <th>Driver Inspected</th>
-              <th>Defects</th>
-              <th>Location</th>
-              <th>Odometer (km)</th>
-              <th>Driver Remarks</th>
-            </tr>
-          </thead>
-          <tbody>
-      `;
+      let html += `
+          <tr ${rowClass}>
+            <td>${log.dateTime}</td>
+            <td><strong>${log.driverName}</strong><br><small>ID: ${log.driverId}</small></td>
+            <td><strong>${log.vehicleName}</strong><br><small>ID: ${log.deviceId}</small></td>
+            <td>${safeStatus}</td>
+            <td>${inspectedStatus}</td>
+            <td>${defectDisplay}</td>
+            <td>${locationDisplay}</td>
+            <td>${log.odometer ? Math.round(log.odometer) : 'N/A'}</td>
+            <td>${log.engineHours ? Math.round(log.engineHours * 10) / 10 + ' hrs' : 'N/A'}</td>
+            <td>${log.driverRemark || '<em>No remarks</em>'}</td>
+          </tr>
+        `;
       
       data.forEach(log => {
         const safeStatus = log.isSafeToOperate === true ? 
@@ -896,8 +893,11 @@
           
         const inspectedStatus = log.isInspectedByDriver === true ? '✅ Yes' : '❌ No';
         
-        const locationDisplay = log.latitude && log.longitude ? 
-          `<span class="location-coords">${log.latitude.toFixed(6)}, ${log.longitude.toFixed(6)}</span>` : 
+        const const locationDisplay = log.latitude && log.longitude ? 
+          `<span class="location-coords" data-lat="${log.latitude}" data-lng="${log.longitude}">
+            <div class="address-loading">📍 Loading address...</div>
+            <small>${log.latitude.toFixed(6)}, ${log.longitude.toFixed(6)}</small>
+          </span>` : 
           '<em>No location</em>';
 
         // Check for defects
