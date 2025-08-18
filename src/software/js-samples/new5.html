@@ -311,8 +311,8 @@ function renderTable(rows){
       <td>${r.isInspectedByDriver===true?'✅ Yes':'❌ No'}</td>
       <td>${defectDisplay}</td>
       <td>${locationDisplay}</td>
-      <td>${r.odometer?Math.round(r.odometer)+' km':'N/A'}</td>
-      <td>${r.engineHours?(Math.round(r.engineHours*10)/10)+' hrs':'N/A'}</td>
+      <td>${r.odometer?Math.round(r.odometer/1000*100)/100+' km':'N/A'}</td>
+      <td>${r.engineHours?Math.round(r.engineHours*100)/100+' hrs':'N/A'}</td>
       <td>${r.driverRemark || '<em class="muted">No remarks</em>'}</td>
     </tr>`;
   });
@@ -424,6 +424,11 @@ document.getElementById('getDvir').onclick = async function(){
       const driverId = extractId(l.driver);
       const deviceId = extractId(l.device);
       const loc = extractLocation(l.location);
+      
+      // Debug odometer and engine hours values
+      if (l.odometer) log(`📊 Raw odometer: ${l.odometer} (${Math.round(l.odometer/1000*100)/100} km)`);
+      if (l.engineHours) log(`⏱️ Raw engine hours: ${l.engineHours} (${Math.round(l.engineHours*100)/100} hrs)`);
+      
       return {
         id:l.id,
         dateTime:new Date(l.dateTime).toLocaleString(),
@@ -445,6 +450,7 @@ document.getElementById('getDvir').onclick = async function(){
     });
 
     log(`📋 Mapped ${mappedDvirData.length} DVIR records`);
+    log(`📊 Note: Odometer values converted from meters to km, Engine hours displayed as-is from Geotab`);
 
     // Show initial table
     renderTable(mappedDvirData);
@@ -501,7 +507,7 @@ document.getElementById('downloadCsv').onclick = function(){
       r.resolvedAddress || `${r.latitude || ''}, ${r.longitude || ''}`,
       (r.zones||[]).join(' | '),
       r.latitude || '', r.longitude || '',
-      r.odometer || '', r.engineHours || '', r.driverRemark || ''
+      r.odometer ? Math.round(r.odometer/1000*100)/100 : '', r.engineHours ? Math.round(r.engineHours*100)/100 : '', r.driverRemark || ''
     ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
     csv += row + '\n';
   });
@@ -563,8 +569,8 @@ document.getElementById('downloadReport').onclick = function(){
       <td>${badge}</td>
       <td>${defects}</td>
       <td>${loc}</td>
-      <td>${r.odometer?Math.round(r.odometer)+' km':'N/A'}</td>
-      <td>${r.engineHours?(Math.round(r.engineHours*10)/10)+' hrs':'N/A'}</td>
+      <td>${r.odometer?Math.round(r.odometer/1000*100)/100+' km':'N/A'}</td>
+      <td>${r.engineHours?Math.round(r.engineHours*100)/100+' hrs':'N/A'}</td>
       <td>${r.driverRemark || ''}</td>
     </tr>`;
   }).join('')}
