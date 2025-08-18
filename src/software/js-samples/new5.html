@@ -215,6 +215,12 @@
       color: #4a5568;
     }
 
+    .address-loading {
+      font-size: 12px;
+      color: #4299e1;
+      font-weight: 500;
+    }
+
     .hidden {
       display: none !important;
     }
@@ -239,11 +245,6 @@
       flex-wrap: wrap;
       align-items: center;
     }
-<button id="getDvir" class="btn btn-success">📋 Get DVIR Logs</button>
-        <button id="calculateSafety" class="btn btn-warning hidden">🧮 Calculate Safety</button>
-        <button id="downloadCsv" class="btn btn-info">📊 Download CSV</button>
-        <button id="downloadReport" class="btn btn-warning">📄 Download Professional Report</button>
-        <button id="logout" class="btn btn-danger">🚪 Logout</button>
   </style>
 </head>
 <body>
@@ -307,6 +308,7 @@
       
       <div class="button-group">
         <button id="getDvir" class="btn btn-success">📋 Get DVIR Logs</button>
+        <button id="calculateSafety" class="btn btn-warning hidden">🧮 Calculate Safety</button>
         <button id="downloadCsv" class="btn btn-info">📊 Download CSV</button>
         <button id="downloadReport" class="btn btn-warning">📄 Download Professional Report</button>
         <button id="logout" class="btn btn-danger">🚪 Logout</button>
@@ -461,6 +463,64 @@
       }
       
       return { latitude: null, longitude: null };
+    }
+
+    // Convert coordinates to address using reverse geocoding
+    async function getAddressFromCoordinates(lat, lng) {
+      try {
+        // Using OpenStreetMap Nominatim (free, no API key required)
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16&addressdetails=1`
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.display_name) {
+            // Format address nicely
+            const address = data.display_name;
+            const parts = address.split(',');
+            
+            // Get the most relevant parts (street, suburb, city)
+            let shortAddress = '';
+            if (parts.length > 3) {
+              shortAddress = parts.slice(0, 3).join(', ');
+            } else {
+              shortAddress = address;
+            }
+            
+            return shortAddress;
+          }
+        }
+      } catch (error) {
+        console.log('Geocoding failed:', error);
+      }
+      
+      return null;
+    }
+
+    // Load addresses for all coordinates after table is displayed
+    function loadAddresses() {
+      const locationElements = document.querySelectorAll('.location-coords[data-lat][data-lng]');
+      
+      locationElements.forEach(async (element, index) => {
+        const lat = parseFloat(element.getAttribute('data-lat'));
+        const lng = parseFloat(element.getAttribute('data-lng'));
+        
+        // Add delay to avoid rate limiting (1 request per second)
+        setTimeout(async () => {
+          const address = await getAddressFromCoordinates(lat, lng);
+          const loadingDiv = element.querySelector('.address-loading');
+          
+          if (address && loadingDiv) {
+            loadingDiv.innerHTML = `📍 ${address}`;
+            loadingDiv.style.color = '#2d3748';
+            loadingDiv.style.fontWeight = '500';
+          } else if (loadingDiv) {
+            loadingDiv.innerHTML = '📍 Address not found';
+            loadingDiv.style.color = '#718096';
+          }
+        }, index * 1000); // 1 second delay between requests
+      });
     }
 
     // Initialize EmailJS if credentials are provided
@@ -630,176 +690,10 @@
       message += `This alert was generated automatically by the Fleet DVIR System.\n`;
       message += `For questions, contact your fleet administrator.`;
       
-     return message;
+      return message;
     }
 
     // Calculate safety based on automated rules
-    function calculateVehicleSafety(log) {
-      // ... [entire calculateVehicleSafety function code] ...
-    }
-
-    // Add calculated safety columns to existing data
-    function addSafetyCalculations() {
-      // ... [entire addSafetyCalculations function code] ...
-    }
-
-    // Display the enhanced table with safety calculations
-    function displaySafetyCalculations() {
-      // ... [entire displaySafetyCalculations function code] ...
-    }
-    }
-
-    // Authentication
-    document.getElementById('authButton').onclick = async function() {
-      const server = document.getElementById('server').value.trim();
-      const database = document.getElementById('database').value.trim();
-      const username = document.getElementById('username').value.trim();
-      const password = document.getElementById('password').value;
-      
-      if (!server || !database || !username || !password) {
-        showMessage('authResult', 'Please fill in all fields', 'error');
-        return;
-      }
-      
-      try {
-        showMessage('authResult', 'Authenticating...', 'warning');
-        
-        serverUsed = server;
-        const result = await callGeotabAPI('Authenticate', {
-          userName: username,
-          password: password,
-          database: database
-        });
-        
-        if (result.path && result.path !== 'ThisServer') {
-          serverUsed = result.path;
-          showMessage('authResult', `Redirecting to ${result.path}...`, 'warning');
-          
-          const redirectResult = await callGeotabAPI('Authenticate', {
-            userName: username,
-            password: password,
-            database: database
-          });
-          
-          credentials = redirectResult.credentials;
-        } else {
-          credentials = result.credentials;
-        }
-        
-        showMessage('authResult', 'Authentication successful!', 'success');
-        document.getElementById('dvirSection').classList.remove('hidden');
-        
-      } catch (error) {
-        showMessage('authResult', `Authentication failed: ${error.message}`, 'error');
-      }
-	// Calculate Safety button
-    document.getElementById('calculateSafety').onclick = addSafetyCalculations;  
-    };
-
-    // Get DVIR Logs with Driver, Vehicle and Location mapping
-    document.getElementById('getDvir').onclick = async function() {
-      if (!credentials && !window.geotab && !window.api) {
-        showMessage('dvirResult', 'Not authenticated', 'error');
-        return;
-      }
-
-      const fromDate = document.getElementById('fromDate').value;
-      const toDate = document.getElementById('toDate').value;
-      const resultsLimit = parseInt(document.getElementById('resultsLimit').value) || 100;
-      
-      if (!fromDate || !toDate) {
-        showMessage('dvirResult', 'Please select both from and to dates', 'error');
-        return;
-      }
-
-      // Store date range for report
-      reportDateRange = { fromDate, toDate };
-      
-      try {
-        showMessage('dvirResult', 'Getting DVIR logs...', 'warning');
-        
-        // Step 1: Get DVIR logs
-        const dvirLogs = await callGeotabAPI('Get', {
-          typeName: 'DVIRLog',
-          search: {
-            fromDate: fromDate + 'T00:00:00.000Z',
-            toDate: toDate + 'T23:59:59.000Z'
-          },
-          resultsLimit: resultsLimit
-        });
-        
-        if (!dvirLogs || dvirLogs.length === 0) {
-          showMessage('dvirResult', 'No DVIR logs found for the selected date range', 'warning');
-          return;
-        }
-
-        showMessage('dvirResult', `Found ${dvirLogs.length} DVIR logs. Getting driver and vehicle names...`, 'warning');
-
-        // Step 2: Extract unique driver and device IDs
-        const driverIds = new Set();
-        const deviceIds = new Set();
-        
-        console.log('Sample DVIR log for debugging:', dvirLogs[0]);
-        
-        dvirLogs.forEach((log, index) => {
-          const driverId = extractId(log.driver);
-          const deviceId = extractId(log.device);
-          
-          if (index < 3) { // Debug first 3 entries
-            console.log(`Log ${index}:`, {
-              rawDriver: log.driver,
-              extractedDriverId: driverId,
-              rawDevice: log.device,
-              extractedDeviceId: deviceId
-            });
-          }
-          
-          if (driverId) driverIds.add(driverId);
-          if (deviceId) deviceIds.add(deviceId);
-        });
-
-        console.log('Extracted Driver IDs:', Array.from(driverIds));
-        console.log('Extracted Device IDs:', Array.from(deviceIds));
-
-        // Step 3: Build lookup calls for drivers and devices
-        const lookupCalls = [];
-        
-        // Get all drivers
-        Array.from(driverIds).forEach(id => {
-          lookupCalls.push({
-            method: 'Get',
-            params: {
-              typeName: 'User',
-              search: { id: id }
-            }
-          });
-        });
-        
-        // Get all devices
-        Array.from(deviceIds).forEach(id => {
-          lookupCalls.push({
-            method: 'Get',
-            params: {
-              typeName: 'Device',
-              search: { id: id }
-            }
-          });
-        });
-
-        // Step 4: Execute all lookups
-        const lookupResults = await callGeotabAPI('ExecuteMultiCall', { calls: lookupCalls });
-        
-        console.log('Lookup calls made:', lookupCalls.length);
-        console.log('Lookup results received:', lookupResults.length);
-        console.log('Sample lookup result:', lookupResults[0]);
-        
-        // Step 5: Build name mappings
-        const driverNames = {};
-        const deviceNames = {};
-        
-        let resultIndex = 0;
-		
-		// Calculate safety based on automated rules
     function calculateVehicleSafety(log) {
       let calculatedSafe = true;
       let reasons = [];
@@ -1007,6 +901,154 @@
       
       resultDiv.innerHTML += html;
     }
+
+    // Authentication
+    document.getElementById('authButton').onclick = async function() {
+      const server = document.getElementById('server').value.trim();
+      const database = document.getElementById('database').value.trim();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      
+      if (!server || !database || !username || !password) {
+        showMessage('authResult', 'Please fill in all fields', 'error');
+        return;
+      }
+      
+      try {
+        showMessage('authResult', 'Authenticating...', 'warning');
+        
+        serverUsed = server;
+        const result = await callGeotabAPI('Authenticate', {
+          userName: username,
+          password: password,
+          database: database
+        });
+        
+        if (result.path && result.path !== 'ThisServer') {
+          serverUsed = result.path;
+          showMessage('authResult', `Redirecting to ${result.path}...`, 'warning');
+          
+          const redirectResult = await callGeotabAPI('Authenticate', {
+            userName: username,
+            password: password,
+            database: database
+          });
+          
+          credentials = redirectResult.credentials;
+        } else {
+          credentials = result.credentials;
+        }
+        
+        showMessage('authResult', 'Authentication successful!', 'success');
+        document.getElementById('dvirSection').classList.remove('hidden');
+        
+      } catch (error) {
+        showMessage('authResult', `Authentication failed: ${error.message}`, 'error');
+      }
+    };
+
+    // Get DVIR Logs with Driver, Vehicle and Location mapping
+    document.getElementById('getDvir').onclick = async function() {
+      if (!credentials && !window.geotab && !window.api) {
+        showMessage('dvirResult', 'Not authenticated', 'error');
+        return;
+      }
+
+      const fromDate = document.getElementById('fromDate').value;
+      const toDate = document.getElementById('toDate').value;
+      const resultsLimit = parseInt(document.getElementById('resultsLimit').value) || 100;
+      
+      if (!fromDate || !toDate) {
+        showMessage('dvirResult', 'Please select both from and to dates', 'error');
+        return;
+      }
+
+      // Store date range for report
+      reportDateRange = { fromDate, toDate };
+      
+      try {
+        showMessage('dvirResult', 'Getting DVIR logs...', 'warning');
+        
+        // Step 1: Get DVIR logs
+        const dvirLogs = await callGeotabAPI('Get', {
+          typeName: 'DVIRLog',
+          search: {
+            fromDate: fromDate + 'T00:00:00.000Z',
+            toDate: toDate + 'T23:59:59.000Z'
+          },
+          resultsLimit: resultsLimit
+        });
+        
+        if (!dvirLogs || dvirLogs.length === 0) {
+          showMessage('dvirResult', 'No DVIR logs found for the selected date range', 'warning');
+          return;
+        }
+
+        showMessage('dvirResult', `Found ${dvirLogs.length} DVIR logs. Getting driver and vehicle names...`, 'warning');
+
+        // Step 2: Extract unique driver and device IDs
+        const driverIds = new Set();
+        const deviceIds = new Set();
+        
+        console.log('Sample DVIR log for debugging:', dvirLogs[0]);
+        
+        dvirLogs.forEach((log, index) => {
+          const driverId = extractId(log.driver);
+          const deviceId = extractId(log.device);
+          
+          if (index < 3) { // Debug first 3 entries
+            console.log(`Log ${index}:`, {
+              rawDriver: log.driver,
+              extractedDriverId: driverId,
+              rawDevice: log.device,
+              extractedDeviceId: deviceId
+            });
+          }
+          
+          if (driverId) driverIds.add(driverId);
+          if (deviceId) deviceIds.add(deviceId);
+        });
+
+        console.log('Extracted Driver IDs:', Array.from(driverIds));
+        console.log('Extracted Device IDs:', Array.from(deviceIds));
+
+        // Step 3: Build lookup calls for drivers and devices
+        const lookupCalls = [];
+        
+        // Get all drivers
+        Array.from(driverIds).forEach(id => {
+          lookupCalls.push({
+            method: 'Get',
+            params: {
+              typeName: 'User',
+              search: { id: id }
+            }
+          });
+        });
+        
+        // Get all devices
+        Array.from(deviceIds).forEach(id => {
+          lookupCalls.push({
+            method: 'Get',
+            params: {
+              typeName: 'Device',
+              search: { id: id }
+            }
+          });
+        });
+
+        // Step 4: Execute all lookups
+        const lookupResults = await callGeotabAPI('ExecuteMultiCall', { calls: lookupCalls });
+        
+        console.log('Lookup calls made:', lookupCalls.length);
+        console.log('Lookup results received:', lookupResults.length);
+        console.log('Sample lookup result:', lookupResults[0]);
+        
+        // Step 5: Build name mappings
+        const driverNames = {};
+        const deviceNames = {};
+        
+        let resultIndex = 0;
         
         // Map driver results
         Array.from(driverIds).forEach((id, index) => {
@@ -1069,6 +1111,9 @@
         showMessage('dvirResult', `✅ Success! Mapped ${mappedDvirData.length} DVIR logs with complete data including locations`, 'success');
         displayMappedData(mappedDvirData);
 
+        // Show Calculate Safety button
+        document.getElementById('calculateSafety').classList.remove('hidden');
+
         // Step 8: Check for defects and send alerts if configured
         const alertEmail = document.getElementById('alertEmail').value.trim();
         if (alertEmail) {
@@ -1101,20 +1146,24 @@
     function displayMappedData(data) {
       const resultDiv = document.getElementById('dvirResult');
       
-      let html += `
-          <tr ${rowClass}>
-            <td>${log.dateTime}</td>
-            <td><strong>${log.driverName}</strong><br><small>ID: ${log.driverId}</small></td>
-            <td><strong>${log.vehicleName}</strong><br><small>ID: ${log.deviceId}</small></td>
-            <td>${safeStatus}</td>
-            <td>${inspectedStatus}</td>
-            <td>${defectDisplay}</td>
-            <td>${locationDisplay}</td>
-            <td>${log.odometer ? Math.round(log.odometer) : 'N/A'}</td>
-            <td>${log.engineHours ? Math.round(log.engineHours * 10) / 10 + ' hrs' : 'N/A'}</td>
-            <td>${log.driverRemark || '<em>No remarks</em>'}</td>
-          </tr>
-        `;
+      let html = `
+        <table class="dvir-table">
+          <thead>
+            <tr>
+              <th>Date/Time</th>
+              <th>Driver Name</th>
+              <th>Vehicle Name</th>
+              <th>Safe to Operate</th>
+              <th>Driver Inspected</th>
+              <th>Defects</th>
+              <th>Location</th>
+              <th>Odometer (km)</th>
+              <th>Engine Hours</th>
+              <th>Driver Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
       
       data.forEach(log => {
         const safeStatus = log.isSafeToOperate === true ? 
@@ -1125,7 +1174,7 @@
           
         const inspectedStatus = log.isInspectedByDriver === true ? '✅ Yes' : '❌ No';
         
-        const const locationDisplay = log.latitude && log.longitude ? 
+        const locationDisplay = log.latitude && log.longitude ? 
           `<span class="location-coords" data-lat="${log.latitude}" data-lng="${log.longitude}">
             <div class="address-loading">📍 Loading address...</div>
             <small>${log.latitude.toFixed(6)}, ${log.longitude.toFixed(6)}</small>
@@ -1160,6 +1209,7 @@
             <td>${defectDisplay}</td>
             <td>${locationDisplay}</td>
             <td>${log.odometer ? Math.round(log.odometer) : 'N/A'}</td>
+            <td>${log.engineHours ? Math.round(log.engineHours * 10) / 10 + ' hrs' : 'N/A'}</td>
             <td>${log.driverRemark || '<em>No remarks</em>'}</td>
           </tr>
         `;
@@ -1171,7 +1221,13 @@
       `;
       
       resultDiv.innerHTML += html;
+      
+      // Load addresses after a short delay
+      setTimeout(loadAddresses, 500);
     }
+
+    // Calculate Safety button
+    document.getElementById('calculateSafety').onclick = addSafetyCalculations;
 
     // Download CSV with Location Data
     document.getElementById('downloadCsv').onclick = function() {
@@ -1499,6 +1555,7 @@
                     <th>Defects</th>
                     <th>Location</th>
                     <th>Odometer</th>
+                    <th>Engine Hours</th>
                     <th>Driver Remarks</th>
                 </tr>
             </thead>
@@ -1533,6 +1590,7 @@
                          `<span class="location-coords">${log.latitude.toFixed(6)}, ${log.longitude.toFixed(6)}</span>` : 
                          '<em>No location</em>'}</td>
                     <td>${log.odometer ? Math.round(log.odometer) + ' km' : 'N/A'}</td>
+                    <td>${log.engineHours ? Math.round(log.engineHours * 10) / 10 + ' hrs' : 'N/A'}</td>
                     <td>${log.driverRemark || '<em>No remarks</em>'}</td>
                 </tr>
                 `;}).join('')}
@@ -1580,9 +1638,11 @@
       serverUsed = null;
       mappedDvirData = null;
       reportDateRange = {};
+      emailJsInitialized = false;
       document.getElementById('dvirSection').classList.add('hidden');
       document.getElementById('authResult').innerHTML = '';
       document.getElementById('dvirResult').innerHTML = '';
+      document.getElementById('calculateSafety').classList.add('hidden');
     };
   </script>
 </body>
