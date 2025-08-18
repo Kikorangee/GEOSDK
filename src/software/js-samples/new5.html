@@ -1,572 +1,139 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Geotab DVIR Logs — Using Native Geotab Geocoding</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;color:#333;padding:20px}
-    .container{max-width:1200px;margin:0 auto}
-    .header,.card{background:rgba(255,255,255,.95);backdrop-filter:blur(10px);border-radius:15px;padding:25px;margin-bottom:25px;box-shadow:0 10px 30px rgba(0,0,0,.1)}
-    .header{text-align:center}
-    .header h1{color:#2d3748;font-size:2em;font-weight:700;margin-bottom:10px}
-    .card-title{color:#2d3748;font-size:1.3em;font-weight:700;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #e2e8f0}
-    .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:15px}
-    .form-control{width:100%;padding:12px 16px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;transition:all .2s ease}
-    .form-control:focus{outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,.1)}
-    .btn{padding:12px 24px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s ease;margin:5px}
-    .btn:hover{transform:translateY(-1px);box-shadow:0 4px 15px rgba(0,0,0,.2)}
-    .btn-primary{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
-    .btn-success{background:linear-gradient(135deg,#48bb78,#38a169);color:#fff}
-    .btn-info{background:linear-gradient(135deg,#4299e1,#3182ce);color:#fff}
-    .btn-warning{background:linear-gradient(135deg,#ed8936,#dd6b20);color:#fff}
-    .btn-danger{background:linear-gradient(135deg,#f56565,#e53e3e);color:#fff}
-    .btn[disabled]{opacity:.5;cursor:not-allowed}
-    .alert{padding:15px;border-radius:8px;margin:15px 0;font-weight:500}
-    .alert-success{background:#c6f6d5;color:#22543d;border-left:4px solid #38a169}
-    .alert-error{background:#fed7d7;color:#742a2a;border-left:4px solid #e53e3e}
-    .alert-warning{background:#fefcbf;color:#744210;border-left:4px solid #d69e2e}
-    .alert-info{background:#ebf8ff;color:#2b6cb0;border-left:4px solid #4299e1}
-    .dvir-table{width:100%;border-collapse:collapse;margin-top:20px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,.1)}
-    .dvir-table th{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:12px;text-align:left;font-weight:600;font-size:13px}
-    .dvir-table td{padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:13px;vertical-align:top}
-    .dvir-table tr:hover{background:#f7fafc}
-    .dvir-table tr:nth-child(even){background:#f8f9fa}
-    .status-safe{background:#c6f6d5;color:#22543d;padding:4px 8px;border-radius:4px;font-weight:600;font-size:11px}
-    .status-unsafe{background:#fed7d7;color:#742a2a;padding:4px 8px;border-radius:4px;font-weight:600;font-size:11px}
-    .status-unknown{background:#e2e8f0;color:#4a5568;padding:4px 8px;border-radius:4px;font-weight:600;font-size:11px}
-    .muted{color:#718096}
-    .progress-bar{width:100%;background:#e2e8f0;border-radius:4px;overflow:hidden;margin:10px 0}
-    .progress-fill{height:20px;background:linear-gradient(90deg,#667eea,#764ba2);transition:width 0.3s ease;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600}
-    .geotab-address{background:#e8f5e8;color:#2d5016;padding:4px 8px;border-radius:4px;font-weight:500;border-left:3px solid #4caf50}
-    .coord-only{color:#666;font-style:italic}
-    .debug{background:#f8f9fa;padding:10px;margin:10px 0;border-radius:4px;font-size:12px;font-family:monospace;max-height:400px;overflow-y:auto;border:1px solid #dee2e6}
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>🚛 Geotab DVIR with Native Geocoding</h1>
-      <p>Using Geotab's built-in ReverseGeocodeAddress API - This WILL work!</p>
-    </div>
-
-    <div class="card">
-      <h3 class="card-title">🔐 Authentication</h3>
-      <div class="form-row">
-        <input id="server" class="form-control" placeholder="Server" value="my.geotab.com" />
-        <input id="database" class="form-control" placeholder="Database" value="uccnz" />
-      </div>
-      <div class="form-row">
-        <input id="username" class="form-control" placeholder="Username" value="francis@directt.co.nz" />
-        <input id="password" class="form-control" type="password" placeholder="Password" value="@fr4nc1sWynn5" />
-      </div>
-      <button id="authButton" class="btn btn-primary">🔒 Authenticate</button>
-      <div id="authResult"></div>
-    </div>
-
-    <div id="dvirSection" class="card" style="display:none;">
-      <h3 class="card-title">📋 DVIR Logs with Geotab Addresses</h3>
-      <div id="infoBanner" class="alert alert-info" style="display:none;"></div>
-      <div id="debugLog" class="debug"></div>
-      <div id="progressContainer" style="display:none;">
-        <div class="progress-bar">
-          <div id="progressBar" class="progress-fill" style="width:0%;">0%</div>
-        </div>
-        <div id="progressText" class="muted" style="text-align:center;margin-top:5px;"></div>
-      </div>
-      <div class="form-row">
-        <input id="fromDate" class="form-control" type="date" />
-        <input id="toDate" class="form-control" type="date" />
-        <input id="resultsLimit" class="form-control" placeholder="Results Limit" value="10" />
-      </div>
-      <div>
-        <button id="getDvir" class="btn btn-success">📋 Get DVIR with Addresses</button>
-        <button id="testGeotab" class="btn btn-warning">🧪 Test Geotab Geocoding</button>
-        <button id="downloadCsv" class="btn btn-info" disabled>📊 Download CSV</button>
-        <button id="downloadReport" class="btn btn-warning" disabled>📄 Download Report</button>
-        <button id="logout" class="btn btn-danger">🚪 Logout</button>
-      </div>
-      <div id="dvirResult"></div>
-    </div>
-  </div>
-
-<script>
-let credentials = null;
-let serverUsed = null;
-let mappedDvirData = [];
-
-function setDefaultDates(){
-  const today = new Date();
-  const lastWeek = new Date(today.getTime() - 7*24*60*60*1000);
-  document.getElementById('toDate').value = today.toISOString().split('T')[0];
-  document.getElementById('fromDate').value = lastWeek.toISOString().split('T')[0];
-}
-setDefaultDates();
-
-function showMessage(elId, msg, type='info'){
-  const el = document.getElementById(elId);
-  const c = type==='error'?'alert-error':type==='success'?'alert-success':type==='warning'?'alert-warning':'alert-info';
-  el.style.display = '';
-  el.innerHTML = `<div class="alert ${c}">${msg}</div>`;
-}
-
-function log(msg) {
-  const debugEl = document.getElementById('debugLog');
-  const timestamp = new Date().toLocaleTimeString();
-  debugEl.innerHTML += `[${timestamp}] ${msg}<br>`;
-  debugEl.scrollTop = debugEl.scrollHeight;
-  console.log(`DEBUG: ${msg}`);
-}
-
-function updateProgress(current, total, text = '') {
-  const container = document.getElementById('progressContainer');
-  const bar = document.getElementById('progressBar');
-  const textEl = document.getElementById('progressText');
-  
-  if (total === 0) {
-    container.style.display = 'none';
-    return;
-  }
-  
-  container.style.display = 'block';
-  const percentage = Math.round((current / total) * 100);
-  bar.style.width = `${percentage}%`;
-  bar.textContent = `${percentage}%`;
-  textEl.textContent = text || `Processing ${current} of ${total} locations...`;
-}
-
-async function callGeotabAPI(method, params={}){
-  if (window.geotab && typeof window.geotab.call === 'function'){
-    return new Promise((resolve,reject)=>window.geotab.call(method, params, resolve, reject));
-  }
-  if (window.api && typeof window.api.call === 'function'){
-    return new Promise((resolve,reject)=>window.api.call(method, params, resolve, reject));
-  }
-  const requestBody = { method, params: credentials ? {...params, credentials} : params };
-  const res = await fetch(`https://${serverUsed}/apiv1`, {
-    method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify(requestBody)
-  });
-  if(!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-  const data = await res.json();
-  if(data.error) throw new Error(data.error.message || data.error.name);
-  return data.result;
-}
-
-function extractId(data){
-  if(!data) return null;
-  if(typeof data==='object' && data.id) return data.id;
-  if(typeof data==='string'){ try{ return JSON.parse(data).id || null }catch(e){ return data } }
-  return null;
-}
-
-function extractLocation(loc){
-  if(!loc) return {latitude:null, longitude:null};
-  if(typeof loc==='object'){
-    if(loc.location && loc.location.x && loc.location.y) return {latitude:loc.location.y, longitude:loc.location.x};
-    if(loc.x && loc.y) return {latitude:loc.y, longitude:loc.x};
-  }
-  if(typeof loc==='string'){
-    try{
-      const p = JSON.parse(loc);
-      if(p.location && p.location.x && p.location.y) return {latitude:p.location.y, longitude:p.location.x};
-      if(p.x && p.y) return {latitude:p.y, longitude:p.x};
-    }catch(e){}
-  }
-  return {latitude:null, longitude:null};
-}
-
-// Use Geotab's built-in reverse geocoding API
-async function getGeotabAddress(lat, lon) {
-  try {
-    log(`🌍 Using Geotab ReverseGeocodeAddress for ${lat}, ${lon}`);
-    
-    const result = await callGeotabAPI('ReverseGeocodeAddress', {
-      coordinates: {
-        x: lon,
-        y: lat
-      }
-    });
-    
-    log(`🌍 Geotab geocoding response: ${JSON.stringify(result, null, 2)}`);
-    
-    if (result && result.length > 0) {
-      const address = result[0];
-      log(`🌍 Address object: ${JSON.stringify(address, null, 2)}`);
-      
-      // Build formatted address from components
-      if (address.FormattedAddress) {
-        log(`✅ SUCCESS: Using FormattedAddress: ${address.FormattedAddress}`);
-        return address.FormattedAddress;
-      }
-      
-      // Fallback: build address from components
-      const parts = [];
-      if (address.StreetNumber && address.StreetName) {
-        parts.push(`${address.StreetNumber} ${address.StreetName}`);
-      } else if (address.Street) {
-        parts.push(address.Street);
-      }
-      
-      if (address.City) parts.push(address.City);
-      if (address.PostalCode) parts.push(address.PostalCode);
-      if (address.Country) parts.push(address.Country);
-      
-      if (parts.length > 0) {
-        const builtAddress = parts.join(', ');
-        log(`✅ SUCCESS: Built address from parts: ${builtAddress}`);
-        return builtAddress;
-      }
-    }
-    
-    log(`❌ No address found in Geotab response`);
-    return null;
-    
-  } catch (error) {
-    log(`❌ Geotab geocoding ERROR: ${error.message}`);
-    return null;
-  }
-}
-
-function renderTable(rows){
-  log(`🖼️ Rendering table with ${rows.length} rows`);
-  
-  const resultDiv = document.getElementById('dvirResult');
-  let html = `<table class="dvir-table"><thead><tr>
-    <th>Date/Time</th><th>Driver</th><th>Vehicle</th><th>Status</th><th>Driver Inspected</th>
-    <th>Defects</th><th>Location (Address)</th><th>Odometer</th><th>Engine Hours</th><th>Driver Remarks</th>
-  </tr></thead><tbody>`;
-  
-  let addressCount = 0;
-  let coordCount = 0;
-  
-  rows.forEach((r, index) => {
-    const status = r.isSafeToOperate===true?'<span class="status-safe">SAFE</span>':
-                  r.isSafeToOperate===false?'<span class="status-unsafe">⚠️ UNSAFE</span>':'<span class="status-unknown">UNKNOWN</span>';
-    let defectDisplay = '<em class="muted">None</em>';
-    if (r.defects && r.defects !== '[]' && r.defects !== '') {
-      try{ const d = JSON.parse(r.defects); if(Array.isArray(d)&&d.length>0) defectDisplay = `<span style="color:#e53e3e;font-weight:600;">⚠️ ${d.length}</span>`; }
-      catch(e){ if(r.defects.length>10) defectDisplay = '<span style="color:#e53e3e;font-weight:600;">⚠️ Defects present</span>'; }
-    }
-    
-    let locationDisplay = '<em class="muted">No location</em>';
-    if (r.latitude && r.longitude) {
-      const coords = `${Number(r.latitude).toFixed(6)}, ${Number(r.longitude).toFixed(6)}`;
-      
-      if (r.geotabAddress && r.geotabAddress.trim() && r.geotabAddress.length > 5) {
-        locationDisplay = `<div class="geotab-address">📍 ${r.geotabAddress}</div><small class="muted">${coords}</small>`;
-        addressCount++;
-        log(`Row ${index}: ✅ GEOTAB ADDRESS: ${r.geotabAddress.substring(0, 50)}...`);
-      } else {
-        locationDisplay = `<span class="coord-only">${coords}</span>`;
-        coordCount++;
-        log(`Row ${index}: ❌ NO ADDRESS: ${coords}`);
-      }
-    }
-    
-    html += `<tr>
-      <td>${r.dateTime}</td>
-      <td><strong>${r.driverName}</strong><br/><small class="muted">ID: ${r.driverId||''}</small></td>
-      <td><strong>${r.vehicleName}</strong><br/><small class="muted">ID: ${r.deviceId||''}</small></td>
-      <td>${status}</td>
-      <td>${r.isInspectedByDriver===true?'✅ Yes':'❌ No'}</td>
-      <td>${defectDisplay}</td>
-      <td>${locationDisplay}</td>
-      <td>${r.odometer?Math.round(r.odometer)+' km':'N/A'}</td>
-      <td>${r.engineHours?(Math.round(r.engineHours*10)/10)+' hrs':'N/A'}</td>
-      <td>${r.driverRemark || '<em class="muted">No remarks</em>'}</td>
-    </tr>`;
-  });
-  html += `</tbody></table>`;
-  resultDiv.innerHTML = html;
-  
-  log(`🖼️ Table complete: ${addressCount} with addresses, ${coordCount} with coordinates only`);
-}
-
-document.getElementById('authButton').onclick = async function(){
-  const server = document.getElementById('server').value.trim();
-  const database = document.getElementById('database').value.trim();
-  const username = document.getElementById('username').value.trim();
-  const password = document.getElementById('password').value;
-  if(!server || !database || !username || !password){ showMessage('authResult','Please fill in all fields','error'); return; }
-  try{
-    showMessage('authResult','Authenticating...','warning');
-    serverUsed = server;
-    const res = await callGeotabAPI('Authenticate', { userName:username, password, database });
-    if(res.path && res.path !== 'ThisServer'){
-      serverUsed = res.path;
-      const res2 = await callGeotabAPI('Authenticate', { userName:username, password, database });
-      credentials = res2.credentials;
-    } else {
-      credentials = res.credentials;
-    }
-    showMessage('authResult','Authentication successful!','success');
-    document.getElementById('dvirSection').style.display = '';
-  }catch(e){
-    showMessage('authResult',`Authentication failed: ${e.message}`,'error');
-  }
-};
-
-document.getElementById('testGeotab').onclick = async function(){
-  if(!credentials && !window.geotab && !window.api){ showMessage('infoBanner','Not authenticated','error'); return; }
-  
-  document.getElementById('debugLog').innerHTML = '';
-  log('🧪 TESTING Geotab ReverseGeocodeAddress API...');
-  
-  // Test with Auckland coordinates
-  const testLat = -36.8485;
-  const testLon = 174.7633;
-  
-  log(`🧪 Testing with Auckland coordinates: ${testLat}, ${testLon}`);
-  const result = await getGeotabAddress(testLat, testLon);
-  
-  if (result && result.length > 10) {
-    showMessage('infoBanner', `✅ GEOTAB TEST SUCCESS: ${result}`, 'success');
-    log(`✅ TEST PASSED: Got Geotab address`);
-  } else {
-    showMessage('infoBanner', '❌ GEOTAB TEST FAILED: No address returned', 'error');
-    log(`❌ TEST FAILED: No Geotab address returned`);
-  }
-};
-
-document.getElementById('getDvir').onclick = async function(){
-  if(!credentials && !window.geotab && !window.api){ showMessage('infoBanner','Not authenticated','error'); return; }
-  
-  document.getElementById('debugLog').innerHTML = '';
-  log('🚀 Starting DVIR retrieval with Geotab geocoding...');
-  
-  const fromDate = document.getElementById('fromDate').value;
-  const toDate = document.getElementById('toDate').value;
-  const resultsLimit = parseInt(document.getElementById('resultsLimit').value)||10;
-  if(!fromDate || !toDate){ showMessage('infoBanner','Please select both from and to dates','error'); return; }
-
-  showMessage('infoBanner','Getting DVIR logs...','warning');
-  document.getElementById('downloadCsv').disabled = true;
-  document.getElementById('downloadReport').disabled = true;
-
-  try{
-    log(`📋 Getting DVIR logs from ${fromDate} to ${toDate}, limit: ${resultsLimit}`);
-    
-    const dvirLogs = await callGeotabAPI('Get', {
-      typeName:'DVIRLog',
-      search:{ fromDate: fromDate+'T00:00:00.000Z', toDate: toDate+'T23:59:59.000Z' },
-      resultsLimit
-    });
-    
-    log(`📋 Retrieved ${dvirLogs ? dvirLogs.length : 0} DVIR logs`);
-    
-    if(!dvirLogs || dvirLogs.length===0){ 
-      showMessage('infoBanner','No DVIR logs for the selected range','warning'); 
-      document.getElementById('dvirResult').innerHTML=''; 
-      return; 
-    }
-
-    // Get driver/device names
-    const driverIds = new Set(), deviceIds = new Set();
-    dvirLogs.forEach(l=>{ const did = extractId(l.driver); const vid = extractId(l.device); if(did) driverIds.add(did); if(vid) deviceIds.add(vid); });
-    const calls = [];
-    Array.from(driverIds).forEach(id=>calls.push({method:'Get', params:{typeName:'User', search:{id}}}));
-    Array.from(deviceIds).forEach(id=>calls.push({method:'Get', params:{typeName:'Device', search:{id}}}));
-    const lookup = await callGeotabAPI('ExecuteMultiCall', { calls });
-    const driverNames = {}; const deviceNames={}; let idx=0;
-    Array.from(driverIds).forEach(id=>{ const r=lookup[idx++]; driverNames[id]=(r && r[0] && (r[0].name || `${r[0].firstName||''} ${r[0].lastName||''}`.trim())) || `Driver ${id}`; });
-    Array.from(deviceIds).forEach(id=>{ const r=lookup[idx++]; deviceNames[id]=(r && r[0] && r[0].name) || `Device ${id}`; });
-
-    // Map DVIR data
-    mappedDvirData = dvirLogs.map(l=>{
-      const driverId = extractId(l.driver);
-      const deviceId = extractId(l.device);
-      const loc = extractLocation(l.location);
-      return {
-        id:l.id,
-        dateTime:new Date(l.dateTime).toLocaleString(),
-        driverName:driverNames[driverId] || 'Unknown Driver',
-        driverId:driverId || '',
-        vehicleName:deviceNames[deviceId] || 'Unknown Vehicle',
-        deviceId:deviceId || '',
-        isSafeToOperate:l.isSafeToOperate,
-        isInspectedByDriver:l.isInspectedByDriver,
-        driverRemark:l.driverRemark || '',
-        odometer:l.odometer || 0,
-        engineHours:l.engineHours || 0,
-        latitude:loc.latitude,
-        longitude:loc.longitude,
-        geotabAddress:null, // Will be populated with Geotab addresses
-        defects:l.defects || ''
-      };
-    });
-
-    log(`📋 Mapped ${mappedDvirData.length} DVIR records`);
-
-    // Show initial table with coordinates
-    renderTable(mappedDvirData);
-
-    // Find locations that need geocoding
-    const locationsToGeocode = mappedDvirData.filter(r => r.latitude && r.longitude);
-    log(`🌍 Found ${locationsToGeocode.length} locations to geocode with Geotab API`);
-
-    if (locationsToGeocode.length > 0) {
-      showMessage('infoBanner', `🌍 Resolving ${locationsToGeocode.length} addresses using Geotab geocoding...`, 'info');
-      
-      // Process each location
-      for (let i = 0; i < locationsToGeocode.length; i++) {
-        const row = locationsToGeocode[i];
-        
-        updateProgress(i, locationsToGeocode.length, `Resolving address ${i + 1}/${locationsToGeocode.length}...`);
-        log(`🌍 Processing location ${i + 1}/${locationsToGeocode.length}: ${row.latitude}, ${row.longitude}`);
-        
-        // Get address using Geotab's API
-        const address = await getGeotabAddress(row.latitude, row.longitude);
-        
-        if (address && address.trim() && address.length > 5) {
-          row.geotabAddress = address.trim();
-          log(`✅ SUCCESS for location ${i + 1}: ${address.substring(0, 80)}...`);
-        } else {
-          log(`❌ FAILED for location ${i + 1}: No Geotab address found`);
-        }
-        
-        // Small delay between requests (not needed for Geotab API but good practice)
-        if (i < locationsToGeocode.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 200));
-        }
-      }
-      
-      updateProgress(locationsToGeocode.length, locationsToGeocode.length, 'Complete!');
-      
-      // Re-render table with addresses
-      renderTable(mappedDvirData);
-      
-      // Final status
-      const successCount = mappedDvirData.filter(r => r.geotabAddress && r.geotabAddress.trim()).length;
-      const failCount = locationsToGeocode.length - successCount;
-      
-      if (successCount > 0) {
-        showMessage('infoBanner', `✅ SUCCESS! ${successCount}/${locationsToGeocode.length} addresses resolved using Geotab!${failCount > 0 ? ` ${failCount} failed.` : ''}`, 'success');
-        log(`🎯 FINAL RESULT: ${successCount} Geotab addresses resolved, ${failCount} failed`);
-      } else {
-        showMessage('infoBanner', '❌ COMPLETE FAILURE: No addresses could be resolved using Geotab API', 'error');
-        log(`❌ COMPLETE FAILURE: All Geotab geocoding attempts failed`);
-      }
-    } else {
-      showMessage('infoBanner', '✅ DVIR loaded! No locations to resolve.', 'success');
-    }
-    
-    document.getElementById('downloadCsv').disabled = false;
-    document.getElementById('downloadReport').disabled = false;
-
-  }catch(e){
-    showMessage('infoBanner', `Failed: ${e.message}`, 'error');
-    log(`❌ CRITICAL ERROR: ${e.message}`);
-  }
-};
-
-document.getElementById('downloadCsv').onclick = function(){
-  if(!mappedDvirData || mappedDvirData.length===0){ showMessage('infoBanner','No DVIR data to export','warning'); return; }
-  const headers = ['DateTime','Driver_Name','Driver_ID','Vehicle_Name','Device_ID','Safe_To_Operate','Driver_Inspected','Has_Defects','Defect_Count','Address','Latitude','Longitude','Odometer_km','Engine_Hours','Driver_Remarks'];
-  let csv = headers.map(h=>`"${h}"`).join(',') + '\n';
-  mappedDvirData.forEach(r=>{
-    let hasDefects='NO', defectCount='0';
-    if (r.defects && r.defects !== '[]' && r.defects !== '') {
-      try{ const d = JSON.parse(r.defects); if(Array.isArray(d)&&d.length>0){ hasDefects='YES'; defectCount=String(d.length); } }
-      catch(e){ if(r.defects.length>10){ hasDefects='YES'; defectCount='Unknown'; } }
-    }
-    const row = [
-      r.dateTime, r.driverName, r.driverId, r.vehicleName, r.deviceId,
-      r.isSafeToOperate===true?'SAFE':r.isSafeToOperate===false?'UNSAFE':'UNKNOWN',
-      r.isInspectedByDriver===true?'YES':'NO',
-      hasDefects, defectCount,
-      r.geotabAddress || `${r.latitude || ''}, ${r.longitude || ''}`, 
-      r.latitude || '', r.longitude || '',
-      r.odometer || '', r.engineHours || '', r.driverRemark || ''
-    ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
-    csv += row + '\n';
-  });
-  const ts = new Date().toISOString().slice(0,19).replace(/[:.]/g,'-');
-  const filename = `Geotab_DVIR_With_Addresses_${ts}.csv`;
-  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-  const a = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-  a.href = url; a.download = filename; a.style.display='none';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  showMessage('infoBanner', `📊 CSV "${filename}" downloaded`, 'success');
-};
-
-document.getElementById('downloadReport').onclick = function(){
-  if(!mappedDvirData || mappedDvirData.length===0){ showMessage('infoBanner','No DVIR data to report','warning'); return; }
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>DVIR Report (Geotab Addresses)</title>
-  <style>
-    body{font-family:Arial,Helvetica,sans-serif;margin:20px;color:#333}
-    h1{margin:0 0 6px 0} .muted{color:#666}
-    table{width:100%;border-collapse:collapse;margin-top:16px}
-    th,td{border:1px solid #e2e8f0;padding:8px;font-size:12px;text-align:left;vertical-align:top}
-    th{background:#2c5aa0;color:#fff}
-    tr:nth-child(even){background:#f7fafc}
-    .badge{padding:2px 6px;border-radius:3px;font-weight:700;font-size:10px;display:inline-block}
-    .safe{background:#c6f6d5;color:#22543d}
-    .unsafe{background:#fed7d7;color:#742a2a}
-    .unknown{background:#e2e8f0;color:#4a5568}
-    .geotab-address{background:#e8f5e8;color:#2d5016;padding:2px 4px;border-radius:3px;font-weight:500}
-    .coord-only{color:#666;font-style:italic}
-  </style></head><body>
-  <h1>Driver Vehicle Inspection Report</h1>
-  <div class="muted">Generated: ${new Date().toLocaleString()} | Using Geotab Native Geocoding</div>
-  <table><thead><tr>
-    <th>Date/Time</th><th>Driver</th><th>Vehicle</th><th>Status</th><th>Defects</th><th>Location (Address)</th><th>Odometer</th><th>Engine Hours</th><th>Remarks</th>
-  </tr></thead><tbody>
-  ${mappedDvirData.map(r=>{
-    let defects='None';
-    if (r.defects && r.defects !== '[]' && r.defects !== '') {
-      try{ const d = JSON.parse(r.defects); if(Array.isArray(d)&&d.length>0) defects = `⚠️ ${d.length}`; }
-      catch(e){ if(r.defects.length>10) defects = '⚠️ Yes'; }
-    }
-    const badge = r.isSafeToOperate===true?'<span class="badge safe">SAFE</span>':r.isSafeToOperate===false?'<span class="badge unsafe">UNSAFE</span>':'<span class="badge unknown">UNKNOWN</span>';
-    
-    let loc = 'No location';
-    if (r.latitude && r.longitude) {
-      const coords = `${Number(r.latitude).toFixed(6)}, ${Number(r.longitude).toFixed(6)}`;
-      if (r.geotabAddress && r.geotabAddress.trim() && r.geotabAddress.length > 5) {
-        loc = `<div class="geotab-address">📍 ${r.geotabAddress}</div><div class="muted">${coords}</div>`;
-      } else {
-        loc = `<span class="coord-only">${coords}</span>`;
-      }
-    }
-    
-    return `<tr>
-      <td>${r.dateTime}</td>
-      <td>${r.driverName}<div class="muted">ID: ${r.driverId||''}</div></td>
-      <td>${r.vehicleName}<div class="muted">ID: ${r.deviceId||''}</div></td>
-      <td>${badge}</td>
-      <td>${defects}</td>
-      <td>${loc}</td>
-      <td>${r.odometer?Math.round(r.odometer)+' km':'N/A'}</td>
-      <td>${r.engineHours?(Math.round(r.engineHours*10)/10)+' hrs':'N/A'}</td>
-      <td>${r.driverRemark || ''}</td>
-    </tr>`;
-  }).join('')}
-  </tbody></table>
-  </body></html>`;
-  const ts = new Date().toISOString().slice(0,19).replace(/[:.]/g,'-');
-  const filename = `DVIR_Report_Geotab_Addresses_${ts}.html`;
-  const blob = new Blob([html], {type:'text/html;charset=utf-8;'});
-  const a = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-  a.href = url; a.download = filename; a.style.display='none';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  showMessage('infoBanner', `📄 Report "${filename}" downloaded`, 'success');
-};
-
-document.getElementById('logout').onclick = function(){
-  credentials = null; serverUsed = null; mappedDvirData = [];
-  document.getElementById('dvirSection').style.display = 'none';
-  document.getElementById('authResult').innerHTML = '';
-  document.getElementById('dvirResult').innerHTML = '';
-  document.getElementById('debugLog').innerHTML = '';
-  showMessage('infoBanner','Logged out','info');
-};
-
-if (window.geotab || window.api || (window.location && /geotab\.com/i.test(window.location.host))) {
-  document.getElementById('dvirSection').style.display='';
-}
-</script>
-</body>
-</html>
+❌ COMPLETE FAILURE: No addresses could be resolved using Geotab API
+[10:48:00 PM] 🚀 Starting DVIR retrieval with Geotab geocoding...
+[10:48:00 PM] 📋 Getting DVIR logs from 2025-08-11 to 2025-08-18, limit: 10
+[10:48:00 PM] 📋 Retrieved 10 DVIR logs
+[10:48:01 PM] 📋 Mapped 10 DVIR records
+[10:48:01 PM] 🖼️ Rendering table with 10 rows
+[10:48:01 PM] Row 0: ❌ NO ADDRESS: -35.113388, 173.262250
+[10:48:01 PM] Row 2: ❌ NO ADDRESS: -35.664090, 174.295060
+[10:48:01 PM] Row 3: ❌ NO ADDRESS: -35.418020, 173.867630
+[10:48:01 PM] Row 5: ❌ NO ADDRESS: -36.409485, 174.650730
+[10:48:01 PM] Row 6: ❌ NO ADDRESS: -39.493027, 176.916520
+[10:48:01 PM] Row 7: ❌ NO ADDRESS: -36.090160, 174.351210
+[10:48:01 PM] Row 8: ❌ NO ADDRESS: -36.087757, 174.358860
+[10:48:01 PM] Row 9: ❌ NO ADDRESS: -36.088040, 174.358660
+[10:48:01 PM] 🖼️ Table complete: 0 with addresses, 8 with coordinates only
+[10:48:01 PM] 🌍 Found 8 locations to geocode with Geotab API
+[10:48:01 PM] 🌍 Processing location 1/8: -35.113388, 173.26225
+[10:48:01 PM] 🌍 Using Geotab Get method for ReverseGeocodeAddress at -35.113388, 173.26225
+[10:48:01 PM] ❌ Geotab geocoding ERROR: The method 'Get' could not be found. Verify the method name and ensure all method parameters are included.
+[10:48:01 PM] 🔄 Trying alternative Geotab geocoding methods...
+[10:48:01 PM] 🔄 Trying GetAddresses method...
+[10:48:02 PM] ❌ GetAddresses failed: An error occurred dealing with JSON data.
+[10:48:02 PM] 🔄 Trying ReverseGeocode method...
+[10:48:03 PM] ❌ ReverseGeocode failed: The method 'ReverseGeocode' could not be found. Verify the method name and ensure all method parameters are included.
+[10:48:03 PM] 🔄 Trying GetZones method...
+[10:48:03 PM] ❌ GetZones failed: An error occurred dealing with JSON data.
+[10:48:03 PM] 🌐 All Geotab methods failed, trying external geocoding...
+[10:48:03 PM] 🌐 Using external OpenCage geocoding for -35.113388, 173.26225
+[10:48:04 PM] ❌ External geocoding ERROR: HTTP 401
+[10:48:04 PM] ❌ FAILED for location 1: No Geotab address found
+[10:48:04 PM] 🌍 Processing location 2/8: -35.66409, 174.29506
+[10:48:04 PM] 🌍 Using Geotab Get method for ReverseGeocodeAddress at -35.66409, 174.29506
+[10:48:05 PM] ❌ Geotab geocoding ERROR: The method 'Get' could not be found. Verify the method name and ensure all method parameters are included.
+[10:48:05 PM] 🔄 Trying alternative Geotab geocoding methods...
+[10:48:05 PM] 🔄 Trying GetAddresses method...
+[10:48:05 PM] ❌ GetAddresses failed: An error occurred dealing with JSON data.
+[10:48:05 PM] 🔄 Trying ReverseGeocode method...
+[10:48:06 PM] ❌ ReverseGeocode failed: The method 'ReverseGeocode' could not be found. Verify the method name and ensure all method parameters are included.
+[10:48:06 PM] 🔄 Trying GetZones method...
+[10:48:06 PM] ❌ GetZones failed: An error occurred dealing with JSON data.
+[10:48:06 PM] 🌐 All Geotab methods failed, trying external geocoding...
+[10:48:06 PM] 🌐 Using external OpenCage geocoding for -35.66409, 174.29506
+[10:48:07 PM] ❌ External geocoding ERROR: HTTP 401
+[10:48:07 PM] ❌ FAILED for location 2: No Geotab address found
+[10:48:07 PM] 🌍 Processing location 3/8: -35.41802, 173.86763
+[10:48:07 PM] 🌍 Using Geotab Get method for ReverseGeocodeAddress at -35.41802, 173.86763
+[10:48:07 PM] ❌ Geotab geocoding ERROR: The method 'Get' could not be found. Verify the method name and ensure all method parameters are included.
+[10:48:07 PM] 🔄 Trying alternative Geotab geocoding methods...
+[10:48:07 PM] 🔄 Trying GetAddresses method...
+[10:48:08 PM] ❌ GetAddresses failed: An error occurred dealing with JSON data.
+[10:48:08 PM] 🔄 Trying ReverseGeocode method...
+[10:48:08 PM] ❌ ReverseGeocode failed: The method 'ReverseGeocode' could not be found. Verify the method name and ensure all method parameters are included.
+[10:48:08 PM] 🔄 Trying GetZones method...
+[10:48:08 PM] ❌ GetZones failed: An error occurred dealing with JSON data.
+[10:48:08 PM] 🌐 All Geotab methods failed, trying external geocoding...
+[10:48:09 PM] 🌐 Using external OpenCage geocoding for -35.41802, 173.86763
+[10:48:09 PM] ❌ External geocoding ERROR: HTTP 401
+[10:48:09 PM] ❌ FAILED for location 3: No Geotab address found
+[10:48:09 PM] 🌍 Processing location 4/8: -36.409485, 174.65073
+[10:48:09 PM] 🌍 Using Geotab Get method for ReverseGeocodeAddress at -36.409485, 174.65073
+[10:48:10 PM] ❌ Geotab geocoding ERROR: The method 'Get' could not be found. Verify the method name and ensure all method parameters are included.
+[10:48:10 PM] 🔄 Trying alternative Geotab geocoding methods...
+[10:48:10 PM] 🔄 Trying GetAddresses method...
+[10:48:10 PM] ❌ GetAddresses failed: An error occurred dealing with JSON data.
+[10:48:10 PM] 🔄 Trying ReverseGeocode method...
+[10:48:10 PM] ❌ ReverseGeocode failed: The method 'ReverseGeocode' could not be found. Verify the method name and ensure all method parameters are included.
+[10:48:10 PM] 🔄 Trying GetZones method...
+[10:48:11 PM] ❌ GetZones failed: An error occurred dealing with JSON data.
+[10:48:11 PM] 🌐 All Geotab methods failed, trying external geocoding...
+[10:48:11 PM] 🌐 Using external OpenCage geocoding for -36.409485, 174.65073
+[10:48:11 PM] ❌ External geocoding ERROR: HTTP 401
+[10:48:11 PM] ❌ FAILED for location 4: No Geotab address found
+[10:48:11 PM] 🌍 Processing location 5/8: -39.493027, 176.91652
+[10:48:11 PM] 🌍 Using Geotab Get method for ReverseGeocodeAddress at -39.493027, 176.91652
+[10:48:11 PM] ❌ Geotab geocoding ERROR: The method 'Get' could not be found. Verify the method name and ensure all method parameters are included.
+[10:48:11 PM] 🔄 Trying alternative Geotab geocoding methods...
+[10:48:11 PM] 🔄 Trying GetAddresses method...
+[10:48:12 PM] ❌ GetAddresses failed: An error occurred dealing with JSON data.
+[10:48:12 PM] 🔄 Trying ReverseGeocode method...
+[10:48:12 PM] ❌ ReverseGeocode failed: The method 'ReverseGeocode' could not be found. Verify the method name and ensure all method parameters are included.
+[10:48:12 PM] 🔄 Trying GetZones method...
+[10:48:13 PM] ❌ GetZones failed: An error occurred dealing with JSON data.
+[10:48:13 PM] 🌐 All Geotab methods failed, trying external geocoding...
+[10:48:13 PM] 🌐 Using external OpenCage geocoding for -39.493027, 176.91652
+[10:48:13 PM] ❌ External geocoding ERROR: HTTP 401
+[10:48:13 PM] ❌ FAILED for location 5: No Geotab address found
+[10:48:13 PM] 🌍 Processing location 6/8: -36.09016, 174.35121
+[10:48:13 PM] 🌍 Using Geotab Get method for ReverseGeocodeAddress at -36.09016, 174.35121
+[10:48:13 PM] ❌ Geotab geocoding ERROR: The method 'Get' could not be found. Verify the method name and ensure all method parameters are included.
+[10:48:13 PM] 🔄 Trying alternative Geotab geocoding methods...
+[10:48:13 PM] 🔄 Trying GetAddresses method...
+[10:48:14 PM] ❌ GetAddresses failed: An error occurred dealing with JSON data.
+[10:48:14 PM] 🔄 Trying ReverseGeocode method...
+[10:48:14 PM] ❌ ReverseGeocode failed: The method 'ReverseGeocode' could not be found. Verify the method name and ensure all method parameters are included.
+[10:48:14 PM] 🔄 Trying GetZones method...
+[10:48:14 PM] ❌ GetZones failed: An error occurred dealing with JSON data.
+[10:48:14 PM] 🌐 All Geotab methods failed, trying external geocoding...
+[10:48:14 PM] 🌐 Using external OpenCage geocoding for -36.09016, 174.35121
+[10:48:15 PM] ❌ External geocoding ERROR: HTTP 401
+[10:48:15 PM] ❌ FAILED for location 6: No Geotab address found
+[10:48:15 PM] 🌍 Processing location 7/8: -36.087757, 174.35886
+[10:48:15 PM] 🌍 Using Geotab Get method for ReverseGeocodeAddress at -36.087757, 174.35886
+[10:48:15 PM] ❌ Geotab geocoding ERROR: The method 'Get' could not be found. Verify the method name and ensure all method parameters are included.
+[10:48:15 PM] 🔄 Trying alternative Geotab geocoding methods...
+[10:48:15 PM] 🔄 Trying GetAddresses method...
+[10:48:16 PM] ❌ GetAddresses failed: An error occurred dealing with JSON data.
+[10:48:16 PM] 🔄 Trying ReverseGeocode method...
+[10:48:16 PM] ❌ ReverseGeocode failed: The method 'ReverseGeocode' could not be found. Verify the method name and ensure all method parameters are included.
+[10:48:16 PM] 🔄 Trying GetZones method...
+[10:48:16 PM] ❌ GetZones failed: An error occurred dealing with JSON data.
+[10:48:16 PM] 🌐 All Geotab methods failed, trying external geocoding...
+[10:48:16 PM] 🌐 Using external OpenCage geocoding for -36.087757, 174.35886
+[10:48:16 PM] ❌ External geocoding ERROR: HTTP 401
+[10:48:16 PM] ❌ FAILED for location 7: No Geotab address found
+[10:48:17 PM] 🌍 Processing location 8/8: -36.08804, 174.35866
+[10:48:17 PM] 🌍 Using Geotab Get method for ReverseGeocodeAddress at -36.08804, 174.35866
+[10:48:17 PM] ❌ Geotab geocoding ERROR: The method 'Get' could not be found. Verify the method name and ensure all method parameters are included.
+[10:48:17 PM] 🔄 Trying alternative Geotab geocoding methods...
+[10:48:17 PM] 🔄 Trying GetAddresses method...
+[10:48:17 PM] ❌ GetAddresses failed: An error occurred dealing with JSON data.
+[10:48:17 PM] 🔄 Trying ReverseGeocode method...
+[10:48:17 PM] ❌ ReverseGeocode failed: The method 'ReverseGeocode' could not be found. Verify the method name and ensure all method parameters are included.
+[10:48:17 PM] 🔄 Trying GetZones method...
+[10:48:18 PM] ❌ GetZones failed: An error occurred dealing with JSON data.
+[10:48:18 PM] 🌐 All Geotab methods failed, trying external geocoding...
+[10:48:18 PM] 🌐 Using external OpenCage geocoding for -36.08804, 174.35866
+[10:48:18 PM] ❌ External geocoding ERROR: HTTP 401
+[10:48:18 PM] ❌ FAILED for location 8: No Geotab address found
+[10:48:18 PM] 🖼️ Rendering table with 10 rows
+[10:48:18 PM] Row 0: ❌ NO ADDRESS: -35.113388, 173.262250
+[10:48:18 PM] Row 2: ❌ NO ADDRESS: -35.664090, 174.295060
+[10:48:18 PM] Row 3: ❌ NO ADDRESS: -35.418020, 173.867630
+[10:48:18 PM] Row 5: ❌ NO ADDRESS: -36.409485, 174.650730
+[10:48:18 PM] Row 6: ❌ NO ADDRESS: -39.493027, 176.916520
+[10:48:18 PM] Row 7: ❌ NO ADDRESS: -36.090160, 174.351210
+[10:48:18 PM] Row 8: ❌ NO ADDRESS: -36.087757, 174.358860
+[10:48:18 PM] Row 9: ❌ NO ADDRESS: -36.088040, 174.358660
+[10:48:18 PM] 🖼️ Table complete: 0 with addresses, 8 with coordinates only
+[10:48:18 PM] ❌ COMPLETE FAILURE: All Geotab geocoding attempts failed
