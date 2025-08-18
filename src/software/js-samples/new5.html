@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Geotab DVIR Logs</title>
+  <title>Geotab DVIR Logs - Enhanced</title>
   <style>
     * {
       margin: 0;
@@ -20,7 +20,7 @@
     }
 
     .container {
-      max-width: 800px;
+      max-width: 1400px;
       margin: 0 auto;
     }
 
@@ -142,17 +142,95 @@
       border-left: 4px solid #d69e2e;
     }
 
-    .result-container {
-      background: #1a202c;
-      color: #e2e8f0;
-      padding: 20px;
+    .alert-info {
+      background: #bee3f8;
+      color: #2c5282;
+      border-left: 4px solid #3182ce;
+    }
+
+    .progress-bar {
+      background: #e2e8f0;
+      border-radius: 10px;
+      height: 8px;
+      margin: 10px 0;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      background: linear-gradient(135deg, #48bb78, #38a169);
+      height: 100%;
+      transition: width 0.3s ease;
+    }
+
+    .dvir-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background: white;
       border-radius: 8px;
-      margin-top: 15px;
-      max-height: 400px;
-      overflow-y: auto;
-      font-family: 'Courier New', monospace;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .dvir-table th {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
       font-size: 13px;
-      line-height: 1.4;
+    }
+
+    .dvir-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 13px;
+      vertical-align: top;
+    }
+
+    .dvir-table tr:hover {
+      background: #f7fafc;
+    }
+
+    .dvir-table tr:nth-child(even) {
+      background: #f8f9fa;
+    }
+
+    .status-safe {
+      background: #c6f6d5;
+      color: #22543d;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    .status-unsafe {
+      background: #fed7d7;
+      color: #742a2a;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    .status-unknown {
+      background: #e2e8f0;
+      color: #4a5568;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    .defect-item {
+      background: #fef5e7;
+      border: 1px solid #f6ad55;
+      border-radius: 4px;
+      padding: 4px 6px;
+      margin: 2px;
+      display: inline-block;
+      font-size: 11px;
     }
 
     .hidden {
@@ -172,14 +250,42 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+
+    .summary-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-number {
+      font-size: 24px;
+      font-weight: 700;
+      color: #2d3748;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #718096;
+      text-transform: uppercase;
+      margin-top: 5px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <!-- Header -->
     <div class="header">
-      <h1>Geotab Asset Inspection Sheets</h1>
-      <p>Asset Inspection Report Logs</p>
+      <h1>🚛 Geotab DVIR Logs - Enhanced</h1>
+      <p>Driver Vehicle Inspection Reports with Readable Names</p>
     </div>
 
     <!-- Authentication Section -->
@@ -199,22 +305,31 @@
 
     <!-- DVIR Section -->
     <div id="dvirSection" class="card hidden">
-      <h3 class="card-title">📋 DVIR Logs</h3>
+      <h3 class="card-title">📋 Enhanced DVIR Logs</h3>
       
       <div class="alert alert-success">
-        ✅ <strong>Authenticated Successfully!</strong> Ready to get DVIR logs
+        ✅ <strong>Authenticated Successfully!</strong> Ready to get enhanced DVIR logs with readable names
       </div>
 
       <div class="form-row">
         <input id="fromDate" class="form-control" type="date" placeholder="From Date">
         <input id="toDate" class="form-control" type="date" placeholder="To Date">
-        <input id="resultsLimit" class="form-control" placeholder="Results Limit" value="50">
+        <input id="resultsLimit" class="form-control" placeholder="Results Limit" value="100">
       </div>
       
       <div>
-        <button id="getDvir" class="btn btn-success">📋 Get DVIR Logs</button>
-        <button id="downloadCsv" class="btn btn-info">📊 Download CSV</button>
+        <button id="getDvir" class="btn btn-success">📋 Get Enhanced DVIR Logs</button>
+        <button id="downloadCsv" class="btn btn-info">📊 Download Readable CSV</button>
         <button id="logout" class="btn btn-danger">🚪 Logout</button>
+      </div>
+      
+      <div id="progressSection" class="hidden">
+        <div class="alert alert-info">
+          <div id="progressText">Processing DVIR data...</div>
+          <div class="progress-bar">
+            <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+          </div>
+        </div>
       </div>
       
       <div id="dvirResult"></div>
@@ -225,6 +340,7 @@
     let credentials = null;
     let serverUsed = null;
     let lastDvirResult = null;
+    let enhancedDvirData = null;
 
     // Auto-detect if inside Geotab
     window.addEventListener('load', function() {
@@ -256,24 +372,31 @@
       element.innerHTML = `<div class="alert ${alertClass}">${message}</div>`;
     }
 
+    function updateProgress(text, percentage) {
+      document.getElementById('progressSection').classList.remove('hidden');
+      document.getElementById('progressText').textContent = text;
+      document.getElementById('progressFill').style.width = percentage + '%';
+    }
+
+    function hideProgress() {
+      document.getElementById('progressSection').classList.add('hidden');
+    }
+
     async function callGeotabAPI(method, params = {}) {
       // If inside Geotab, use internal API
       if (window.geotab && typeof window.geotab.call === 'function') {
-        console.log(`🔗 Using internal Geotab API: ${method}`);
         return new Promise((resolve, reject) => {
           window.geotab.call(method, params, resolve, reject);
         });
       }
       
       if (window.api && typeof window.api.call === 'function') {
-        console.log(`🔗 Using window.api: ${method}`);
         return new Promise((resolve, reject) => {
           window.api.call(method, params, resolve, reject);
         });
       }
       
       // External API
-      console.log(`🌐 Using external API: ${method}`);
       const requestBody = {
         method: method,
         params: credentials ? { ...params, credentials: credentials } : params
@@ -299,6 +422,24 @@
       }
       
       return data.result;
+    }
+
+    // Extract ID from object
+    function extractId(obj) {
+      if (!obj) return null;
+      if (typeof obj === 'string') return obj;
+      if (typeof obj === 'object' && obj.id) return obj.id;
+      return null;
+    }
+
+    // Parse JSON safely
+    function safeJsonParse(str) {
+      if (!str) return null;
+      try {
+        return JSON.parse(str);
+      } catch (e) {
+        return str;
+      }
     }
 
     // Authentication
@@ -346,7 +487,7 @@
       }
     };
 
-    // Get DVIR Logs
+    // Enhanced DVIR Logs
     document.getElementById('getDvir').onclick = async function() {
       if (!credentials && !window.geotab && !window.api) {
         showMessage('dvirResult', 'Not authenticated', 'error');
@@ -355,7 +496,7 @@
 
       const fromDate = document.getElementById('fromDate').value;
       const toDate = document.getElementById('toDate').value;
-      const resultsLimit = parseInt(document.getElementById('resultsLimit').value) || 50;
+      const resultsLimit = parseInt(document.getElementById('resultsLimit').value) || 100;
       
       if (!fromDate || !toDate) {
         showMessage('dvirResult', 'Please select both from and to dates', 'error');
@@ -363,7 +504,7 @@
       }
       
       try {
-        showMessage('dvirResult', 'Getting DVIR logs...', 'warning');
+        updateProgress('Getting DVIR logs...', 10);
         
         const params = {
           typeName: 'DVIRLog',
@@ -374,49 +515,321 @@
           resultsLimit: resultsLimit
         };
         
-        const result = await callGeotabAPI('Get', params);
+        const dvirLogs = await callGeotabAPI('Get', params);
         
-        const resultCount = Array.isArray(result) ? result.length : (result ? 1 : 0);
-        showMessage('dvirResult', `✅ Success! Found ${resultCount} DVIR log(s)`, 'success');
+        if (!dvirLogs || dvirLogs.length === 0) {
+          hideProgress();
+          showMessage('dvirResult', 'No DVIR logs found for the selected date range', 'warning');
+          return;
+        }
+
+        updateProgress('Extracting IDs for lookup...', 30);
+
+        // Extract all unique IDs
+        const driverIds = new Set();
+        const deviceIds = new Set();
+        const userIds = new Set();
         
-        document.getElementById('dvirResult').innerHTML += 
-          `<div class="result-container">${JSON.stringify(result, null, 2)}</div>`;
+        dvirLogs.forEach(log => {
+          const driverId = extractId(safeJsonParse(log.driver));
+          const deviceId = extractId(safeJsonParse(log.device));
+          const certifiedById = extractId(safeJsonParse(log.certifiedBy));
+          const repairedById = extractId(safeJsonParse(log.repairedBy));
+          
+          if (driverId) driverIds.add(driverId);
+          if (deviceId) deviceIds.add(deviceId);
+          if (certifiedById) userIds.add(certifiedById);
+          if (repairedById) userIds.add(repairedById);
+        });
+
+        updateProgress('Looking up driver names...', 50);
         
-        lastDvirResult = result;
+        // Build lookup calls
+        const lookupCalls = [];
+        
+        // Get all drivers
+        if (driverIds.size > 0) {
+          Array.from(driverIds).forEach(id => {
+            lookupCalls.push({
+              method: 'Get',
+              params: {
+                typeName: 'User',
+                search: { id: id }
+              }
+            });
+          });
+        }
+        
+        updateProgress('Looking up device names...', 60);
+        
+        // Get all devices
+        if (deviceIds.size > 0) {
+          Array.from(deviceIds).forEach(id => {
+            lookupCalls.push({
+              method: 'Get',
+              params: {
+                typeName: 'Device',
+                search: { id: id }
+              }
+            });
+          });
+        }
+        
+        updateProgress('Looking up user names...', 70);
+        
+        // Get additional users (certified/repaired by)
+        if (userIds.size > 0) {
+          Array.from(userIds).forEach(id => {
+            if (!driverIds.has(id)) { // Don't duplicate if already getting as driver
+              lookupCalls.push({
+                method: 'Get',
+                params: {
+                  typeName: 'User',
+                  search: { id: id }
+                }
+              });
+            }
+          });
+        }
+
+        updateProgress('Executing batch lookups...', 80);
+        
+        // Execute all lookups
+        const lookupResults = await callGeotabAPI('ExecuteMultiCall', { calls: lookupCalls });
+        
+        updateProgress('Building name mappings...', 90);
+        
+        // Build name mappings
+        const driverNames = {};
+        const deviceNames = {};
+        const userNames = {};
+        
+        let resultIndex = 0;
+        
+        // Map driver results
+        Array.from(driverIds).forEach(id => {
+          const result = lookupResults[resultIndex++];
+          if (result && result.length > 0) {
+            driverNames[id] = result[0].name || result[0].firstName + ' ' + result[0].lastName || id;
+          } else {
+            driverNames[id] = `Driver ${id}`;
+          }
+        });
+        
+        // Map device results
+        Array.from(deviceIds).forEach(id => {
+          const result = lookupResults[resultIndex++];
+          if (result && result.length > 0) {
+            deviceNames[id] = result[0].name || `Device ${id}`;
+          } else {
+            deviceNames[id] = `Device ${id}`;
+          }
+        });
+        
+        // Map user results
+        Array.from(userIds).forEach(id => {
+          if (!driverIds.has(id)) {
+            const result = lookupResults[resultIndex++];
+            if (result && result.length > 0) {
+              userNames[id] = result[0].name || result[0].firstName + ' ' + result[0].lastName || id;
+            } else {
+              userNames[id] = `User ${id}`;
+            }
+          }
+        });
+
+        updateProgress('Formatting enhanced data...', 95);
+        
+        // Enhance DVIR data with readable names
+        enhancedDvirData = dvirLogs.map(log => {
+          const driverId = extractId(safeJsonParse(log.driver));
+          const deviceId = extractId(safeJsonParse(log.device));
+          const certifiedById = extractId(safeJsonParse(log.certifiedBy));
+          const repairedById = extractId(safeJsonParse(log.repairedBy));
+          
+          return {
+            id: log.id,
+            dateTime: new Date(log.dateTime).toLocaleString(),
+            driverName: driverNames[driverId] || userNames[driverId] || 'Unknown Driver',
+            driverId: driverId,
+            deviceName: deviceNames[deviceId] || 'Unknown Device',
+            deviceId: deviceId,
+            isSafeToOperate: log.isSafeToOperate,
+            isInspectedByDriver: log.isInspectedByDriver,
+            driverRemark: log.driverRemark || '',
+            certifiedByName: userNames[certifiedById] || driverNames[certifiedById] || (certifiedById ? 'Unknown User' : ''),
+            certifiedById: certifiedById,
+            certifyDate: log.certifyDate ? new Date(log.certifyDate).toLocaleString() : '',
+            certifyRemark: log.certifyRemark || '',
+            repairedByName: userNames[repairedById] || driverNames[repairedById] || (repairedById ? 'Unknown User' : ''),
+            repairedById: repairedById,
+            repairDate: log.repairDate ? new Date(log.repairDate).toLocaleString() : '',
+            odometer: log.odometer || 0,
+            engineHours: log.engineHours || 0,
+            defects: log.defects || '',
+            defectList: log.defectList || '',
+            location: log.location || '',
+            logType: log.logType || '',
+            authorityName: log.authorityName || '',
+            duration: log.duration || '',
+            version: log.version || ''
+          };
+        });
+
+        updateProgress('Complete!', 100);
+        
+        // Display summary stats
+        const safeCount = enhancedDvirData.filter(d => d.isSafeToOperate === true).length;
+        const unsafeCount = enhancedDvirData.filter(d => d.isSafeToOperate === false).length;
+        const unknownCount = enhancedDvirData.filter(d => d.isSafeToOperate === null || d.isSafeToOperate === undefined).length;
+        const inspectedCount = enhancedDvirData.filter(d => d.isInspectedByDriver === true).length;
+        
+        hideProgress();
+        
+        showMessage('dvirResult', 
+          `✅ <strong>Enhanced DVIR logs loaded successfully!</strong><br>
+          Found ${enhancedDvirData.length} DVIR log(s) with readable names`, 'success');
+
+        // Display summary and table
+        displayEnhancedDvirData(enhancedDvirData, {
+          total: enhancedDvirData.length,
+          safe: safeCount,
+          unsafe: unsafeCount,
+          unknown: unknownCount,
+          inspected: inspectedCount
+        });
+
+        lastDvirResult = enhancedDvirData;
         
       } catch (error) {
-        showMessage('dvirResult', `❌ Failed to get DVIR logs: ${error.message}`, 'error');
+        hideProgress();
+        showMessage('dvirResult', `❌ Failed to get enhanced DVIR logs: ${error.message}`, 'error');
       }
     };
 
-    // Download CSV
+    function displayEnhancedDvirData(data, stats) {
+      const resultDiv = document.getElementById('dvirResult');
+      
+      // Summary stats
+      let html = `
+        <div class="summary-stats">
+          <div class="stat-card">
+            <div class="stat-number">${stats.total}</div>
+            <div class="stat-label">Total DVIRs</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" style="color: #38a169">${stats.safe}</div>
+            <div class="stat-label">Safe to Operate</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" style="color: #e53e3e">${stats.unsafe}</div>
+            <div class="stat-label">Unsafe</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" style="color: #4a5568">${stats.unknown}</div>
+            <div class="stat-label">Unknown Status</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" style="color: #3182ce">${stats.inspected}</div>
+            <div class="stat-label">Driver Inspected</div>
+          </div>
+        </div>
+        
+        <table class="dvir-table">
+          <thead>
+            <tr>
+              <th>Date/Time</th>
+              <th>Driver</th>
+              <th>Vehicle</th>
+              <th>Safe to Operate</th>
+              <th>Driver Inspected</th>
+              <th>Odometer</th>
+              <th>Driver Remarks</th>
+              <th>Certified By</th>
+              <th>Certified Date</th>
+              <th>Repaired By</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      data.forEach(log => {
+        const safeStatus = log.isSafeToOperate === true ? 
+          '<span class="status-safe">SAFE</span>' : 
+          log.isSafeToOperate === false ? 
+          '<span class="status-unsafe">UNSAFE</span>' : 
+          '<span class="status-unknown">UNKNOWN</span>';
+          
+        const inspectedStatus = log.isInspectedByDriver === true ? '✅ Yes' : '❌ No';
+        
+        html += `
+          <tr>
+            <td>${log.dateTime}</td>
+            <td><strong>${log.driverName}</strong><br><small>${log.driverId}</small></td>
+            <td><strong>${log.deviceName}</strong><br><small>${log.deviceId}</small></td>
+            <td>${safeStatus}</td>
+            <td>${inspectedStatus}</td>
+            <td>${log.odometer ? Math.round(log.odometer) + ' km' : 'N/A'}</td>
+            <td>${log.driverRemark || '<em>No remarks</em>'}</td>
+            <td>${log.certifiedByName || '<em>Not certified</em>'}</td>
+            <td>${log.certifyDate || '<em>Not certified</em>'}</td>
+            <td>${log.repairedByName || '<em>No repairs</em>'}</td>
+          </tr>
+        `;
+      });
+      
+      html += `
+          </tbody>
+        </table>
+      `;
+      
+      resultDiv.innerHTML += html;
+    }
+
+    // Download Enhanced CSV
     document.getElementById('downloadCsv').onclick = function() {
-      if (!lastDvirResult) {
-        showMessage('dvirResult', 'No DVIR data to download. Get DVIR logs first!', 'warning');
+      if (!enhancedDvirData || enhancedDvirData.length === 0) {
+        showMessage('dvirResult', 'No enhanced DVIR data to download. Get enhanced DVIR logs first!', 'warning');
         return;
       }
       
       let csvContent = '';
+      const headers = [
+        'DateTime', 'Driver_Name', 'Driver_ID', 'Vehicle_Name', 'Device_ID', 
+        'Safe_To_Operate', 'Driver_Inspected', 'Odometer_km', 'Engine_Hours',
+        'Driver_Remarks', 'Certified_By', 'Certified_Date', 'Certified_Remarks',
+        'Repaired_By', 'Repair_Date', 'Log_Type', 'Authority_Name'
+      ];
       
-      if (Array.isArray(lastDvirResult) && lastDvirResult.length > 0) {
-        const headers = Object.keys(lastDvirResult[0]);
-        csvContent = headers.map(h => `"${h}"`).join(',') + '\n';
+      csvContent = headers.map(h => `"${h}"`).join(',') + '\n';
+      
+      enhancedDvirData.forEach(row => {
+        const values = [
+          row.dateTime,
+          row.driverName,
+          row.driverId || '',
+          row.deviceName,
+          row.deviceId || '',
+          row.isSafeToOperate === true ? 'SAFE' : row.isSafeToOperate === false ? 'UNSAFE' : 'UNKNOWN',
+          row.isInspectedByDriver === true ? 'YES' : 'NO',
+          row.odometer || '',
+          row.engineHours || '',
+          row.driverRemark || '',
+          row.certifiedByName || '',
+          row.certifyDate || '',
+          row.certifyRemark || '',
+          row.repairedByName || '',
+          row.repairDate || '',
+          row.logType || '',
+          row.authorityName || ''
+        ];
         
-        lastDvirResult.forEach(row => {
-          const values = headers.map(header => {
-            const value = row[header];
-            if (value === null || value === undefined) return '""';
-            if (typeof value === 'object') return `"${JSON.stringify(value).replace(/"/g, '""')}"`;
-            return `"${String(value).replace(/"/g, '""')}"`;
-          });
-          csvContent += values.join(',') + '\n';
-        });
-      } else {
-        csvContent = '"Message"\n"No DVIR data found"';
-      }
+        const escapedValues = values.map(value => `"${String(value).replace(/"/g, '""')}"`);
+        csvContent += escapedValues.join(',') + '\n';
+      });
       
       const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-      const filename = `Geotab_DVIR_Logs_${timestamp}.csv`;
+      const filename = `Geotab_Enhanced_DVIR_Logs_${timestamp}.csv`;
       
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
@@ -430,7 +843,7 @@
         link.click();
         document.body.removeChild(link);
         
-        showMessage('dvirResult', `📊 CSV file "${filename}" downloaded successfully!`, 'success');
+        showMessage('dvirResult', `📊 Enhanced CSV file "${filename}" downloaded successfully!`, 'success');
       } else {
         alert('CSV download not supported in this browser');
       }
@@ -441,9 +854,11 @@
       credentials = null;
       serverUsed = null;
       lastDvirResult = null;
+      enhancedDvirData = null;
       document.getElementById('dvirSection').classList.add('hidden');
       document.getElementById('authResult').innerHTML = '';
       document.getElementById('dvirResult').innerHTML = '';
+      hideProgress();
     };
   </script>
 </body>
