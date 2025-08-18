@@ -690,7 +690,7 @@
       document.getElementById('apiResult').innerHTML = '';
     };
 
-    // CSV Download functionality - Same as your working file
+    // CSV Download functionality - Enhanced for readable DVIR data
     function convertToCSV(data, method, typeName) {
       if (!data) return '';
       
@@ -699,19 +699,116 @@
       if (Array.isArray(data)) {
         if (data.length === 0) return 'No data available';
         
-        // Regular array of objects
-        const headers = Object.keys(data[0]);
-        csvContent = headers.map(h => `"${h}"`).join(',') + '\n';
-        
-        data.forEach(row => {
-          const values = headers.map(header => {
-            const value = row[header];
-            if (value === null || value === undefined) return '""';
-            if (typeof value === 'object') return `"${JSON.stringify(value).replace(/"/g, '""')}"`;
-            return `"${String(value).replace(/"/g, '""')}"`;
+        // Special handling for DVIR data to make it readable
+        if (typeName === 'DVIRLog') {
+          csvContent = 'DVIR_ID,Date_Time,Device_Name,Device_ID,Driver_Name,Driver_ID,Log_Type,Location,Odometer,Engine_Hours,Duration,Certified_By,Driver_Remark,Authority_Name,Defect_Count,Defect_Details,Inspected_By_Driver,Version\n';
+          
+          data.forEach(row => {
+            // Extract readable values from nested objects
+            const dvirId = row.id || '';
+            const dateTime = row.dateTime || '';
+            const deviceName = row.device?.name || 'Unknown Device';
+            const deviceId = row.device?.id || '';
+            const driverName = row.driver?.name || 'Unknown Driver';
+            const driverId = row.driver?.id || '';
+            const logType = row.logType || '';
+            const location = row.location?.address || row.location?.name || 'Unknown Location';
+            const odometer = row.odometer || '';
+            const engineHours = row.engineHours || '';
+            const duration = row.duration || '';
+            const certifyRemark = row.certifyRemark || '';
+            const driverRemark = row.driverRemark || '';
+            const authorityName = row.authorityName || '';
+            const defectCount = row.defectList ? row.defectList.length : 0;
+            const defectDetails = row.defectList ? row.defectList.map(d => d.defectRemark || d.remark || 'No description').join('; ') : '';
+            const inspectedByDriver = row.isInspectedByDriver || false;
+            const version = row.version || '';
+            
+            csvContent += `"${dvirId}","${dateTime}","${deviceName}","${deviceId}","${driverName}","${driverId}","${logType}","${location}","${odometer}","${engineHours}","${duration}","${certifyRemark}","${driverRemark}","${authorityName}","${defectCount}","${defectDetails}","${inspectedByDriver}","${version}"\n`;
           });
-          csvContent += values.join(',') + '\n';
-        });
+        }
+        // Special handling for DVIR Defects
+        else if (typeName === 'DVIRDefect') {
+          csvContent = 'Defect_ID,Date_Time,Device_Name,Driver_Name,Defect_Type,Defect_Remark,Severity,Is_Repaired,Repair_Date,Repair_User,Asset_Type,Asset_Name\n';
+          
+          data.forEach(row => {
+            const defectId = row.id || '';
+            const dateTime = row.dateTime || '';
+            const deviceName = row.device?.name || 'Unknown Device';
+            const driverName = row.driver?.name || 'Unknown Driver';
+            const defectType = row.defectType?.name || row.defectType || '';
+            const defectRemark = row.defectRemark || row.remark || '';
+            const severity = row.defectSeverity?.name || row.severity || '';
+            const isRepaired = row.repairStatus?.name === 'Repaired' || row.isRepaired || false;
+            const repairDate = row.repairDateTime || '';
+            const repairUser = row.repairUser?.name || '';
+            const assetType = row.defectAssetType?.name || '';
+            const assetName = row.assetName || '';
+            
+            csvContent += `"${defectId}","${dateTime}","${deviceName}","${driverName}","${defectType}","${defectRemark}","${severity}","${isRepaired}","${repairDate}","${repairUser}","${assetType}","${assetName}"\n`;
+          });
+        }
+        // Special handling for Devices
+        else if (typeName === 'Device') {
+          csvContent = 'Device_ID,Device_Name,VIN,Serial_Number,License_Plate,Device_Type,Groups,Active_From,Active_To\n';
+          
+          data.forEach(row => {
+            const deviceId = row.id || '';
+            const deviceName = row.name || '';
+            const vin = row.vehicleIdentificationNumber || '';
+            const serialNumber = row.serialNumber || '';
+            const licensePlate = row.licensePlate || '';
+            const deviceType = row.deviceType?.name || '';
+            const groups = row.groups ? row.groups.map(g => g.name || g.id).join('; ') : '';
+            const activeFrom = row.activeFrom || '';
+            const activeTo = row.activeTo || '';
+            
+            csvContent += `"${deviceId}","${deviceName}","${vin}","${serialNumber}","${licensePlate}","${deviceType}","${groups}","${activeFrom}","${activeTo}"\n`;
+          });
+        }
+        // Special handling for Users/Drivers
+        else if (typeName === 'User') {
+          csvContent = 'User_ID,Name,First_Name,Last_Name,Email,Phone,Employee_No,Is_Driver,License_Number,Groups,Active_From,Active_To\n';
+          
+          data.forEach(row => {
+            const userId = row.id || '';
+            const name = row.name || '';
+            const firstName = row.firstName || '';
+            const lastName = row.lastName || '';
+            const email = row.privateUserGroups?.find(g => g.name === 'Email')?.name || '';
+            const phone = row.phoneNumber || '';
+            const employeeNo = row.employeeNo || '';
+            const isDriver = row.isDriver || false;
+            const licenseNumber = row.licenseNumber || '';
+            const groups = row.companyGroups ? row.companyGroups.map(g => g.name || g.id).join('; ') : '';
+            const activeFrom = row.activeFrom || '';
+            const activeTo = row.activeTo || '';
+            
+            csvContent += `"${userId}","${name}","${firstName}","${lastName}","${email}","${phone}","${employeeNo}","${isDriver}","${licenseNumber}","${groups}","${activeFrom}","${activeTo}"\n`;
+          });
+        }
+        // Default handling for other data types
+        else {
+          const headers = Object.keys(data[0]);
+          csvContent = headers.map(h => `"${h}"`).join(',') + '\n';
+          
+          data.forEach(row => {
+            const values = headers.map(header => {
+              const value = row[header];
+              if (value === null || value === undefined) return '""';
+              
+              // Try to extract readable information from objects
+              if (typeof value === 'object') {
+                if (value.name) return `"${value.name}"`;
+                if (value.id) return `"${value.id}"`;
+                return `"${JSON.stringify(value).replace(/"/g, '""')}"`;
+              }
+              
+              return `"${String(value).replace(/"/g, '""')}"`;
+            });
+            csvContent += values.join(',') + '\n';
+          });
+        }
       } else if (typeof data === 'object') {
         // Single object
         const headers = Object.keys(data);
@@ -719,7 +816,11 @@
         const values = headers.map(header => {
           const value = data[header];
           if (value === null || value === undefined) return '""';
-          if (typeof value === 'object') return `"${JSON.stringify(value).replace(/"/g, '""')}"`;
+          if (typeof value === 'object') {
+            if (value.name) return `"${value.name}"`;
+            if (value.id) return `"${value.id}"`;
+            return `"${JSON.stringify(value).replace(/"/g, '""')}"`;
+          }
           return `"${String(value).replace(/"/g, '""')}"`;
         });
         csvContent += values.join(',') + '\n';
