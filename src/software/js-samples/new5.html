@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Geotab DVIR Logs - Simple Mapping</title>
+  <title>Geotab DVIR Logs - Complete</title>
   <style>
     * {
       margin: 0;
@@ -112,6 +112,11 @@
       color: white;
     }
 
+    .btn-warning {
+      background: linear-gradient(135deg, #ed8936, #dd6b20);
+      color: white;
+    }
+
     .btn-danger {
       background: linear-gradient(135deg, #f56565, #e53e3e);
       color: white;
@@ -203,6 +208,12 @@
       font-size: 11px;
     }
 
+    .location-coords {
+      font-family: monospace;
+      font-size: 11px;
+      color: #4a5568;
+    }
+
     .hidden {
       display: none !important;
     }
@@ -220,6 +231,13 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
   </style>
 </head>
 <body>
@@ -227,7 +245,7 @@
     <!-- Header -->
     <div class="header">
       <h1>🚛 Geotab DVIR Logs</h1>
-      <p>Driver Vehicle Inspection Reports with Driver & Vehicle Names</p>
+      <p>Complete Driver Vehicle Inspection Reports with Location Data</p>
     </div>
 
     <!-- Authentication Section -->
@@ -247,10 +265,10 @@
 
     <!-- DVIR Section -->
     <div id="dvirSection" class="card hidden">
-      <h3 class="card-title">📋 DVIR Logs with Names</h3>
+      <h3 class="card-title">📋 Complete DVIR Logs</h3>
       
       <div class="alert alert-success">
-        ✅ <strong>Authenticated Successfully!</strong> Ready to get DVIR logs with driver and vehicle names
+        ✅ <strong>Authenticated Successfully!</strong> Ready to get complete DVIR logs with location data
       </div>
 
       <div class="form-row">
@@ -259,9 +277,10 @@
         <input id="resultsLimit" class="form-control" placeholder="Results Limit" value="100">
       </div>
       
-      <div>
+      <div class="button-group">
         <button id="getDvir" class="btn btn-success">📋 Get DVIR Logs</button>
         <button id="downloadCsv" class="btn btn-info">📊 Download CSV</button>
+        <button id="downloadReport" class="btn btn-warning">📄 Download Professional Report</button>
         <button id="logout" class="btn btn-danger">🚪 Logout</button>
       </div>
       
@@ -273,6 +292,7 @@
     let credentials = null;
     let serverUsed = null;
     let mappedDvirData = null;
+    let reportDateRange = {};
 
     // Auto-detect if inside Geotab
     window.addEventListener('load', function() {
@@ -357,6 +377,31 @@
       }
     }
 
+    // Extract location coordinates
+    function extractLocation(locationStr) {
+      if (!locationStr) return { latitude: null, longitude: null };
+      
+      try {
+        const parsed = JSON.parse(locationStr);
+        if (parsed.location && parsed.location.x && parsed.location.y) {
+          return {
+            latitude: parsed.location.y,
+            longitude: parsed.location.x
+          };
+        }
+      } catch (e) {
+        // Try to parse if it's already an object
+        if (locationStr.location && locationStr.location.x && locationStr.location.y) {
+          return {
+            latitude: locationStr.location.y,
+            longitude: locationStr.location.x
+          };
+        }
+      }
+      
+      return { latitude: null, longitude: null };
+    }
+
     // Authentication
     document.getElementById('authButton').onclick = async function() {
       const server = document.getElementById('server').value.trim();
@@ -402,7 +447,7 @@
       }
     };
 
-    // Get DVIR Logs with Driver and Vehicle mapping
+    // Get DVIR Logs with Driver, Vehicle and Location mapping
     document.getElementById('getDvir').onclick = async function() {
       if (!credentials && !window.geotab && !window.api) {
         showMessage('dvirResult', 'Not authenticated', 'error');
@@ -417,6 +462,9 @@
         showMessage('dvirResult', 'Please select both from and to dates', 'error');
         return;
       }
+
+      // Store date range for report
+      reportDateRange = { fromDate, toDate };
       
       try {
         showMessage('dvirResult', 'Getting DVIR logs...', 'warning');
@@ -505,10 +553,11 @@
           }
         });
 
-        // Step 6: Map DVIR data with readable names
+        // Step 6: Map DVIR data with readable names and location
         mappedDvirData = dvirLogs.map(log => {
           const driverId = extractId(log.driver);
           const deviceId = extractId(log.device);
+          const location = extractLocation(log.location);
           
           return {
             id: log.id,
@@ -522,14 +571,19 @@
             driverRemark: log.driverRemark || '',
             odometer: log.odometer || 0,
             engineHours: log.engineHours || 0,
+            latitude: location.latitude,
+            longitude: location.longitude,
             certifyDate: log.certifyDate ? new Date(log.certifyDate).toLocaleString() : '',
             repairDate: log.repairDate ? new Date(log.repairDate).toLocaleString() : '',
-            logType: log.logType || ''
+            logType: log.logType || '',
+            authorityName: log.authorityName || '',
+            defects: log.defects || '',
+            certifyRemark: log.certifyRemark || ''
           };
         });
 
         // Step 7: Display results
-        showMessage('dvirResult', `✅ Success! Mapped ${mappedDvirData.length} DVIR logs with driver and vehicle names`, 'success');
+        showMessage('dvirResult', `✅ Success! Mapped ${mappedDvirData.length} DVIR logs with complete data including locations`, 'success');
         displayMappedData(mappedDvirData);
         
       } catch (error) {
@@ -549,10 +603,9 @@
               <th>Vehicle Name</th>
               <th>Safe to Operate</th>
               <th>Driver Inspected</th>
+              <th>Location</th>
               <th>Odometer (km)</th>
-              <th>Engine Hours</th>
               <th>Driver Remarks</th>
-              <th>Certified Date</th>
             </tr>
           </thead>
           <tbody>
@@ -567,6 +620,10 @@
           
         const inspectedStatus = log.isInspectedByDriver === true ? '✅ Yes' : '❌ No';
         
+        const locationDisplay = log.latitude && log.longitude ? 
+          `<span class="location-coords">${log.latitude.toFixed(6)}, ${log.longitude.toFixed(6)}</span>` : 
+          '<em>No location</em>';
+        
         html += `
           <tr>
             <td>${log.dateTime}</td>
@@ -574,10 +631,9 @@
             <td><strong>${log.vehicleName}</strong><br><small>ID: ${log.deviceId}</small></td>
             <td>${safeStatus}</td>
             <td>${inspectedStatus}</td>
+            <td>${locationDisplay}</td>
             <td>${log.odometer ? Math.round(log.odometer) : 'N/A'}</td>
-            <td>${log.engineHours ? Math.round(log.engineHours * 10) / 10 : 'N/A'}</td>
             <td>${log.driverRemark || '<em>No remarks</em>'}</td>
-            <td>${log.certifyDate || '<em>Not certified</em>'}</td>
           </tr>
         `;
       });
@@ -590,18 +646,19 @@
       resultDiv.innerHTML += html;
     }
 
-    // Download CSV
+    // Download CSV with Location Data
     document.getElementById('downloadCsv').onclick = function() {
       if (!mappedDvirData || mappedDvirData.length === 0) {
-        showMessage('dvirResult', 'No mapped DVIR data to download. Get DVIR logs first!', 'warning');
+        showMessage('dvirResult', 'No DVIR data to download. Get DVIR logs first!', 'warning');
         return;
       }
       
       let csvContent = '';
       const headers = [
         'DateTime', 'Driver_Name', 'Driver_ID', 'Vehicle_Name', 'Device_ID', 
-        'Safe_To_Operate', 'Driver_Inspected', 'Odometer_km', 'Engine_Hours',
-        'Driver_Remarks', 'Certified_Date', 'Log_Type'
+        'Safe_To_Operate', 'Driver_Inspected', 'Latitude', 'Longitude', 
+        'Odometer_km', 'Engine_Hours', 'Driver_Remarks', 'Certified_Date', 
+        'Repair_Date', 'Log_Type', 'Authority_Name', 'Certify_Remarks'
       ];
       
       csvContent = headers.map(h => `"${h}"`).join(',') + '\n';
@@ -615,11 +672,16 @@
           row.deviceId,
           row.isSafeToOperate === true ? 'SAFE' : row.isSafeToOperate === false ? 'UNSAFE' : 'UNKNOWN',
           row.isInspectedByDriver === true ? 'YES' : 'NO',
+          row.latitude || '',
+          row.longitude || '',
           row.odometer || '',
           row.engineHours || '',
           row.driverRemark || '',
           row.certifyDate || '',
-          row.logType || ''
+          row.repairDate || '',
+          row.logType || '',
+          row.authorityName || '',
+          row.certifyRemark || ''
         ];
         
         const escapedValues = values.map(value => `"${String(value).replace(/"/g, '""')}"`);
@@ -627,7 +689,7 @@
       });
       
       const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-      const filename = `Geotab_DVIR_Mapped_${timestamp}.csv`;
+      const filename = `Geotab_DVIR_Complete_${timestamp}.csv`;
       
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
@@ -641,9 +703,270 @@
         link.click();
         document.body.removeChild(link);
         
-        showMessage('dvirResult', `📊 CSV file "${filename}" downloaded successfully!`, 'success');
+        showMessage('dvirResult', `📊 Complete CSV file "${filename}" downloaded successfully!`, 'success');
       } else {
         alert('CSV download not supported in this browser');
+      }
+    };
+
+    // Download Professional Report
+    document.getElementById('downloadReport').onclick = function() {
+      if (!mappedDvirData || mappedDvirData.length === 0) {
+        showMessage('dvirResult', 'No DVIR data to generate report. Get DVIR logs first!', 'warning');
+        return;
+      }
+
+      // Calculate statistics
+      const totalReports = mappedDvirData.length;
+      const safeReports = mappedDvirData.filter(d => d.isSafeToOperate === true).length;
+      const unsafeReports = mappedDvirData.filter(d => d.isSafeToOperate === false).length;
+      const unknownReports = mappedDvirData.filter(d => d.isSafeToOperate === null || d.isSafeToOperate === undefined).length;
+      const inspectedReports = mappedDvirData.filter(d => d.isInspectedByDriver === true).length;
+      const withLocation = mappedDvirData.filter(d => d.latitude && d.longitude).length;
+      const withRemarks = mappedDvirData.filter(d => d.driverRemark && d.driverRemark.trim()).length;
+
+      // Generate professional report HTML
+      const reportHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>DVIR Inspection Report</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #ffffff;
+            color: #333;
+            line-height: 1.6;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #2c5aa0;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .company-logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c5aa0;
+            margin-bottom: 10px;
+        }
+        .report-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #1a365d;
+            margin: 10px 0;
+        }
+        .report-subtitle {
+            font-size: 16px;
+            color: #4a5568;
+            margin-bottom: 5px;
+        }
+        .date-range {
+            font-size: 14px;
+            color: #718096;
+            font-style: italic;
+        }
+        .summary-section {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .summary-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 5px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .stat-item {
+            text-align: center;
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c5aa0;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #718096;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .data-table th {
+            background: #2c5aa0;
+            color: white;
+            padding: 12px 8px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .data-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 11px;
+            vertical-align: top;
+        }
+        .data-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        .status-safe { background: #c6f6d5; color: #22543d; padding: 3px 6px; border-radius: 3px; font-weight: 600; font-size: 10px; }
+        .status-unsafe { background: #fed7d7; color: #742a2a; padding: 3px 6px; border-radius: 3px; font-weight: 600; font-size: 10px; }
+        .status-unknown { background: #e2e8f0; color: #4a5568; padding: 3px 6px; border-radius: 3px; font-weight: 600; font-size: 10px; }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+            font-size: 12px;
+            color: #718096;
+        }
+        .location-coords {
+            font-family: monospace;
+            font-size: 10px;
+            color: #4a5568;
+        }
+        @media print {
+            body { margin: 0; }
+            .data-table { font-size: 10px; }
+            .data-table th, .data-table td { padding: 6px 4px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="company-logo">🚛 FLEET MANAGEMENT SYSTEM</div>
+        <div class="report-title">Driver Vehicle Inspection Report (DVIR)</div>
+        <div class="report-subtitle">Comprehensive Fleet Safety Analysis</div>
+        <div class="date-range">Report Period: ${new Date(reportDateRange.fromDate).toLocaleDateString()} - ${new Date(reportDateRange.toDate).toLocaleDateString()}</div>
+        <div class="date-range">Generated: ${new Date().toLocaleString()}</div>
+    </div>
+
+    <div class="summary-section">
+        <div class="summary-title">📊 Executive Summary</div>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-number">${totalReports}</div>
+                <div class="stat-label">Total Inspections</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" style="color: #38a169">${safeReports}</div>
+                <div class="stat-label">Safe to Operate</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" style="color: #e53e3e">${unsafeReports}</div>
+                <div class="stat-label">Unsafe</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" style="color: #4a5568">${unknownReports}</div>
+                <div class="stat-label">Unknown Status</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" style="color: #3182ce">${inspectedReports}</div>
+                <div class="stat-label">Driver Inspected</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" style="color: #805ad5">${withLocation}</div>
+                <div class="stat-label">With Location Data</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" style="color: #d69e2e">${withRemarks}</div>
+                <div class="stat-label">With Remarks</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" style="color: #38a169">${((safeReports/totalReports)*100).toFixed(1)}%</div>
+                <div class="stat-label">Safety Rate</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="summary-section">
+        <div class="summary-title">📋 Detailed Inspection Records</div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date/Time</th>
+                    <th>Driver</th>
+                    <th>Vehicle</th>
+                    <th>Status</th>
+                    <th>Driver Inspected</th>
+                    <th>Location</th>
+                    <th>Odometer</th>
+                    <th>Driver Remarks</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${mappedDvirData.map(log => `
+                <tr>
+                    <td>${log.dateTime}</td>
+                    <td><strong>${log.driverName}</strong><br><small>ID: ${log.driverId}</small></td>
+                    <td><strong>${log.vehicleName}</strong><br><small>ID: ${log.deviceId}</small></td>
+                    <td>${log.isSafeToOperate === true ? '<span class="status-safe">SAFE</span>' : 
+                         log.isSafeToOperate === false ? '<span class="status-unsafe">UNSAFE</span>' : 
+                         '<span class="status-unknown">UNKNOWN</span>'}</td>
+                    <td>${log.isInspectedByDriver === true ? '✅ Yes' : '❌ No'}</td>
+                    <td>${log.latitude && log.longitude ? 
+                         `<span class="location-coords">${log.latitude.toFixed(6)}, ${log.longitude.toFixed(6)}</span>` : 
+                         '<em>No location</em>'}</td>
+                    <td>${log.odometer ? Math.round(log.odometer) + ' km' : 'N/A'}</td>
+                    <td>${log.driverRemark || '<em>No remarks</em>'}</td>
+                </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="footer">
+        <p><strong>Report Notes:</strong></p>
+        <p>• This report contains ${totalReports} DVIR inspection records from your fleet management system</p>
+        <p>• Safety Rate: ${((safeReports/totalReports)*100).toFixed(1)}% of inspections resulted in "Safe to Operate" status</p>
+        <p>• Location data available for ${((withLocation/totalReports)*100).toFixed(1)}% of inspections</p>
+        <p>• Generated from Geotab API data on ${new Date().toLocaleDateString()}</p>
+    </div>
+</body>
+</html>`;
+
+      // Download the report
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+      const filename = `DVIR_Professional_Report_${timestamp}.html`;
+      
+      const blob = new Blob([reportHtml], { type: 'text/html;charset=utf-8;' });
+      const link = document.createElement('a');
+      
+      if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showMessage('dvirResult', `📄 Professional report "${filename}" downloaded successfully! Open in browser and print to PDF for sharing.`, 'success');
+      } else {
+        alert('Report download not supported in this browser');
       }
     };
 
@@ -652,6 +975,7 @@
       credentials = null;
       serverUsed = null;
       mappedDvirData = null;
+      reportDateRange = {};
       document.getElementById('dvirSection').classList.add('hidden');
       document.getElementById('authResult').innerHTML = '';
       document.getElementById('dvirResult').innerHTML = '';
