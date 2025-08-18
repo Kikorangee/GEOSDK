@@ -180,6 +180,34 @@
       justify-content: center;
     }
 
+    .status-info {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-left: 4px solid #48bb78;
+    }
+
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .status-label {
+      font-weight: 600;
+      color: #4a5568;
+    }
+
+    .status-value {
+      color: #2d3748;
+      font-family: monospace;
+      background: #f7fafc;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
     .alert {
       padding: 15px 20px;
       border-radius: 8px;
@@ -315,13 +343,37 @@
     <div class="success-banner">
       <span class="icon">✅</span>
       <div>
-        <strong>DVIR Logs API Runner - Ready to Use</strong><br>
-        <small>Click examples below to auto-fill parameters, then hit "Run API Call"</small>
+        <strong>DVIR API Runner with Authentication</strong><br>
+        <small>Authenticate first, then click examples below to auto-fill parameters</small>
       </div>
     </div>
 
+    <!-- Authentication Section -->
+    <div class="card">
+      <h3 class="card-title">
+        <span class="icon">🔐</span>
+        Authentication
+      </h3>
+      
+      <div class="form-group">
+        <div class="form-row">
+          <input id="server" class="form-control" placeholder="Server" value="my.geotab.com">
+          <input id="database" class="form-control" placeholder="Database" value="uccnz">
+        </div>
+        <div class="form-row">
+          <input id="username" class="form-control" placeholder="Username" value="francis@directt.co.nz">
+          <input id="password" class="form-control" type="password" placeholder="Password" value="@fr4nc1sWynn5">
+        </div>
+        <button id="authButton" class="btn btn-primary">
+          <span class="icon">🔑</span>
+          Authenticate
+        </button>
+      </div>
+      <div id="authResult"></div>
+    </div>
+
     <!-- API Testing Section -->
-    <div id="apiSection" class="card">
+    <div id="apiSection" class="card hidden">
       <h3 class="card-title">
         <span class="icon">🔧</span>
         DVIR API Testing
@@ -330,8 +382,23 @@
       <div class="alert alert-success">
         <span class="icon">✅</span>
         <div>
-          <strong>Ready to Execute DVIR API Calls!</strong><br>
-          Connected to Geotab internal API
+          <strong>Authenticated Successfully!</strong><br>
+          Ready to execute DVIR API calls
+        </div>
+      </div>
+
+      <div class="status-info">
+        <div class="status-row">
+          <span class="status-label">Server:</span>
+          <span class="status-value" id="connectedServer"></span>
+        </div>
+        <div class="status-row">
+          <span class="status-label">Database:</span>
+          <span class="status-value" id="connectedDB"></span>
+        </div>
+        <div class="status-row">
+          <span class="status-label">User:</span>
+          <span class="status-value" id="connectedUser"></span>
         </div>
       </div>
 
@@ -356,6 +423,10 @@
           <button id="downloadCsv" class="btn btn-info">
             <span class="icon">📊</span>
             Download CSV
+          </button>
+          <button id="logout" class="btn btn-danger">
+            <span class="icon">🚪</span>
+            Logout
           </button>
         </div>
       </div>
@@ -419,13 +490,29 @@
   </div>
 
   <script>
+    let credentials = null;
+    let serverUsed = null;
     let lastApiResult = null;
 
     // Auto-detect if we're inside Geotab and skip authentication
     window.addEventListener('load', function() {
       if (window.geotab || window.api || window.location.host.includes('geotab.com')) {
-        console.log('🎯 Inside Geotab detected - ready for DVIR calls...');
-        console.log('✅ DVIR Manager ready');
+        console.log('🎯 Inside Geotab detected - auto-authenticating...');
+        
+        // We're inside Geotab - skip authentication
+        document.getElementById('authResult').innerHTML = '';
+        document.getElementById('apiSection').classList.remove('hidden');
+        
+        // Set dummy credentials so the rest of the code works
+        credentials = { internal: true };
+        serverUsed = 'internal';
+        
+        // Show connected status
+        document.getElementById('connectedServer').textContent = 'Geotab Internal API';
+        document.getElementById('connectedDB').textContent = window.location.pathname.split('/')[1] || 'Current Database';
+        document.getElementById('connectedUser').textContent = 'Current User';
+        
+        console.log('✅ Auto-authentication complete');
       }
     });
 
@@ -441,7 +528,7 @@
       </div>`;
     }
 
-    // Direct API call function - Same format as your working file
+    // Direct API call function - Same as your working file
     async function callGeotabAPI(method, params = {}) {
       // If inside Geotab, use internal API
       if (window.geotab && typeof window.geotab.call === 'function') {
@@ -459,11 +546,100 @@
         });
       }
       
-      throw new Error('Geotab API not available. This add-in must run within Geotab.');
+      // Otherwise use external API (original code)
+      console.log(`🌐 Using external API: ${method}`);
+      const requestBody = {
+        method: method,
+        params: credentials ? { ...params, credentials: credentials } : params
+      };
+
+      const response = await fetch(`https://${serverUsed}/apiv1`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error.message || data.error.name);
+      }
+      
+      return data.result;
     }
 
-    // API call - Same format as your working file
+    // Authentication - Same as your working file
+    document.getElementById('authButton').onclick = async function() {
+      const server = document.getElementById('server').value.trim();
+      const database = document.getElementById('database').value.trim();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      
+      document.getElementById('authResult').innerHTML = '';
+      
+      if (!server || !database || !username || !password) {
+        showMessage('authResult', 'Please fill in all fields', 'error');
+        return;
+      }
+      
+      try {
+        showMessage('authResult', 'Authenticating...', 'warning');
+        
+        serverUsed = server;
+        const result = await callGeotabAPI('Authenticate', {
+          userName: username,
+          password: password,
+          database: database
+        });
+        
+        // Handle server redirect
+        if (result.path && result.path !== 'ThisServer') {
+          serverUsed = result.path;
+          showMessage('authResult', `Redirecting to ${result.path}...`, 'warning');
+          
+          const redirectResult = await callGeotabAPI('Authenticate', {
+            userName: username,
+            password: password,
+            database: database
+          });
+          
+          credentials = redirectResult.credentials;
+        } else {
+          credentials = result.credentials;
+        }
+        
+        showMessage('authResult', 'Authentication successful!', 'success');
+        
+        // Get user info
+        const users = await callGeotabAPI('Get', {
+          typeName: 'User',
+          search: { name: username }
+        });
+        
+        document.getElementById('connectedServer').textContent = serverUsed;
+        document.getElementById('connectedDB').textContent = database;
+        document.getElementById('connectedUser').textContent = users.length > 0 ? users[0].name : username;
+        document.getElementById('apiSection').classList.remove('hidden');
+        
+      } catch (error) {
+        showMessage('authResult', `Authentication failed: ${error.message}`, 'error');
+      }
+    };
+
+    // API call - Same as your working file
     document.getElementById('runApi').onclick = async function() {
+      if (!credentials && !window.geotab && !window.api) {
+        showMessage('apiResult', 'Not authenticated', 'error');
+        return;
+      }
+
       const method = document.getElementById('method').value;
       const typeName = document.getElementById('typeName').value.trim();
       let params = {};
@@ -504,7 +680,17 @@
       }
     };
 
-    // CSV Download functionality - Same format as your working file
+    // Logout - Same as your working file
+    document.getElementById('logout').onclick = function() {
+      credentials = null;
+      serverUsed = null;
+      lastApiResult = null;
+      document.getElementById('apiSection').classList.add('hidden');
+      document.getElementById('authResult').innerHTML = '';
+      document.getElementById('apiResult').innerHTML = '';
+    };
+
+    // CSV Download functionality - Same as your working file
     function convertToCSV(data, method, typeName) {
       if (!data) return '';
       
