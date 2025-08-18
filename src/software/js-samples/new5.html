@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DVIR Logs Manager - Geotab Add-In</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+      min-height: 100vh;
+      color: #333;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 25px;
+      margin-bottom: 25px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .header h1 {
+      color: #2d3748;
+      font-size: 2.2em;
+      font-weight: 700;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .header .subtitle {
+      color: #4a5568;
+      font-size: 1.1em;
+      font-weight: 500;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 25px;
+      margin-bottom: 25px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+    }
+
+    .card-title {
+      color: #2d3748;
+      font-size: 1.4em;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 12px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.2s ease;
+      background: white;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: #4a90e2;
+      box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      margin: 4px;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #4a90e2, #357abd);
+      color: white;
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, #48bb78, #38a169);
+      color: white;
+    }
+
+    .btn-info {
+      background: linear-gradient(135deg, #4299e1, #3182ce);
+      color: white;
+    }
+
+    .btn-warning {
+      background: linear-gradient(135deg, #ed8936, #dd6b20);
+      color: white;
+    }
+
+    .alert {
+      padding: 15px 20px;
+      border-radius: 8px;
+      margin: 15px 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-weight: 500;
+    }
+
+    .alert-success {
+      background: linear-gradient(135deg, #c6f6d5, #9ae6b4);
+      color: #22543d;
+      border-left: 4px solid #38a169;
+    }
+
+    .alert-error {
+      background: linear-gradient(135deg, #fed7d7, #feb2b2);
+      color: #742a2a;
+      border-left: 4px solid #e53e3e;
+    }
+
+    .alert-warning {
+      background: linear-gradient(135deg, #fefcbf, #faf089);
+      color: #744210;
+      border-left: 4px solid #d69e2e;
+    }
+
+    .alert-info {
+      background: linear-gradient(135deg, #bee3f8, #90cdf4);
+      color: #2a4365;
+      border-left: 4px solid #4299e1;
+    }
+
+    .result-container {
+      background: #1a202c;
+      color: #e2e8f0;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 15px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.4;
+      border: 1px solid #4a5568;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 25px;
+    }
+
+    .stat-card {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-value {
+      font-size: 2.2em;
+      font-weight: 800;
+      margin-bottom: 5px;
+    }
+
+    .stat-label {
+      font-size: 14px;
+      opacity: 0.9;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .dvir-item {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 10px;
+      transition: all 0.2s ease;
+    }
+
+    .dvir-item:hover {
+      background: #e9ecef;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .dvir-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .dvir-status {
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .status-pass {
+      background: #c6f6d5;
+      color: #22543d;
+    }
+
+    .status-fail {
+      background: #fed7d7;
+      color: #742a2a;
+    }
+
+    .status-na {
+      background: #e2e8f0;
+      color: #4a5568;
+    }
+
+    .dvir-details {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      font-size: 14px;
+    }
+
+    .detail-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .filters-panel {
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .icon {
+      font-size: 1.2em;
+    }
+
+    @media (max-width: 768px) {
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+      
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>
+        <span class="icon">📋</span>
+        DVIR Logs Manager
+      </h1>
+      <div class="subtitle">Driver Vehicle Inspection Report Analytics</div>
+    </div>
+
+    <!-- Statistics Dashboard -->
+    <div class="stats-grid" id="statsGrid" style="display: none;">
+      <div class="stat-card">
+        <div class="stat-value" id="totalDVIRs">-</div>
+        <div class="stat-label">Total DVIRs</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="passedDVIRs">-</div>
+        <div class="stat-label">Passed</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="failedDVIRs">-</div>
+        <div class="stat-label">Failed</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="complianceRate">-</div>
+        <div class="stat-label">Pass Rate</div>
+      </div>
+    </div>
+
+    <!-- Filters and Controls -->
+    <div class="card">
+      <h3 class="card-title">
+        <span class="icon">🔍</span>
+        Search DVIR Logs
+      </h3>
+      
+      <div class="filters-panel">
+        <div class="form-row">
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: 600;">From Date:</label>
+            <input type="date" id="fromDate" class="form-control">
+          </div>
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: 600;">To Date:</label>
+            <input type="date" id="toDate" class="form-control">
+          </div>
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Device/Vehicle:</label>
+            <select id="deviceFilter" class="form-control">
+              <option value="">All Devices</option>
+            </select>
+          </div>
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Status:</label>
+            <select id="statusFilter" class="form-control">
+              <option value="">All Statuses</option>
+              <option value="pass">Pass</option>
+              <option value="fail">Fail</option>
+              <option value="na">N/A</option>
+            </select>
+          </div>
+        </div>
+        
+        <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+          <button id="searchDVIR" class="btn btn-primary">
+            <span class="icon">🔍</span>
+            Search DVIR Logs
+          </button>
+          <button id="loadDevices" class="btn btn-info">
+            <span class="icon">🚗</span>
+            Load Devices
+          </button>
+          <button id="downloadCsv" class="btn btn-success">
+            <span class="icon">📊</span>
+            Export CSV
+          </button>
+          <button id="presetToday" class="btn btn-warning">
+            <span class="icon">📅</span>
+            Today
+          </button>
+          <button id="presetWeek" class="btn btn-warning">
+            <span class="icon">📅</span>
+            Last 7 Days
+          </button>
+          <button id="presetMonth" class="btn btn-warning">
+            <span class="icon">📅</span>
+            Last 30 Days
+          </button>
+        </div>
+      </div>
+      
+      <div id="searchResult"></div>
+    </div>
+
+    <!-- DVIR Results -->
+    <div class="card" id="resultsCard" style="display: none;">
+      <h3 class="card-title">
+        <span class="icon">📋</span>
+        DVIR Results
+        <span id="resultCount" style="font-size: 0.8em; color: #718096;"></span>
+      </h3>
+      
+      <div id="dvirList"></div>
+    </div>
+  </div>
+
+  <script>
+    let lastDVIRResult = null;
+    let devicesCache = [];
+
+    // Initialize the add-in
+    window.addEventListener('load', function() {
+      initializeDVIRManager();
+    });
+
+    function initializeDVIRManager() {
+      console.log('🚀 Initializing DVIR Logs Manager...');
+      
+      // Set default date range (last 7 days)
+      const today = new Date();
+      const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      
+      document.getElementById('fromDate').value = formatDate(lastWeek);
+      document.getElementById('toDate').value = formatDate(today);
+      
+      // Setup event listeners
+      setupEventListeners();
+      
+      // Load devices for filter
+      loadDevicesForFilter();
+      
+      console.log('✅ DVIR Manager initialized');
+    }
+
+    function setupEventListeners() {
+      document.getElementById('searchDVIR').onclick = searchDVIRLogs;
+      document.getElementById('loadDevices').onclick = loadDevicesForFilter;
+      document.getElementById('downloadCsv').onclick = downloadCSV;
+      
+      // Preset buttons
+      document.getElementById('presetToday').onclick = () => setDatePreset(0);
+      document.getElementById('presetWeek').onclick = () => setDatePreset(7);
+      document.getElementById('presetMonth').onclick = () => setDatePreset(30);
+    }
+
+    function setDatePreset(daysBack) {
+      const today = new Date();
+      const startDate = new Date(today.getTime() - daysBack * 24 * 60 * 60 * 1000);
+      
+      document.getElementById('fromDate').value = formatDate(startDate);
+      document.getElementById('toDate').value = formatDate(today);
+    }
+
+    function formatDate(date) {
+      return date.toISOString().split('T')[0];
+    }
+
+    function formatDateTime(dateStr) {
+      return new Date(dateStr).toLocaleString();
+    }
+
+    // Geotab API call function
+    async function callGeotabAPI(method, params = {}) {
+      // Use Geotab's internal API if available
+      if (window.geotab && typeof window.geotab.call === 'function') {
+        console.log(`🔗 Using Geotab API: ${method}`);
+        return new Promise((resolve, reject) => {
+          window.geotab.call(method, params, resolve, reject);
+        });
+      }
+      
+      // Fallback for testing outside Geotab
+      if (window.api && typeof window.api.call === 'function') {
+        console.log(`🔗 Using window.api: ${method}`);
+        return new Promise((resolve, reject) => {
+          window.api.call(method, params, resolve, reject);
+        });
+      }
+      
+      throw new Error('Geotab API not available. This add-in must run within Geotab.');
+    }
+
+    // Load devices for filter dropdown
+    async function loadDevicesForFilter() {
+      try {
+        showMessage('searchResult', 'Loading devices...', 'info');
+        
+        const devices = await callGeotabAPI('Get', {
+          typeName: 'Device',
+          resultsLimit: 1000
+        });
+        
+        devicesCache = devices;
+        
+        // Populate device filter dropdown
+        const deviceFilter = document.getElementById('deviceFilter');
+        deviceFilter.innerHTML = '<option value="">All Devices</option>';
+        
+        devices.forEach(device => {
+          const option = document.createElement('option');
+          option.value = device.id;
+          option.textContent = device.name || device.id;
+          deviceFilter.appendChild(option);
+        });
+        
+        showMessage('searchResult', `✅ Loaded ${devices.length} devices`, 'success');
+        
+      } catch (error) {
+        showMessage('searchResult', `❌ Failed to load devices: ${error.message}`, 'error');
+      }
+    }
+
+    // Main DVIR search function
+    async function searchDVIRLogs() {
+      const fromDate = document.getElementById('fromDate').value;
+      const toDate = document.getElementById('toDate').value;
+      const deviceId = document.getElementById('deviceFilter').value;
+      const statusFilter = document.getElementById('statusFilter').value;
+      
+      if (!fromDate || !toDate) {
+        showMessage('searchResult', '❌ Please select both from and to dates', 'error');
+        return;
+      }
+      
+      try {
+        showMessage('searchResult', 'Searching DVIR logs...', 'info');
+        
+        // Build search parameters
+        const searchParams = {
+          typeName: 'DVIRLog',
+          search: {
+            fromDate: `${fromDate}T00:00:00.000Z`,
+            toDate: `${toDate}T23:59:59.999Z`
+          },
+          resultsLimit: 1000
+        };
+        
+        // Add device filter if selected
+        if (deviceId) {
+          searchParams.search.deviceSearch = { id: deviceId };
+        }
+        
+        console.log('🔍 DVIR Search Parameters:', searchParams);
+        
+        // Make API call
+        const dvirLogs = await callGeotabAPI('Get', searchParams);
+        
+        console.log('📋 DVIR Results:', dvirLogs);
+        
+        // Filter by status if specified
+        let filteredLogs = dvirLogs;
+        if (statusFilter) {
+          filteredLogs = dvirLogs.filter(log => {
+            const status = getDVIRStatus(log);
+            return status.toLowerCase() === statusFilter.toLowerCase();
+          });
+        }
+        
+        // Store results
+        lastDVIRResult = {
+          data: filteredLogs,
+          timestamp: new Date().toISOString(),
+          filters: { fromDate, toDate, deviceId, statusFilter }
+        };
+        
+        // Display results
+        displayDVIRResults(filteredLogs);
+        updateStatistics(filteredLogs);
+        
+        showMessage('searchResult', `✅ Found ${filteredLogs.length} DVIR logs`, 'success');
+        
+      } catch (error) {
+        console.error('❌ DVIR Search Error:', error);
+        showMessage('searchResult', `❌ Search failed: ${error.message}`, 'error');
+      }
+    }
+
+    // Determine DVIR status
+    function getDVIRStatus(dvirLog) {
+      if (!dvirLog.defects || dvirLog.defects.length === 0) {
+        return 'Pass';
+      }
+      
+      // Check if any defects are safety-related or not repaired
+      const hasActiveDefects = dvirLog.defects.some(defect => 
+        !defect.isRepaired || defect.severity === 'Major'
+      );
+      
+      return hasActiveDefects ? 'Fail' : 'Pass';
+    }
+
+    // Display DVIR results
+    function displayDVIRResults(dvirLogs) {
+      const resultsCard = document.getElementById('resultsCard');
+      const dvirList = document.getElementById('dvirList');
+      const resultCount = document.getElementById('resultCount');
+      
+      resultsCard.style.display = 'block';
+      resultCount.textContent = `(${dvirLogs.length} records)`;
+      
+      if (dvirLogs.length === 0) {
+        dvirList.innerHTML = '<div class="alert alert-warning">📭 No DVIR logs found for the selected criteria</div>';
+        return;
+      }
+      
+      // Sort by date (newest first)
+      dvirLogs.sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
+      
+      // Generate HTML for each DVIR
+      dvirList.innerHTML = dvirLogs.map(log => {
+        const status = getDVIRStatus(log);
+        const device = devicesCache.find(d => d.id === log.device?.id);
+        const deviceName = device?.name || log.device?.id || 'Unknown Device';
+        
+        return `
+          <div class="dvir-item">
+            <div class="dvir-header">
+              <h4 style="margin: 0; color: #2d3748;">${deviceName}</h4>
+              <span class="dvir-status status-${status.toLowerCase()}">${status}</span>
+            </div>
+            
+            <div class="dvir-details">
+              <div class="detail-item">
+                <span>📅</span>
+                <strong>Date:</strong> ${formatDateTime(log.dateTime)}
+              </div>
+              <div class="detail-item">
+                <span>👤</span>
+                <strong>Driver:</strong> ${log.driver?.name || 'Unknown'}
+              </div>
+              <div class="detail-item">
+                <span>🔧</span>
+                <strong>Defects:</strong> ${log.defects?.length || 0}
+              </div>
+              <div class="detail-item">
+                <span>📊</span>
+                <strong>Type:</strong> ${log.logType || 'Standard'}
+              </div>
+              ${log.location ? `
+                <div class="detail-item">
+                  <span>📍</span>
+                  <strong>Location:</strong> ${log.location.address || 'Unknown'}
+                </div>
+              ` : ''}
+            </div>
+            
+            ${log.defects && log.defects.length > 0 ? `
+              <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+                <strong>Defects:</strong>
+                <ul style="margin: 5px 0 0 20px; font-size: 13px;">
+                  ${log.defects.map(defect => `
+                    <li style="color: ${defect.isRepaired ? '#38a169' : '#e53e3e'};">
+                      ${defect.defectRemark || 'No description'} 
+                      ${defect.isRepaired ? '✅ Repaired' : '❌ Not Repaired'}
+                    </li>
+                  `).join('')}
+                </ul>
+              </div>
+            ` : ''}
+            
+            ${log.remarks ? `
+              <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+                <strong>Remarks:</strong> ${log.remarks}
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Update statistics
+    function updateStatistics(dvirLogs) {
+      const statsGrid = document.getElementById('statsGrid');
+      
+      if (dvirLogs.length === 0) {
+        statsGrid.style.display = 'none';
+        return;
+      }
+      
+      const total = dvirLogs.length;
+      const passed = dvirLogs.filter(log => getDVIRStatus(log) === 'Pass').length;
+      const failed = total - passed;
+      const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
+      
+      document.getElementById('totalDVIRs').textContent = total;
+      document.getElementById('passedDVIRs').textContent = passed;
+      document.getElementById('failedDVIRs').textContent = failed;
+      document.getElementById('complianceRate').textContent = `${passRate}%`;
+      
+      statsGrid.style.display = 'grid';
+    }
+
+    // CSV Export function
+    function downloadCSV() {
+      if (!lastDVIRResult || !lastDVIRResult.data) {
+        showMessage('searchResult', '❌ No data to export. Run a search first!', 'warning');
+        return;
+      }
+      
+      const dvirLogs = lastDVIRResult.data;
+      let csvContent = 'Date,Time,Device,Driver,Status,Defect_Count,Repaired_Defects,Pending_Defects,Location,Remarks\n';
+      
+      dvirLogs.forEach(log => {
+        const device = devicesCache.find(d => d.id === log.device?.id);
+        const deviceName = device?.name || log.device?.id || 'Unknown';
+        const status = getDVIRStatus(log);
+        const date = new Date(log.dateTime);
+        const defectCount = log.defects?.length || 0;
+        const repairedDefects = log.defects?.filter(d => d.isRepaired).length || 0;
+        const pendingDefects = defectCount - repairedDefects;
+        
+        csvContent += `"${date.toLocaleDateString()}","${date.toLocaleTimeString()}","${deviceName}","${log.driver?.name || 'Unknown'}","${status}",${defectCount},${repairedDefects},${pendingDefects},"${log.location?.address || ''}","${log.remarks || ''}"\n`;
+      });
+      
+      // Create and download file
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+      const filename = `DVIR_Logs_${timestamp}.csv`;
+      
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      
+      if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showMessage('searchResult', `📊 CSV exported: ${filename}`, 'success');
+      } else {
+        showMessage('searchResult', '❌ CSV download not supported in this browser', 'error');
+      }
+    }
+
+    // Utility function to show messages
+    function showMessage(elementId, message, type = 'info') {
+      const element = document.getElementById(elementId);
+      const alertClass = type === 'error' ? 'alert-error' : 
+                        type === 'success' ? 'alert-success' : 
+                        type === 'warning' ? 'alert-warning' : 'alert-info';
+      
+      const icon = type === 'error' ? '❌' : 
+                  type === 'success' ? '✅' : 
+                  type === 'warning' ? '⚠️' : 'ℹ️';
+      
+      element.innerHTML = `<div class="alert ${alertClass}">
+        <span class="icon">${icon}</span>
+        <div>${message}</div>
+      </div>`;
+    }
+  </script>
+</body>
+</html>
