@@ -1,9 +1,10 @@
-t Inspections<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Geotab DVIR Logs - Complete</title>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <style>
     * {
       margin: 0;
@@ -244,8 +245,30 @@ t Inspections<!DOCTYPE html>
   <div class="container">
     <!-- Header -->
     <div class="header">
-      <h1>🚛 Geotab Asset Inspections</h1>
+      <h1>🚛 Geotab DVIR Logs</h1>
       <p>Complete Driver Vehicle Inspection Reports with Location Data</p>
+    </div>
+
+    <!-- Email Alert Configuration -->
+    <div class="card">
+      <h3 class="card-title">📧 Email Alert Configuration</h3>
+      <div class="alert alert-warning">
+        ⚠️ <strong>Email Alerts:</strong> Get notified when defects or unsafe vehicles are detected in DVIR reports
+      </div>
+      
+      <div class="form-row">
+        <input id="alertEmail" class="form-control" placeholder="Alert Email Address" value="francis@directt.co.nz">
+        <input id="emailjsServiceId" class="form-control" placeholder="EmailJS Service ID (optional)" value="">
+      </div>
+      <div class="form-row">
+        <input id="emailjsTemplateId" class="form-control" placeholder="EmailJS Template ID (optional)" value="">
+        <input id="emailjsPublicKey" class="form-control" placeholder="EmailJS Public Key (optional)" value="">
+      </div>
+      <div style="font-size: 12px; color: #718096; margin-top: 10px;">
+        <strong>Note:</strong> For email alerts to work, you need a free EmailJS account. 
+        Leave EmailJS fields empty to use mailto links instead.
+        <a href="https://www.emailjs.com/" target="_blank" style="color: #3182ce;">Get EmailJS Account</a>
+      </div>
     </div>
 
     <!-- Authentication Section -->
@@ -259,7 +282,7 @@ t Inspections<!DOCTYPE html>
         <input id="username" class="form-control" placeholder="Username" value="francis@directt.co.nz">
         <input id="password" class="form-control" type="password" placeholder="Password" value="@fr4nc1sWynn5">
       </div>
-      <button id="authButton" class="btn btn-primary">🔑 Log in</button>
+      <button id="authButton" class="btn btn-primary">🔑 Authenticate</button>
       <div id="authResult"></div>
     </div>
 
@@ -268,7 +291,7 @@ t Inspections<!DOCTYPE html>
       <h3 class="card-title">📋 Complete DVIR Logs</h3>
       
       <div class="alert alert-success">
-        ✅ <strong>Authenticated Successfully!</strong> Ready to get complete Asset Inspections with Engine Hours
+        ✅ <strong>Authenticated Successfully!</strong> Ready to get complete DVIR logs with location data
       </div>
 
       <div class="form-row">
@@ -278,8 +301,8 @@ t Inspections<!DOCTYPE html>
       </div>
       
       <div class="button-group">
-        <button id="getDvir" class="btn btn-success">📋 Get Asset Inspections</button>
-        <button id="downloadCsv" class="btn btn-info">📊 Download excel</button>
+        <button id="getDvir" class="btn btn-success">📋 Get DVIR Logs</button>
+        <button id="downloadCsv" class="btn btn-info">📊 Download CSV</button>
         <button id="downloadReport" class="btn btn-warning">📄 Download Professional Report</button>
         <button id="logout" class="btn btn-danger">🚪 Logout</button>
       </div>
@@ -293,6 +316,7 @@ t Inspections<!DOCTYPE html>
     let serverUsed = null;
     let mappedDvirData = null;
     let reportDateRange = {};
+    let emailJsInitialized = false;
 
     // Auto-detect if inside Geotab
     window.addEventListener('load', function() {
@@ -366,40 +390,242 @@ t Inspections<!DOCTYPE html>
       return data.result;
     }
 
-    // Extract ID from JSON object
-    function extractId(jsonStr) {
-      if (!jsonStr) return null;
-      try {
-        const parsed = JSON.parse(jsonStr);
-        return parsed.id || null;
-      } catch (e) {
-        return null;
+    // Extract ID from JSON object or already parsed object
+    function extractId(data) {
+      if (!data) return null;
+      
+      // If it's already an object with id
+      if (typeof data === 'object' && data.id) {
+        return data.id;
       }
+      
+      // If it's a string, try to parse it
+      if (typeof data === 'string') {
+        try {
+          const parsed = JSON.parse(data);
+          return parsed.id || null;
+        } catch (e) {
+          // If parsing fails, maybe it's just a plain ID string
+          return data;
+        }
+      }
+      
+      return null;
     }
 
     // Extract location coordinates
-    function extractLocation(locationStr) {
-      if (!locationStr) return { latitude: null, longitude: null };
+    function extractLocation(locationData) {
+      if (!locationData) return { latitude: null, longitude: null };
       
-      try {
-        const parsed = JSON.parse(locationStr);
-        if (parsed.location && parsed.location.x && parsed.location.y) {
+      // If it's already an object
+      if (typeof locationData === 'object') {
+        if (locationData.location && locationData.location.x && locationData.location.y) {
           return {
-            latitude: parsed.location.y,
-            longitude: parsed.location.x
+            latitude: locationData.location.y,
+            longitude: locationData.location.x
           };
         }
-      } catch (e) {
-        // Try to parse if it's already an object
-        if (locationStr.location && locationStr.location.x && locationStr.location.y) {
+        // Sometimes the coordinates are directly in the object
+        if (locationData.x && locationData.y) {
           return {
-            latitude: locationStr.location.y,
-            longitude: locationStr.location.x
+            latitude: locationData.y,
+            longitude: locationData.x
           };
+        }
+      }
+      
+      // If it's a string, try to parse it
+      if (typeof locationData === 'string') {
+        try {
+          const parsed = JSON.parse(locationData);
+          if (parsed.location && parsed.location.x && parsed.location.y) {
+            return {
+              latitude: parsed.location.y,
+              longitude: parsed.location.x
+            };
+          }
+          if (parsed.x && parsed.y) {
+            return {
+              latitude: parsed.y,
+              longitude: parsed.x
+            };
+          }
+        } catch (e) {
+          console.log('Failed to parse location:', locationData);
         }
       }
       
       return { latitude: null, longitude: null };
+    }
+
+    // Initialize EmailJS if credentials are provided
+    function initializeEmailJS() {
+      const serviceId = document.getElementById('emailjsServiceId').value.trim();
+      const publicKey = document.getElementById('emailjsPublicKey').value.trim();
+      
+      if (serviceId && publicKey && typeof emailjs !== 'undefined') {
+        try {
+          emailjs.init(publicKey);
+          emailJsInitialized = true;
+          console.log('EmailJS initialized successfully');
+          return true;
+        } catch (error) {
+          console.error('Failed to initialize EmailJS:', error);
+          return false;
+        }
+      }
+      return false;
+    }
+
+    // Detect defects and unsafe conditions
+    function analyzeDefects(dvirData) {
+      const defectIssues = [];
+      const unsafeVehicles = [];
+      
+      dvirData.forEach(log => {
+        // Check for unsafe to operate
+        if (log.isSafeToOperate === false) {
+          unsafeVehicles.push({
+            datetime: log.dateTime,
+            driver: log.driverName,
+            vehicle: log.vehicleName,
+            remarks: log.driverRemark,
+            location: log.latitude && log.longitude ? `${log.latitude.toFixed(6)}, ${log.longitude.toFixed(6)}` : 'No location'
+          });
+        }
+        
+        // Check for defects in the defects field
+        if (log.defects && log.defects !== '[]' && log.defects !== '') {
+          try {
+            const defects = JSON.parse(log.defects);
+            if (Array.isArray(defects) && defects.length > 0) {
+              defectIssues.push({
+                datetime: log.dateTime,
+                driver: log.driverName,
+                vehicle: log.vehicleName,
+                defectCount: defects.length,
+                remarks: log.driverRemark,
+                location: log.latitude && log.longitude ? `${log.latitude.toFixed(6)}, ${log.longitude.toFixed(6)}` : 'No location'
+              });
+            }
+          } catch (e) {
+            // If not JSON, check if it's a non-empty string indicating defects
+            if (log.defects.length > 10) { // Arbitrary length check
+              defectIssues.push({
+                datetime: log.dateTime,
+                driver: log.driverName,
+                vehicle: log.vehicleName,
+                defectCount: 'Unknown',
+                remarks: log.driverRemark,
+                location: log.latitude && log.longitude ? `${log.latitude.toFixed(6)}, ${log.longitude.toFixed(6)}` : 'No location'
+              });
+            }
+          }
+        }
+      });
+      
+      return { defectIssues, unsafeVehicles };
+    }
+
+    // Send email alert using EmailJS
+    async function sendEmailAlert(defectIssues, unsafeVehicles) {
+      const alertEmail = document.getElementById('alertEmail').value.trim();
+      
+      if (!alertEmail) {
+        console.log('No alert email configured');
+        return false;
+      }
+
+      const totalIssues = defectIssues.length + unsafeVehicles.length;
+      if (totalIssues === 0) {
+        console.log('No defects or unsafe vehicles found - no alert needed');
+        return false;
+      }
+
+      // Try EmailJS first if configured
+      const serviceId = document.getElementById('emailjsServiceId').value.trim();
+      const templateId = document.getElementById('emailjsTemplateId').value.trim();
+      
+      if (emailJsInitialized && serviceId && templateId) {
+        try {
+          const emailParams = {
+            to_email: alertEmail,
+            from_name: 'Fleet DVIR System',
+            subject: `🚨 URGENT: Fleet Safety Alert - ${totalIssues} Issue(s) Detected`,
+            message: generateAlertMessage(defectIssues, unsafeVehicles),
+            reply_to: alertEmail
+          };
+
+          await emailjs.send(serviceId, templateId, emailParams);
+          showMessage('dvirResult', `📧 Email alert sent successfully to ${alertEmail}`, 'success');
+          return true;
+        } catch (error) {
+          console.error('EmailJS failed:', error);
+          // Fall back to mailto
+          return sendMailtoAlert(defectIssues, unsafeVehicles, alertEmail);
+        }
+      } else {
+        // Use mailto fallback
+        return sendMailtoAlert(defectIssues, unsafeVehicles, alertEmail);
+      }
+    }
+
+    // Fallback email using mailto
+    function sendMailtoAlert(defectIssues, unsafeVehicles, alertEmail) {
+      const totalIssues = defectIssues.length + unsafeVehicles.length;
+      const subject = `🚨 Fleet Safety Alert - ${totalIssues} Issue(s) Detected`;
+      const body = generateAlertMessage(defectIssues, unsafeVehicles);
+      
+      const mailtoLink = `mailto:${alertEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      
+      // Open default email client
+      window.open(mailtoLink);
+      
+      showMessage('dvirResult', `📧 Email client opened for ${alertEmail} - please send the alert manually`, 'warning');
+      return true;
+    }
+
+    // Generate alert message content
+    function generateAlertMessage(defectIssues, unsafeVehicles) {
+      const timestamp = new Date().toLocaleString();
+      let message = `FLEET SAFETY ALERT\n`;
+      message += `Generated: ${timestamp}\n\n`;
+      
+      if (unsafeVehicles.length > 0) {
+        message += `🚨 UNSAFE TO OPERATE VEHICLES (${unsafeVehicles.length}):\n`;
+        message += `${'='.repeat(50)}\n`;
+        unsafeVehicles.forEach((vehicle, index) => {
+          message += `${index + 1}. ${vehicle.datetime}\n`;
+          message += `   Driver: ${vehicle.driver}\n`;
+          message += `   Vehicle: ${vehicle.vehicle}\n`;
+          message += `   Location: ${vehicle.location}\n`;
+          message += `   Remarks: ${vehicle.remarks || 'No remarks'}\n\n`;
+        });
+      }
+      
+      if (defectIssues.length > 0) {
+        message += `⚠️ VEHICLES WITH DEFECTS (${defectIssues.length}):\n`;
+        message += `${'='.repeat(50)}\n`;
+        defectIssues.forEach((issue, index) => {
+          message += `${index + 1}. ${issue.datetime}\n`;
+          message += `   Driver: ${issue.driver}\n`;
+          message += `   Vehicle: ${issue.vehicle}\n`;
+          message += `   Defects: ${issue.defectCount}\n`;
+          message += `   Location: ${issue.location}\n`;
+          message += `   Remarks: ${issue.remarks || 'No remarks'}\n\n`;
+        });
+      }
+      
+      message += `IMMEDIATE ACTION REQUIRED:\n`;
+      message += `- Review all unsafe vehicles immediately\n`;
+      message += `- Do not operate unsafe vehicles until repaired\n`;
+      message += `- Address all defects according to company policy\n`;
+      message += `- Contact maintenance team if needed\n\n`;
+      
+      message += `This alert was generated automatically by the Fleet DVIR System.\n`;
+      message += `For questions, contact your fleet administrator.`;
+      
+      return message;
     }
 
     // Authentication
@@ -490,13 +716,27 @@ t Inspections<!DOCTYPE html>
         const driverIds = new Set();
         const deviceIds = new Set();
         
-        dvirLogs.forEach(log => {
+        console.log('Sample DVIR log for debugging:', dvirLogs[0]);
+        
+        dvirLogs.forEach((log, index) => {
           const driverId = extractId(log.driver);
           const deviceId = extractId(log.device);
+          
+          if (index < 3) { // Debug first 3 entries
+            console.log(`Log ${index}:`, {
+              rawDriver: log.driver,
+              extractedDriverId: driverId,
+              rawDevice: log.device,
+              extractedDeviceId: deviceId
+            });
+          }
           
           if (driverId) driverIds.add(driverId);
           if (deviceId) deviceIds.add(deviceId);
         });
+
+        console.log('Extracted Driver IDs:', Array.from(driverIds));
+        console.log('Extracted Device IDs:', Array.from(deviceIds));
 
         // Step 3: Build lookup calls for drivers and devices
         const lookupCalls = [];
@@ -526,6 +766,10 @@ t Inspections<!DOCTYPE html>
         // Step 4: Execute all lookups
         const lookupResults = await callGeotabAPI('ExecuteMultiCall', { calls: lookupCalls });
         
+        console.log('Lookup calls made:', lookupCalls.length);
+        console.log('Lookup results received:', lookupResults.length);
+        console.log('Sample lookup result:', lookupResults[0]);
+        
         // Step 5: Build name mappings
         const driverNames = {};
         const deviceNames = {};
@@ -533,8 +777,10 @@ t Inspections<!DOCTYPE html>
         let resultIndex = 0;
         
         // Map driver results
-        Array.from(driverIds).forEach(id => {
+        Array.from(driverIds).forEach((id, index) => {
           const result = lookupResults[resultIndex++];
+          console.log(`Driver ${id} lookup result:`, result);
+          
           if (result && result.length > 0) {
             const user = result[0];
             driverNames[id] = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || `Driver ${id}`;
@@ -544,14 +790,19 @@ t Inspections<!DOCTYPE html>
         });
         
         // Map device results
-        Array.from(deviceIds).forEach(id => {
+        Array.from(deviceIds).forEach((id, index) => {
           const result = lookupResults[resultIndex++];
+          console.log(`Device ${id} lookup result:`, result);
+          
           if (result && result.length > 0) {
             deviceNames[id] = result[0].name || `Device ${id}`;
           } else {
             deviceNames[id] = `Device ${id}`;
           }
         });
+
+        console.log('Final driver names mapping:', driverNames);
+        console.log('Final device names mapping:', deviceNames);
 
         // Step 6: Map DVIR data with readable names and location
         mappedDvirData = dvirLogs.map(log => {
@@ -585,6 +836,30 @@ t Inspections<!DOCTYPE html>
         // Step 7: Display results
         showMessage('dvirResult', `✅ Success! Mapped ${mappedDvirData.length} DVIR logs with complete data including locations`, 'success');
         displayMappedData(mappedDvirData);
+
+        // Step 8: Check for defects and send alerts if configured
+        const alertEmail = document.getElementById('alertEmail').value.trim();
+        if (alertEmail) {
+          showMessage('dvirResult', 'Analyzing data for defects and safety issues...', 'warning');
+          
+          // Initialize EmailJS if configured
+          initializeEmailJS();
+          
+          // Analyze defects
+          const { defectIssues, unsafeVehicles } = analyzeDefects(mappedDvirData);
+          
+          if (defectIssues.length > 0 || unsafeVehicles.length > 0) {
+            const totalIssues = defectIssues.length + unsafeVehicles.length;
+            showMessage('dvirResult', 
+              `🚨 <strong>SAFETY ALERT:</strong> Found ${unsafeVehicles.length} unsafe vehicle(s) and ${defectIssues.length} vehicle(s) with defects. Sending email alert...`, 
+              'error');
+            
+            // Send email alert
+            await sendEmailAlert(defectIssues, unsafeVehicles);
+          } else {
+            showMessage('dvirResult', '✅ No safety issues detected - all vehicles safe to operate', 'success');
+          }
+        }
         
       } catch (error) {
         showMessage('dvirResult', `❌ Failed to get DVIR logs: ${error.message}`, 'error');
@@ -603,6 +878,7 @@ t Inspections<!DOCTYPE html>
               <th>Vehicle Name</th>
               <th>Safe to Operate</th>
               <th>Driver Inspected</th>
+              <th>Defects</th>
               <th>Location</th>
               <th>Odometer (km)</th>
               <th>Driver Remarks</th>
@@ -615,7 +891,7 @@ t Inspections<!DOCTYPE html>
         const safeStatus = log.isSafeToOperate === true ? 
           '<span class="status-safe">SAFE</span>' : 
           log.isSafeToOperate === false ? 
-          '<span class="status-unsafe">UNSAFE</span>' : 
+          '<span class="status-unsafe">⚠️ UNSAFE</span>' : 
           '<span class="status-unknown">UNKNOWN</span>';
           
         const inspectedStatus = log.isInspectedByDriver === true ? '✅ Yes' : '❌ No';
@@ -623,14 +899,33 @@ t Inspections<!DOCTYPE html>
         const locationDisplay = log.latitude && log.longitude ? 
           `<span class="location-coords">${log.latitude.toFixed(6)}, ${log.longitude.toFixed(6)}</span>` : 
           '<em>No location</em>';
+
+        // Check for defects
+        let defectDisplay = '<em>None</em>';
+        if (log.defects && log.defects !== '[]' && log.defects !== '') {
+          try {
+            const defects = JSON.parse(log.defects);
+            if (Array.isArray(defects) && defects.length > 0) {
+              defectDisplay = `<span style="color: #e53e3e; font-weight: 600;">⚠️ ${defects.length} defect(s)</span>`;
+            }
+          } catch (e) {
+            if (log.defects.length > 10) {
+              defectDisplay = '<span style="color: #e53e3e; font-weight: 600;">⚠️ Defects present</span>';
+            }
+          }
+        }
+
+        // Highlight unsafe rows
+        const rowClass = log.isSafeToOperate === false ? 'style="background-color: #fed7d7 !important;"' : '';
         
         html += `
-          <tr>
+          <tr ${rowClass}>
             <td>${log.dateTime}</td>
             <td><strong>${log.driverName}</strong><br><small>ID: ${log.driverId}</small></td>
             <td><strong>${log.vehicleName}</strong><br><small>ID: ${log.deviceId}</small></td>
             <td>${safeStatus}</td>
             <td>${inspectedStatus}</td>
+            <td>${defectDisplay}</td>
             <td>${locationDisplay}</td>
             <td>${log.odometer ? Math.round(log.odometer) : 'N/A'}</td>
             <td>${log.driverRemark || '<em>No remarks</em>'}</td>
@@ -656,14 +951,33 @@ t Inspections<!DOCTYPE html>
       let csvContent = '';
       const headers = [
         'DateTime', 'Driver_Name', 'Driver_ID', 'Vehicle_Name', 'Device_ID', 
-        'Safe_To_Operate', 'Driver_Inspected', 'Latitude', 'Longitude', 
-        'Odometer_km', 'Engine_Hours', 'Driver_Remarks', 'Certified_Date', 
-        'Repair_Date', 'Log_Type', 'Authority_Name', 'Certify_Remarks'
+        'Safe_To_Operate', 'Driver_Inspected', 'Has_Defects', 'Defect_Count',
+        'Latitude', 'Longitude', 'Odometer_km', 'Engine_Hours', 'Driver_Remarks', 
+        'Certified_Date', 'Repair_Date', 'Log_Type', 'Authority_Name', 'Certify_Remarks'
       ];
       
       csvContent = headers.map(h => `"${h}"`).join(',') + '\n';
       
       mappedDvirData.forEach(row => {
+        // Analyze defects for this row
+        let hasDefects = 'NO';
+        let defectCount = '0';
+        
+        if (row.defects && row.defects !== '[]' && row.defects !== '') {
+          try {
+            const defects = JSON.parse(row.defects);
+            if (Array.isArray(defects) && defects.length > 0) {
+              hasDefects = 'YES';
+              defectCount = defects.length.toString();
+            }
+          } catch (e) {
+            if (row.defects.length > 10) {
+              hasDefects = 'YES';
+              defectCount = 'Unknown';
+            }
+          }
+        }
+        
         const values = [
           row.dateTime,
           row.driverName,
@@ -672,6 +986,8 @@ t Inspections<!DOCTYPE html>
           row.deviceId,
           row.isSafeToOperate === true ? 'SAFE' : row.isSafeToOperate === false ? 'UNSAFE' : 'UNKNOWN',
           row.isInspectedByDriver === true ? 'YES' : 'NO',
+          hasDefects,
+          defectCount,
           row.latitude || '',
           row.longitude || '',
           row.odometer || '',
@@ -724,6 +1040,10 @@ t Inspections<!DOCTYPE html>
       const inspectedReports = mappedDvirData.filter(d => d.isInspectedByDriver === true).length;
       const withLocation = mappedDvirData.filter(d => d.latitude && d.longitude).length;
       const withRemarks = mappedDvirData.filter(d => d.driverRemark && d.driverRemark.trim()).length;
+
+      // Calculate defect statistics
+      const { defectIssues, unsafeVehicles } = analyzeDefects(mappedDvirData);
+      const totalDefects = defectIssues.length;
 
       // Generate professional report HTML
       const reportHtml = `
@@ -864,6 +1184,34 @@ t Inspections<!DOCTYPE html>
         <div class="date-range">Generated: ${new Date().toLocaleString()}</div>
     </div>
 
+    ${(unsafeReports > 0 || totalDefects > 0) ? `
+    <div class="summary-section" style="border: 2px solid #e53e3e; background: #fed7d7;">
+        <div class="summary-title" style="color: #742a2a;">🚨 SAFETY ALERTS - IMMEDIATE ATTENTION REQUIRED</div>
+        ${unsafeReports > 0 ? `
+        <div style="margin: 15px 0; padding: 15px; background: white; border-radius: 6px; border-left: 4px solid #e53e3e;">
+            <h4 style="color: #e53e3e; margin-bottom: 10px;">⚠️ UNSAFE TO OPERATE VEHICLES (${unsafeReports})</h4>
+            ${unsafeVehicles.map(vehicle => `
+            <div style="margin: 10px 0; padding: 10px; background: #fef5e7; border-radius: 4px;">
+                <strong>${vehicle.datetime}</strong> - ${vehicle.driver} - ${vehicle.vehicle}<br>
+                <small>Location: ${vehicle.location} | Remarks: ${vehicle.remarks || 'No remarks'}</small>
+            </div>
+            `).join('')}
+        </div>
+        ` : ''}
+        ${totalDefects > 0 ? `
+        <div style="margin: 15px 0; padding: 15px; background: white; border-radius: 6px; border-left: 4px solid #ed8936;">
+            <h4 style="color: #ed8936; margin-bottom: 10px;">🔧 VEHICLES WITH DEFECTS (${totalDefects})</h4>
+            ${defectIssues.map(issue => `
+            <div style="margin: 10px 0; padding: 10px; background: #fef5e7; border-radius: 4px;">
+                <strong>${issue.datetime}</strong> - ${issue.driver} - ${issue.vehicle}<br>
+                <small>Defects: ${issue.defectCount} | Location: ${issue.location} | Remarks: ${issue.remarks || 'No remarks'}</small>
+            </div>
+            `).join('')}
+        </div>
+        ` : ''}
+    </div>
+    ` : ''}
+
     <div class="summary-section">
         <div class="summary-title">📊 Executive Summary</div>
         <div class="stats-grid">
@@ -892,6 +1240,10 @@ t Inspections<!DOCTYPE html>
                 <div class="stat-label">With Location Data</div>
             </div>
             <div class="stat-item">
+                <div class="stat-number" style="color: #e53e3e">${totalDefects}</div>
+                <div class="stat-label">With Defects</div>
+            </div>
+            <div class="stat-item">
                 <div class="stat-number" style="color: #d69e2e">${withRemarks}</div>
                 <div class="stat-label">With Remarks</div>
             </div>
@@ -912,28 +1264,46 @@ t Inspections<!DOCTYPE html>
                     <th>Vehicle</th>
                     <th>Status</th>
                     <th>Driver Inspected</th>
+                    <th>Defects</th>
                     <th>Location</th>
                     <th>Odometer</th>
                     <th>Driver Remarks</th>
                 </tr>
             </thead>
             <tbody>
-                ${mappedDvirData.map(log => `
-                <tr>
+                ${mappedDvirData.map(log => {
+                  // Analyze defects for this row
+                  let defectDisplay = 'None';
+                  if (log.defects && log.defects !== '[]' && log.defects !== '') {
+                    try {
+                      const defects = JSON.parse(log.defects);
+                      if (Array.isArray(defects) && defects.length > 0) {
+                        defectDisplay = `<span style="color: #e53e3e; font-weight: 600;">⚠️ ${defects.length}</span>`;
+                      }
+                    } catch (e) {
+                      if (log.defects.length > 10) {
+                        defectDisplay = '<span style="color: #e53e3e; font-weight: 600;">⚠️ Yes</span>';
+                      }
+                    }
+                  }
+                  
+                  return `
+                <tr ${log.isSafeToOperate === false ? 'style="background-color: #fed7d7;"' : ''}>
                     <td>${log.dateTime}</td>
                     <td><strong>${log.driverName}</strong><br><small>ID: ${log.driverId}</small></td>
                     <td><strong>${log.vehicleName}</strong><br><small>ID: ${log.deviceId}</small></td>
                     <td>${log.isSafeToOperate === true ? '<span class="status-safe">SAFE</span>' : 
-                         log.isSafeToOperate === false ? '<span class="status-unsafe">UNSAFE</span>' : 
+                         log.isSafeToOperate === false ? '<span class="status-unsafe">⚠️ UNSAFE</span>' : 
                          '<span class="status-unknown">UNKNOWN</span>'}</td>
                     <td>${log.isInspectedByDriver === true ? '✅ Yes' : '❌ No'}</td>
+                    <td>${defectDisplay}</td>
                     <td>${log.latitude && log.longitude ? 
                          `<span class="location-coords">${log.latitude.toFixed(6)}, ${log.longitude.toFixed(6)}</span>` : 
                          '<em>No location</em>'}</td>
                     <td>${log.odometer ? Math.round(log.odometer) + ' km' : 'N/A'}</td>
                     <td>${log.driverRemark || '<em>No remarks</em>'}</td>
                 </tr>
-                `).join('')}
+                `;}).join('')}
             </tbody>
         </table>
     </div>
@@ -942,6 +1312,8 @@ t Inspections<!DOCTYPE html>
         <p><strong>Report Notes:</strong></p>
         <p>• This report contains ${totalReports} DVIR inspection records from your fleet management system</p>
         <p>• Safety Rate: ${((safeReports/totalReports)*100).toFixed(1)}% of inspections resulted in "Safe to Operate" status</p>
+        <p>• ${totalDefects > 0 ? `⚠️ ${totalDefects} vehicle(s) reported defects requiring attention` : '✅ No defects reported in this period'}</p>
+        <p>• ${unsafeReports > 0 ? `🚨 ${unsafeReports} vehicle(s) marked as UNSAFE TO OPERATE - immediate action required` : '✅ All vehicles safe to operate'}</p>
         <p>• Location data available for ${((withLocation/totalReports)*100).toFixed(1)}% of inspections</p>
         <p>• Generated from Geotab API data on ${new Date().toLocaleDateString()}</p>
     </div>
