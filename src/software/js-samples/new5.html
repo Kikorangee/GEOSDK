@@ -13,15 +13,15 @@
 
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
       color: #333;
-      padding: 20px;
     }
 
     .container {
       max-width: 1200px;
       margin: 0 auto;
+      padding: 20px;
     }
 
     .header {
@@ -50,6 +50,19 @@
       color: #4a5568;
       font-size: 1.1em;
       font-weight: 500;
+    }
+
+    .success-banner {
+      background: linear-gradient(135deg, #48bb78, #38a169);
+      color: white;
+      padding: 15px 25px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 600;
+      box-shadow: 0 4px 15px rgba(72, 187, 120, 0.3);
     }
 
     .card {
@@ -86,7 +99,7 @@
 
     .form-row {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
       gap: 15px;
       margin-bottom: 15px;
     }
@@ -103,8 +116,14 @@
 
     .form-control:focus {
       outline: none;
-      border-color: #4a90e2;
-      box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .form-control.textarea {
+      min-height: 120px;
+      resize: vertical;
+      font-family: 'Courier New', monospace;
     }
 
     .btn {
@@ -127,8 +146,12 @@
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     }
 
+    .btn:active {
+      transform: translateY(0);
+    }
+
     .btn-primary {
-      background: linear-gradient(135deg, #4a90e2, #357abd);
+      background: linear-gradient(135deg, #667eea, #764ba2);
       color: white;
     }
 
@@ -142,9 +165,19 @@
       color: white;
     }
 
-    .btn-warning {
-      background: linear-gradient(135deg, #ed8936, #dd6b20);
+    .btn-danger {
+      background: linear-gradient(135deg, #f56565, #e53e3e);
       color: white;
+    }
+
+    .btn-example {
+      background: linear-gradient(135deg, #805ad5, #6b46c1);
+      color: white;
+      padding: 10px 16px;
+      font-size: 13px;
+      border-radius: 6px;
+      width: 100%;
+      justify-content: center;
     }
 
     .alert {
@@ -175,12 +208,6 @@
       border-left: 4px solid #d69e2e;
     }
 
-    .alert-info {
-      background: linear-gradient(135deg, #bee3f8, #90cdf4);
-      color: #2a4365;
-      border-left: 4px solid #4299e1;
-    }
-
     .result-container {
       background: #1a202c;
       color: #e2e8f0;
@@ -195,91 +222,45 @@
       border: 1px solid #4a5568;
     }
 
-    .stats-grid {
+    .examples-section {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 20px;
-      margin-bottom: 25px;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 25px;
     }
 
-    .stat-card {
-      background: linear-gradient(135deg, #667eea, #764ba2);
-      color: white;
-      padding: 20px;
+    .example-category {
+      background: rgba(255, 255, 255, 0.7);
       border-radius: 12px;
-      text-align: center;
-      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
     }
 
-    .stat-value {
-      font-size: 2.2em;
-      font-weight: 800;
-      margin-bottom: 5px;
-    }
-
-    .stat-label {
-      font-size: 14px;
-      opacity: 0.9;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    .dvir-item {
-      background: #f8f9fa;
-      border: 1px solid #e9ecef;
-      border-radius: 8px;
-      padding: 15px;
-      margin-bottom: 10px;
-      transition: all 0.2s ease;
-    }
-
-    .dvir-item:hover {
-      background: #e9ecef;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    }
-
-    .dvir-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-
-    .dvir-status {
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-
-    .status-pass {
-      background: #c6f6d5;
-      color: #22543d;
-    }
-
-    .status-fail {
-      background: #fed7d7;
-      color: #742a2a;
-    }
-
-    .status-na {
-      background: #e2e8f0;
-      color: #4a5568;
-    }
-
-    .dvir-details {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 10px;
-      font-size: 14px;
-    }
-
-    .detail-item {
+    .category-title {
+      color: #2d3748;
+      font-size: 1.1em;
+      font-weight: 700;
+      margin-bottom: 15px;
       display: flex;
       align-items: center;
       gap: 8px;
+    }
+
+    .example-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+    }
+
+    .control-panel {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 20px;
+    }
+
+    .icon {
+      font-size: 1.2em;
     }
 
     .loading {
@@ -296,24 +277,25 @@
       to { transform: rotate(360deg); }
     }
 
-    .filters-panel {
-      background: rgba(255, 255, 255, 0.8);
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 20px;
-    }
-
-    .icon {
-      font-size: 1.2em;
+    .hidden {
+      display: none !important;
     }
 
     @media (max-width: 768px) {
+      .container {
+        padding: 15px;
+      }
+      
       .form-row {
         grid-template-columns: 1fr;
       }
       
-      .stats-grid {
+      .examples-section {
         grid-template-columns: 1fr;
+      }
+      
+      .control-panel {
+        justify-content: center;
       }
     }
   </style>
@@ -325,173 +307,151 @@
       <h1>
         <span class="icon">📋</span>
         DVIR Logs Manager
+        <span style="font-size: 0.6em; color: #718096;">Inspection Reports</span>
       </h1>
-      <div class="subtitle">Driver Vehicle Inspection Report Analytics</div>
+      <div class="subtitle">Driver Vehicle Inspection Report Management</div>
     </div>
 
-    <!-- Statistics Dashboard -->
-    <div class="stats-grid" id="statsGrid" style="display: none;">
-      <div class="stat-card">
-        <div class="stat-value" id="totalDVIRs">-</div>
-        <div class="stat-label">Total DVIRs</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="passedDVIRs">-</div>
-        <div class="stat-label">Passed</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="failedDVIRs">-</div>
-        <div class="stat-label">Failed</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="complianceRate">-</div>
-        <div class="stat-label">Pass Rate</div>
+    <div class="success-banner">
+      <span class="icon">✅</span>
+      <div>
+        <strong>DVIR Logs API Runner - Ready to Use</strong><br>
+        <small>Click examples below to auto-fill parameters, then hit "Run API Call"</small>
       </div>
     </div>
 
-    <!-- Filters and Controls -->
-    <div class="card">
+    <!-- API Testing Section -->
+    <div id="apiSection" class="card">
       <h3 class="card-title">
-        <span class="icon">🔍</span>
-        Search DVIR Logs
+        <span class="icon">🔧</span>
+        DVIR API Testing
       </h3>
       
-      <div class="filters-panel">
+      <div class="alert alert-success">
+        <span class="icon">✅</span>
+        <div>
+          <strong>Ready to Execute DVIR API Calls!</strong><br>
+          Connected to Geotab internal API
+        </div>
+      </div>
+
+      <div class="form-group">
         <div class="form-row">
-          <div>
-            <label style="display: block; margin-bottom: 5px; font-weight: 600;">From Date:</label>
-            <input type="date" id="fromDate" class="form-control">
-          </div>
-          <div>
-            <label style="display: block; margin-bottom: 5px; font-weight: 600;">To Date:</label>
-            <input type="date" id="toDate" class="form-control">
-          </div>
-          <div>
-            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Device/Vehicle:</label>
-            <select id="deviceFilter" class="form-control">
-              <option value="">All Devices</option>
-            </select>
-          </div>
-          <div>
-            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Status:</label>
-            <select id="statusFilter" class="form-control">
-              <option value="">All Statuses</option>
-              <option value="pass">Pass</option>
-              <option value="fail">Fail</option>
-              <option value="na">N/A</option>
-            </select>
-          </div>
+          <select id="method" class="form-control">
+            <option value="Get">Get</option>
+            <option value="Add">Add</option>
+            <option value="Set">Set</option>
+            <option value="Remove">Remove</option>
+          </select>
+          <input id="typeName" class="form-control" placeholder="Type Name" value="DVIRLog">
         </div>
         
-        <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-          <button id="searchDVIR" class="btn btn-primary">
-            <span class="icon">🔍</span>
-            Search DVIR Logs
+        <textarea id="params" class="form-control textarea" placeholder='Parameters (JSON)'>{"search":{"fromDate":"2025-01-01T00:00:00.000Z","toDate":"2025-01-31T23:59:59.000Z"},"resultsLimit":100}</textarea>
+        
+        <div class="control-panel">
+          <button id="runApi" class="btn btn-success">
+            <span class="icon">🚀</span>
+            Run DVIR API Call
           </button>
-          <button id="loadDevices" class="btn btn-info">
-            <span class="icon">🚗</span>
-            Load Devices
-          </button>
-          <button id="downloadCsv" class="btn btn-success">
+          <button id="downloadCsv" class="btn btn-info">
             <span class="icon">📊</span>
-            Export CSV
-          </button>
-          <button id="presetToday" class="btn btn-warning">
-            <span class="icon">📅</span>
-            Today
-          </button>
-          <button id="presetWeek" class="btn btn-warning">
-            <span class="icon">📅</span>
-            Last 7 Days
-          </button>
-          <button id="presetMonth" class="btn btn-warning">
-            <span class="icon">📅</span>
-            Last 30 Days
+            Download CSV
           </button>
         </div>
       </div>
       
-      <div id="searchResult"></div>
+      <div id="apiResult"></div>
     </div>
 
-    <!-- DVIR Results -->
-    <div class="card" id="resultsCard" style="display: none;">
+    <!-- DVIR Examples -->
+    <div class="card">
       <h3 class="card-title">
         <span class="icon">📋</span>
-        DVIR Results
-        <span id="resultCount" style="font-size: 0.8em; color: #718096;"></span>
+        DVIR API Examples
       </h3>
       
-      <div id="dvirList"></div>
+      <div class="examples-section">
+        <!-- DVIR Logs -->
+        <div class="example-category">
+          <h4 class="category-title">
+            <span class="icon">📋</span>
+            DVIR Logs
+          </h4>
+          <div class="example-grid">
+            <button class="btn btn-example" onclick="loadExample('dvir-recent')">Recent DVIRs</button>
+            <button class="btn btn-example" onclick="loadExample('dvir-today')">Today's DVIRs</button>
+            <button class="btn btn-example" onclick="loadExample('dvir-week')">This Week</button>
+            <button class="btn btn-example" onclick="loadExample('dvir-month')">This Month</button>
+            <button class="btn btn-example" onclick="loadExample('dvir-device')">DVIRs by Device</button>
+            <button class="btn btn-example" onclick="loadExample('dvir-defects')">DVIRs with Defects</button>
+          </div>
+        </div>
+
+        <!-- DVIR Defects -->
+        <div class="example-category">
+          <h4 class="category-title">
+            <span class="icon">🔧</span>
+            DVIR Defects
+          </h4>
+          <div class="example-grid">
+            <button class="btn btn-example" onclick="loadExample('dvir-defect-logs')">All Defect Logs</button>
+            <button class="btn btn-example" onclick="loadExample('dvir-defect-recent')">Recent Defects</button>
+            <button class="btn btn-example" onclick="loadExample('dvir-defect-device')">Defects by Device</button>
+            <button class="btn btn-example" onclick="loadExample('dvir-defect-unrepaired')">Unrepaired Defects</button>
+          </div>
+        </div>
+
+        <!-- Related Data -->
+        <div class="example-category">
+          <h4 class="category-title">
+            <span class="icon">🚗</span>
+            Related Vehicle Data
+          </h4>
+          <div class="example-grid">
+            <button class="btn btn-example" onclick="loadExample('devices')">Get All Devices</button>
+            <button class="btn btn-example" onclick="loadExample('drivers')">Get All Drivers</button>
+            <button class="btn btn-example" onclick="loadExample('driver-changes')">Driver Changes</button>
+            <button class="btn btn-example" onclick="loadExample('maintenance')">Maintenance Records</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
   <script>
-    let lastDVIRResult = null;
-    let devicesCache = [];
+    let lastApiResult = null;
 
-    // Initialize the add-in
+    // Auto-detect if we're inside Geotab and skip authentication
     window.addEventListener('load', function() {
-      initializeDVIRManager();
+      if (window.geotab || window.api || window.location.host.includes('geotab.com')) {
+        console.log('🎯 Inside Geotab detected - ready for DVIR calls...');
+        console.log('✅ DVIR Manager ready');
+      }
     });
 
-    function initializeDVIRManager() {
-      console.log('🚀 Initializing DVIR Logs Manager...');
+    function showMessage(elementId, message, type = 'info') {
+      const element = document.getElementById(elementId);
+      const alertClass = type === 'error' ? 'alert-error' : 
+                        type === 'success' ? 'alert-success' : 
+                        type === 'warning' ? 'alert-warning' : 'alert-info';
       
-      // Set default date range (last 7 days)
-      const today = new Date();
-      const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      
-      document.getElementById('fromDate').value = formatDate(lastWeek);
-      document.getElementById('toDate').value = formatDate(today);
-      
-      // Setup event listeners
-      setupEventListeners();
-      
-      // Load devices for filter
-      loadDevicesForFilter();
-      
-      console.log('✅ DVIR Manager initialized');
+      element.innerHTML = `<div class="alert ${alertClass}">
+        <span class="icon">${type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️'}</span>
+        <div>${message}</div>
+      </div>`;
     }
 
-    function setupEventListeners() {
-      document.getElementById('searchDVIR').onclick = searchDVIRLogs;
-      document.getElementById('loadDevices').onclick = loadDevicesForFilter;
-      document.getElementById('downloadCsv').onclick = downloadCSV;
-      
-      // Preset buttons
-      document.getElementById('presetToday').onclick = () => setDatePreset(0);
-      document.getElementById('presetWeek').onclick = () => setDatePreset(7);
-      document.getElementById('presetMonth').onclick = () => setDatePreset(30);
-    }
-
-    function setDatePreset(daysBack) {
-      const today = new Date();
-      const startDate = new Date(today.getTime() - daysBack * 24 * 60 * 60 * 1000);
-      
-      document.getElementById('fromDate').value = formatDate(startDate);
-      document.getElementById('toDate').value = formatDate(today);
-    }
-
-    function formatDate(date) {
-      return date.toISOString().split('T')[0];
-    }
-
-    function formatDateTime(dateStr) {
-      return new Date(dateStr).toLocaleString();
-    }
-
-    // Geotab API call function
+    // Direct API call function - Same format as your working file
     async function callGeotabAPI(method, params = {}) {
-      // Use Geotab's internal API if available
+      // If inside Geotab, use internal API
       if (window.geotab && typeof window.geotab.call === 'function') {
-        console.log(`🔗 Using Geotab API: ${method}`);
+        console.log(`🔗 Using internal Geotab API: ${method}`);
         return new Promise((resolve, reject) => {
           window.geotab.call(method, params, resolve, reject);
         });
       }
       
-      // Fallback for testing outside Geotab
+      // If window.api exists, try that
       if (window.api && typeof window.api.call === 'function') {
         console.log(`🔗 Using window.api: ${method}`);
         return new Promise((resolve, reject) => {
@@ -502,242 +462,108 @@
       throw new Error('Geotab API not available. This add-in must run within Geotab.');
     }
 
-    // Load devices for filter dropdown
-    async function loadDevicesForFilter() {
-      try {
-        showMessage('searchResult', 'Loading devices...', 'info');
-        
-        const devices = await callGeotabAPI('Get', {
-          typeName: 'Device',
-          resultsLimit: 1000
-        });
-        
-        devicesCache = devices;
-        
-        // Populate device filter dropdown
-        const deviceFilter = document.getElementById('deviceFilter');
-        deviceFilter.innerHTML = '<option value="">All Devices</option>';
-        
-        devices.forEach(device => {
-          const option = document.createElement('option');
-          option.value = device.id;
-          option.textContent = device.name || device.id;
-          deviceFilter.appendChild(option);
-        });
-        
-        showMessage('searchResult', `✅ Loaded ${devices.length} devices`, 'success');
-        
-      } catch (error) {
-        showMessage('searchResult', `❌ Failed to load devices: ${error.message}`, 'error');
-      }
-    }
-
-    // Main DVIR search function
-    async function searchDVIRLogs() {
-      const fromDate = document.getElementById('fromDate').value;
-      const toDate = document.getElementById('toDate').value;
-      const deviceId = document.getElementById('deviceFilter').value;
-      const statusFilter = document.getElementById('statusFilter').value;
+    // API call - Same format as your working file
+    document.getElementById('runApi').onclick = async function() {
+      const method = document.getElementById('method').value;
+      const typeName = document.getElementById('typeName').value.trim();
+      let params = {};
       
-      if (!fromDate || !toDate) {
-        showMessage('searchResult', '❌ Please select both from and to dates', 'error');
-        return;
+      const paramsText = document.getElementById('params').value.trim();
+      if (paramsText) {
+        try {
+          params = JSON.parse(paramsText);
+        } catch (e) {
+          showMessage('apiResult', `Invalid JSON: ${e.message}`, 'error');
+          return;
+        }
+      }
+      
+      if (typeName && method !== 'ExecuteMultiCall') {
+        params.typeName = typeName;
       }
       
       try {
-        showMessage('searchResult', 'Searching DVIR logs...', 'info');
+        showMessage('apiResult', 'Making DVIR API call...', 'warning');
         
-        // Build search parameters
-        const searchParams = {
-          typeName: 'DVIRLog',
-          search: {
-            fromDate: `${fromDate}T00:00:00.000Z`,
-            toDate: `${toDate}T23:59:59.999Z`
-          },
-          resultsLimit: 1000
+        const result = await callGeotabAPI(method, params);
+        
+        const resultCount = Array.isArray(result) ? result.length : (result ? 1 : 0);
+        showMessage('apiResult', `✅ Success! Found ${resultCount} DVIR result(s)`, 'success');
+        document.getElementById('apiResult').innerHTML += `<div class="result-container">${JSON.stringify(result, null, 2)}</div>`;
+        
+        // Store result for CSV download
+        lastApiResult = {
+          method: method,
+          typeName: typeName,
+          data: result,
+          timestamp: new Date().toISOString()
         };
         
-        // Add device filter if selected
-        if (deviceId) {
-          searchParams.search.deviceSearch = { id: deviceId };
-        }
+      } catch (error) {
+        showMessage('apiResult', `❌ API call failed: ${error.message}`, 'error');
+      }
+    };
+
+    // CSV Download functionality - Same format as your working file
+    function convertToCSV(data, method, typeName) {
+      if (!data) return '';
+      
+      let csvContent = '';
+      
+      if (Array.isArray(data)) {
+        if (data.length === 0) return 'No data available';
         
-        console.log('🔍 DVIR Search Parameters:', searchParams);
+        // Regular array of objects
+        const headers = Object.keys(data[0]);
+        csvContent = headers.map(h => `"${h}"`).join(',') + '\n';
         
-        // Make API call
-        const dvirLogs = await callGeotabAPI('Get', searchParams);
-        
-        console.log('📋 DVIR Results:', dvirLogs);
-        
-        // Filter by status if specified
-        let filteredLogs = dvirLogs;
-        if (statusFilter) {
-          filteredLogs = dvirLogs.filter(log => {
-            const status = getDVIRStatus(log);
-            return status.toLowerCase() === statusFilter.toLowerCase();
+        data.forEach(row => {
+          const values = headers.map(header => {
+            const value = row[header];
+            if (value === null || value === undefined) return '""';
+            if (typeof value === 'object') return `"${JSON.stringify(value).replace(/"/g, '""')}"`;
+            return `"${String(value).replace(/"/g, '""')}"`;
           });
-        }
-        
-        // Store results
-        lastDVIRResult = {
-          data: filteredLogs,
-          timestamp: new Date().toISOString(),
-          filters: { fromDate, toDate, deviceId, statusFilter }
-        };
-        
-        // Display results
-        displayDVIRResults(filteredLogs);
-        updateStatistics(filteredLogs);
-        
-        showMessage('searchResult', `✅ Found ${filteredLogs.length} DVIR logs`, 'success');
-        
-      } catch (error) {
-        console.error('❌ DVIR Search Error:', error);
-        showMessage('searchResult', `❌ Search failed: ${error.message}`, 'error');
-      }
-    }
-
-    // Determine DVIR status
-    function getDVIRStatus(dvirLog) {
-      if (!dvirLog.defects || dvirLog.defects.length === 0) {
-        return 'Pass';
+          csvContent += values.join(',') + '\n';
+        });
+      } else if (typeof data === 'object') {
+        // Single object
+        const headers = Object.keys(data);
+        csvContent = headers.map(h => `"${h}"`).join(',') + '\n';
+        const values = headers.map(header => {
+          const value = data[header];
+          if (value === null || value === undefined) return '""';
+          if (typeof value === 'object') return `"${JSON.stringify(value).replace(/"/g, '""')}"`;
+          return `"${String(value).replace(/"/g, '""')}"`;
+        });
+        csvContent += values.join(',') + '\n';
+      } else {
+        csvContent = `"Value"\n"${data}"`;
       }
       
-      // Check if any defects are safety-related or not repaired
-      const hasActiveDefects = dvirLog.defects.some(defect => 
-        !defect.isRepaired || defect.severity === 'Major'
-      );
-      
-      return hasActiveDefects ? 'Fail' : 'Pass';
+      return csvContent;
     }
 
-    // Display DVIR results
-    function displayDVIRResults(dvirLogs) {
-      const resultsCard = document.getElementById('resultsCard');
-      const dvirList = document.getElementById('dvirList');
-      const resultCount = document.getElementById('resultCount');
-      
-      resultsCard.style.display = 'block';
-      resultCount.textContent = `(${dvirLogs.length} records)`;
-      
-      if (dvirLogs.length === 0) {
-        dvirList.innerHTML = '<div class="alert alert-warning">📭 No DVIR logs found for the selected criteria</div>';
-        return;
-      }
-      
-      // Sort by date (newest first)
-      dvirLogs.sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
-      
-      // Generate HTML for each DVIR
-      dvirList.innerHTML = dvirLogs.map(log => {
-        const status = getDVIRStatus(log);
-        const device = devicesCache.find(d => d.id === log.device?.id);
-        const deviceName = device?.name || log.device?.id || 'Unknown Device';
-        
-        return `
-          <div class="dvir-item">
-            <div class="dvir-header">
-              <h4 style="margin: 0; color: #2d3748;">${deviceName}</h4>
-              <span class="dvir-status status-${status.toLowerCase()}">${status}</span>
-            </div>
-            
-            <div class="dvir-details">
-              <div class="detail-item">
-                <span>📅</span>
-                <strong>Date:</strong> ${formatDateTime(log.dateTime)}
-              </div>
-              <div class="detail-item">
-                <span>👤</span>
-                <strong>Driver:</strong> ${log.driver?.name || 'Unknown'}
-              </div>
-              <div class="detail-item">
-                <span>🔧</span>
-                <strong>Defects:</strong> ${log.defects?.length || 0}
-              </div>
-              <div class="detail-item">
-                <span>📊</span>
-                <strong>Type:</strong> ${log.logType || 'Standard'}
-              </div>
-              ${log.location ? `
-                <div class="detail-item">
-                  <span>📍</span>
-                  <strong>Location:</strong> ${log.location.address || 'Unknown'}
-                </div>
-              ` : ''}
-            </div>
-            
-            ${log.defects && log.defects.length > 0 ? `
-              <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
-                <strong>Defects:</strong>
-                <ul style="margin: 5px 0 0 20px; font-size: 13px;">
-                  ${log.defects.map(defect => `
-                    <li style="color: ${defect.isRepaired ? '#38a169' : '#e53e3e'};">
-                      ${defect.defectRemark || 'No description'} 
-                      ${defect.isRepaired ? '✅ Repaired' : '❌ Not Repaired'}
-                    </li>
-                  `).join('')}
-                </ul>
-              </div>
-            ` : ''}
-            
-            ${log.remarks ? `
-              <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
-                <strong>Remarks:</strong> ${log.remarks}
-              </div>
-            ` : ''}
-          </div>
-        `;
-      }).join('');
-    }
-
-    // Update statistics
-    function updateStatistics(dvirLogs) {
-      const statsGrid = document.getElementById('statsGrid');
-      
-      if (dvirLogs.length === 0) {
-        statsGrid.style.display = 'none';
-        return;
-      }
-      
-      const total = dvirLogs.length;
-      const passed = dvirLogs.filter(log => getDVIRStatus(log) === 'Pass').length;
-      const failed = total - passed;
-      const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
-      
-      document.getElementById('totalDVIRs').textContent = total;
-      document.getElementById('passedDVIRs').textContent = passed;
-      document.getElementById('failedDVIRs').textContent = failed;
-      document.getElementById('complianceRate').textContent = `${passRate}%`;
-      
-      statsGrid.style.display = 'grid';
-    }
-
-    // CSV Export function
     function downloadCSV() {
-      if (!lastDVIRResult || !lastDVIRResult.data) {
-        showMessage('searchResult', '❌ No data to export. Run a search first!', 'warning');
+      if (!lastApiResult) {
+        showMessage('apiResult', 'No data available for download. Run an API call first!', 'warning');
         return;
       }
       
-      const dvirLogs = lastDVIRResult.data;
-      let csvContent = 'Date,Time,Device,Driver,Status,Defect_Count,Repaired_Defects,Pending_Defects,Location,Remarks\n';
+      const csvContent = convertToCSV(lastApiResult.data, lastApiResult.method, lastApiResult.typeName);
       
-      dvirLogs.forEach(log => {
-        const device = devicesCache.find(d => d.id === log.device?.id);
-        const deviceName = device?.name || log.device?.id || 'Unknown';
-        const status = getDVIRStatus(log);
-        const date = new Date(log.dateTime);
-        const defectCount = log.defects?.length || 0;
-        const repairedDefects = log.defects?.filter(d => d.isRepaired).length || 0;
-        const pendingDefects = defectCount - repairedDefects;
-        
-        csvContent += `"${date.toLocaleDateString()}","${date.toLocaleTimeString()}","${deviceName}","${log.driver?.name || 'Unknown'}","${status}",${defectCount},${repairedDefects},${pendingDefects},"${log.location?.address || ''}","${log.remarks || ''}"\n`;
-      });
+      if (!csvContent) {
+        showMessage('apiResult', 'No data to export', 'warning');
+        return;
+      }
+      
+      // Create filename
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+      const method = lastApiResult.method || 'API';
+      const typeName = lastApiResult.typeName || 'Data';
+      const filename = `DVIR_${method}_${typeName}_${timestamp}.csv`;
       
       // Create and download file
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-      const filename = `DVIR_Logs_${timestamp}.csv`;
-      
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       
@@ -750,27 +576,109 @@
         link.click();
         document.body.removeChild(link);
         
-        showMessage('searchResult', `📊 CSV exported: ${filename}`, 'success');
+        showMessage('apiResult', `📊 CSV file "${filename}" downloaded successfully!`, 'success');
       } else {
-        showMessage('searchResult', '❌ CSV download not supported in this browser', 'error');
+        alert('CSV download not supported in this browser');
       }
     }
 
-    // Utility function to show messages
-    function showMessage(elementId, message, type = 'info') {
-      const element = document.getElementById(elementId);
-      const alertClass = type === 'error' ? 'alert-error' : 
-                        type === 'success' ? 'alert-success' : 
-                        type === 'warning' ? 'alert-warning' : 'alert-info';
+    // CSV download button event
+    document.getElementById('downloadCsv').onclick = downloadCSV;
+
+    // Load examples - Same format as your working file
+    function loadExample(type) {
+      const today = new Date().toISOString().split('T')[0];
+      const yesterday = new Date(Date.now() - 24*60*60*1000).toISOString().split('T')[0];
+      const lastWeek = new Date(Date.now() - 7*24*60*60*1000).toISOString().split('T')[0];
+      const thisMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
       
-      const icon = type === 'error' ? '❌' : 
-                  type === 'success' ? '✅' : 
-                  type === 'warning' ? '⚠️' : 'ℹ️';
+      const examples = {
+        // DVIR Logs Examples
+        'dvir-recent': {
+          method: 'Get',
+          typeName: 'DVIRLog',
+          params: `{"search": {"fromDate": "${lastWeek}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 50}`
+        },
+        'dvir-today': {
+          method: 'Get',
+          typeName: 'DVIRLog',
+          params: `{"search": {"fromDate": "${today}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 50}`
+        },
+        'dvir-week': {
+          method: 'Get',
+          typeName: 'DVIRLog',
+          params: `{"search": {"fromDate": "${lastWeek}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 100}`
+        },
+        'dvir-month': {
+          method: 'Get',
+          typeName: 'DVIRLog',
+          params: `{"search": {"fromDate": "${thisMonth}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 200}`
+        },
+        'dvir-device': {
+          method: 'Get',
+          typeName: 'DVIRLog',
+          params: `{"search": {"fromDate": "${lastWeek}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z", "deviceSearch": {"id": "b1"}}, "resultsLimit": 50}`
+        },
+        'dvir-defects': {
+          method: 'Get',
+          typeName: 'DVIRLog',
+          params: `{"search": {"fromDate": "${lastWeek}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 50}`
+        },
+
+        // DVIR Defects Examples
+        'dvir-defect-logs': {
+          method: 'Get',
+          typeName: 'DVIRDefect',
+          params: `{"search": {"fromDate": "${lastWeek}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 100}`
+        },
+        'dvir-defect-recent': {
+          method: 'Get',
+          typeName: 'DVIRDefect',
+          params: `{"search": {"fromDate": "${yesterday}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 50}`
+        },
+        'dvir-defect-device': {
+          method: 'Get',
+          typeName: 'DVIRDefect',
+          params: `{"search": {"fromDate": "${lastWeek}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z", "deviceSearch": {"id": "b1"}}, "resultsLimit": 50}`
+        },
+        'dvir-defect-unrepaired': {
+          method: 'Get',
+          typeName: 'DVIRDefect',
+          params: `{"search": {"repairStatusSearch": {"id": "DVIRDefectRemarkStatusNeedsRepairId"}}, "resultsLimit": 50}`
+        },
+
+        // Related Data Examples
+        'devices': {
+          method: 'Get',
+          typeName: 'Device',
+          params: '{"resultsLimit": 50}'
+        },
+        'drivers': {
+          method: 'Get',
+          typeName: 'User',
+          params: '{"search": {"isDriver": true}, "resultsLimit": 50}'
+        },
+        'driver-changes': {
+          method: 'Get',
+          typeName: 'DriverChange',
+          params: `{"search": {"fromDate": "${yesterday}T00:00:00.000Z", "toDate": "${today}T23:59:59.000Z"}, "resultsLimit": 50}`
+        },
+        'maintenance': {
+          method: 'Get',
+          typeName: 'MaintenanceReminder',
+          params: '{"resultsLimit": 20}'
+        }
+      };
       
-      element.innerHTML = `<div class="alert ${alertClass}">
-        <span class="icon">${icon}</span>
-        <div>${message}</div>
-      </div>`;
+      const example = examples[type];
+      if (example) {
+        document.getElementById('method').value = example.method;
+        document.getElementById('typeName').value = example.typeName;
+        document.getElementById('params').value = example.params;
+        
+        // Scroll to API section
+        document.getElementById('apiSection').scrollIntoView({ behavior: 'smooth' });
+      }
     }
   </script>
 </body>
