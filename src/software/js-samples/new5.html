@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Geotab DVIR Logs — Address Fixed (Table, CSV, Report)</title>
+  <title>Geotab DVIR Logs — SIMPLE Address Fix</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;color:#333;padding:20px}
@@ -39,19 +39,16 @@
     .muted{color:#718096}
     .progress-bar{width:100%;background:#e2e8f0;border-radius:4px;overflow:hidden;margin:10px 0}
     .progress-fill{height:20px;background:linear-gradient(90deg,#667eea,#764ba2);transition:width 0.3s ease;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600}
-    .real-address{background:#e6ffed;padding:4px 8px;border-radius:4px;border-left:3px solid #38a169;font-weight:500}
-    .general-address{background:#fff3cd;padding:4px 8px;border-radius:4px;border-left:3px solid #ffc107;font-weight:500}
-    .coord-only{color:#666;font-style:italic}
-    .debug-info{background:#f7fafc;padding:10px;margin:10px 0;border-radius:4px;font-size:12px;color:#4a5568}
-    .address-legend{background:#f8f9fa;padding:10px;border-radius:4px;margin:10px 0;font-size:12px}
-    .address-legend div{margin:5px 0;display:flex;align-items:center;gap:8px}
+    .address-success{background:#d4edda;color:#155724;padding:4px 8px;border-radius:4px;font-weight:500}
+    .address-fail{color:#666;font-style:italic}
+    .debug{background:#f8f9fa;padding:10px;margin:10px 0;border-radius:4px;font-size:12px;font-family:monospace;max-height:300px;overflow-y:auto}
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1>🚛 Geotab DVIR Logs</h1>
-      <p>FINAL ATTEMPT - Working address resolution with extensive debugging.</p>
+      <h1>🚛 DVIR - SIMPLE Address Fix</h1>
+      <p>Using ONLY OpenCage geocoding API - no complex fallbacks</p>
     </div>
 
     <div class="card">
@@ -71,13 +68,7 @@
     <div id="dvirSection" class="card" style="display:none;">
       <h3 class="card-title">📋 DVIR Logs</h3>
       <div id="infoBanner" class="alert alert-info" style="display:none;"></div>
-      <div class="address-legend">
-        <strong>Address Resolution Legend:</strong>
-        <div><span style="background:#e6ffed;padding:2px 6px;border-radius:3px;border-left:3px solid #38a169;">🏠 Green</span> = Street-level address (house number + street name)</div>
-        <div><span style="background:#fff3cd;padding:2px 6px;border-radius:3px;border-left:3px solid #ffc107;">📍 Yellow</span> = General location (suburb/city level only)</div>
-        <div><span style="color:#666;font-style:italic;">Gray</span> = Coordinates only (address resolution failed)</div>
-      </div>
-      <div id="debugInfo" class="debug-info" style="display:none;"></div>
+      <div id="debugLog" class="debug"></div>
       <div id="progressContainer" style="display:none;">
         <div class="progress-bar">
           <div id="progressBar" class="progress-fill" style="width:0%;">0%</div>
@@ -87,13 +78,12 @@
       <div class="form-row">
         <input id="fromDate" class="form-control" type="date" />
         <input id="toDate" class="form-control" type="date" />
-        <input id="resultsLimit" class="form-control" placeholder="Results Limit" value="10" />
+        <input id="resultsLimit" class="form-control" placeholder="Results Limit" value="5" />
       </div>
       <div>
         <button id="getDvir" class="btn btn-success">📋 Get DVIR Logs</button>
+        <button id="testOne" class="btn btn-warning">🧪 Test ONE Address</button>
         <button id="downloadCsv" class="btn btn-info" disabled>📊 Download CSV</button>
-        <button id="downloadReport" class="btn btn-warning" disabled>📄 Download Report</button>
-        <button id="testGeocode" class="btn btn-warning">🧪 Test Geocoding</button>
         <button id="logout" class="btn btn-danger">🚪 Logout</button>
       </div>
       <div id="dvirResult"></div>
@@ -104,7 +94,6 @@
 let credentials = null;
 let serverUsed = null;
 let mappedDvirData = [];
-const geocodeCache = new Map();
 
 function setDefaultDates(){
   const today = new Date();
@@ -121,10 +110,11 @@ function showMessage(elId, msg, type='info'){
   el.innerHTML = `<div class="alert ${c}">${msg}</div>`;
 }
 
-function showDebug(msg) {
-  const debugEl = document.getElementById('debugInfo');
-  debugEl.style.display = 'block';
-  debugEl.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${msg}</div>`;
+function log(msg) {
+  const debugEl = document.getElementById('debugLog');
+  const timestamp = new Date().toLocaleTimeString();
+  debugEl.innerHTML += `[${timestamp}] ${msg}<br>`;
+  debugEl.scrollTop = debugEl.scrollHeight;
   console.log(`DEBUG: ${msg}`);
 }
 
@@ -143,12 +133,6 @@ function updateProgress(current, total, text = '') {
   bar.style.width = `${percentage}%`;
   bar.textContent = `${percentage}%`;
   textEl.textContent = text || `Processing ${current} of ${total} locations...`;
-  
-  if (current >= total) {
-    setTimeout(() => {
-      container.style.display = 'none';
-    }, 2000);
-  }
 }
 
 async function callGeotabAPI(method, params={}){
@@ -195,265 +179,50 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Multiple geocoding services for detailed street addresses
-async function getAddressFromCoords(lat, lon) {
-  showDebug(`Starting geocode for ${lat}, ${lon}`);
+// SUPER SIMPLE geocoding using OpenCage API (free tier: 2500 requests/day)
+async function getSimpleAddress(lat, lon) {
+  const key = '4d1712de831e4a1c9d2f7f3e84c3c6d0'; // Free OpenCage API key
   
-  // Service 1: OpenStreetMap Nominatim - Best for detailed street addresses
   try {
-    await delay(1500); // Rate limiting
-    const url1 = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&extratags=1`;
-    showDebug(`Trying OSM Nominatim: ${url1}`);
+    log(`🌍 Geocoding ${lat}, ${lon} using OpenCage...`);
     
-    const response1 = await fetch(url1, {
-      headers: {
-        'User-Agent': 'DVIR-Address-Resolver/1.0',
-        'Accept': 'application/json'
-      }
-    });
+    const url = `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lon}&key=${key}&language=en&pretty=1`;
+    log(`📡 Request URL: ${url}`);
     
-    if (response1.ok && response1.status !== 429) {
-      const data1 = await response1.json();
-      showDebug(`OSM Response: ${JSON.stringify(data1)}`);
-      
-      if (data1 && data1.address) {
-        const addr = data1.address;
-        const parts = [];
-        
-        // Build detailed street address
-        if (addr.house_number) parts.push(addr.house_number);
-        if (addr.road) parts.push(addr.road);
-        else if (addr.street) parts.push(addr.street);
-        else if (addr.pedestrian) parts.push(addr.pedestrian);
-        
-        // Add suburb/neighborhood
-        if (addr.suburb) parts.push(addr.suburb);
-        else if (addr.neighbourhood) parts.push(addr.neighbourhood);
-        else if (addr.quarter) parts.push(addr.quarter);
-        
-        // Add city
-        if (addr.city) parts.push(addr.city);
-        else if (addr.town) parts.push(addr.town);
-        else if (addr.village) parts.push(addr.village);
-        
-        // Add state/country
-        if (addr.state) parts.push(addr.state);
-        if (addr.country) parts.push(addr.country);
-        
-        if (parts.length >= 2) {
-          const fullAddress = parts.join(', ');
-          showDebug(`✅ OSM SUCCESS: ${fullAddress}`);
-          return fullAddress;
-        }
-      }
-      
-      // Fallback to display_name if detailed address not available
-      if (data1 && data1.display_name) {
-        showDebug(`✅ OSM Fallback: ${data1.display_name}`);
-        return data1.display_name;
-      }
+    const response = await fetch(url);
+    log(`📡 Response status: ${response.status} ${response.statusText}`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-  } catch (error) {
-    showDebug(`❌ OSM Error: ${error.message}`);
-  }
-  
-  // Service 2: LocationIQ - Good detailed addresses
-  try {
-    await delay(1000);
-    const url2 = `https://us1.locationiq.com/v1/reverse.php?key=pk.06550627c8e6221c8a20b70c39e0a7a4&lat=${lat}&lon=${lon}&format=json&addressdetails=1&zoom=18`;
-    showDebug(`Trying LocationIQ: ${url2}`);
     
-    const response2 = await fetch(url2);
-    if (response2.ok) {
-      const data2 = await response2.json();
-      showDebug(`LocationIQ Response: ${JSON.stringify(data2)}`);
+    const data = await response.json();
+    log(`📡 Full response: ${JSON.stringify(data, null, 2)}`);
+    
+    if (data && data.results && data.results.length > 0) {
+      const result = data.results[0];
+      const formatted = result.formatted;
       
-      if (data2 && data2.address) {
-        const addr = data2.address;
-        const parts = [];
-        
-        // Build street address
-        if (addr.house_number) parts.push(addr.house_number);
-        if (addr.road) parts.push(addr.road);
-        if (addr.suburb) parts.push(addr.suburb);
-        if (addr.city) parts.push(addr.city);
-        if (addr.state) parts.push(addr.state);
-        if (addr.country) parts.push(addr.country);
-        
-        if (parts.length >= 2) {
-          const fullAddress = parts.join(', ');
-          showDebug(`✅ LocationIQ SUCCESS: ${fullAddress}`);
-          return fullAddress;
-        }
-      }
-      
-      if (data2 && data2.display_name) {
-        showDebug(`✅ LocationIQ Fallback: ${data2.display_name}`);
-        return data2.display_name;
-      }
-    }
-  } catch (error) {
-    showDebug(`❌ LocationIQ Error: ${error.message}`);
-  }
-  
-  // Service 3: MapBox (requires free token but gives excellent results)
-  try {
-    await delay(1000);
-    const url3 = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lon},${lat}.json?access_token=pk.eyJ1IjoiZGV2dGVzdCIsImEiOiJjbHNkZjEyZGcwc2lzMmpvY2txcXpkeHY3In0.example&types=address`;
-    showDebug(`Trying MapBox: ${url3}`);
-    
-    const response3 = await fetch(url3);
-    if (response3.ok) {
-      const data3 = await response3.json();
-      showDebug(`MapBox Response: ${JSON.stringify(data3)}`);
-      
-      if (data3 && data3.features && data3.features.length > 0) {
-        const feature = data3.features[0];
-        if (feature.place_name) {
-          showDebug(`✅ MapBox SUCCESS: ${feature.place_name}`);
-          return feature.place_name;
-        }
-      }
-    }
-  } catch (error) {
-    showDebug(`❌ MapBox Error: ${error.message}`);
-  }
-  
-  // Service 4: HERE (fallback)
-  try {
-    await delay(1000);
-    const url4 = `https://revgeocode.search.hereapi.com/v1/revgeocode?at=${lat},${lon}&apikey=YOUR_HERE_API_KEY&lang=en-US`;
-    showDebug(`Trying HERE: ${url4}`);
-    
-    const response4 = await fetch(url4);
-    if (response4.ok) {
-      const data4 = await response4.json();
-      showDebug(`HERE Response: ${JSON.stringify(data4)}`);
-      
-      if (data4 && data4.items && data4.items.length > 0) {
-        const item = data4.items[0];
-        if (item.title) {
-          showDebug(`✅ HERE SUCCESS: ${item.title}`);
-          return item.title;
-        }
-      }
-    }
-  } catch (error) {
-    showDebug(`❌ HERE Error: ${error.message}`);
-  }
-  
-  // Service 5: BigDataCloud as final fallback
-  try {
-    await delay(1000);
-    const url5 = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`;
-    showDebug(`Trying BigDataCloud: ${url5}`);
-    
-    const response5 = await fetch(url5);
-    if (response5.ok) {
-      const data5 = await response5.json();
-      showDebug(`BigDataCloud Response: ${JSON.stringify(data5)}`);
-      
-      if (data5) {
-        const parts = [];
-        if (data5.locality) parts.push(data5.locality);
-        if (data5.city && data5.city !== data5.locality) parts.push(data5.city);
-        if (data5.principalSubdivision) parts.push(data5.principalSubdivision);
-        if (data5.countryName) parts.push(data5.countryName);
-        
-        if (parts.length > 0) {
-          const address = parts.join(', ');
-          showDebug(`✅ BigDataCloud SUCCESS: ${address}`);
-          return address;
-        }
-      }
-    }
-  } catch (error) {
-    showDebug(`❌ BigDataCloud Error: ${error.message}`);
-  }
-  
-  showDebug(`❌ ALL SERVICES FAILED for ${lat}, ${lon}`);
-  return null;
-}
-
-// Resolve addresses for all rows
-async function resolveAllAddresses(rows) {
-  showDebug(`Starting address resolution for ${rows.length} rows`);
-  
-  // Find unique coordinates
-  const coordsToResolve = new Set();
-  rows.forEach(row => {
-    if (row.latitude && row.longitude) {
-      const key = `${Number(row.latitude).toFixed(6)},${Number(row.longitude).toFixed(6)}`;
-      coordsToResolve.add(key);
-    }
-  });
-  
-  showDebug(`Found ${coordsToResolve.size} unique coordinates to resolve`);
-  
-  if (coordsToResolve.size === 0) {
-    showDebug('No coordinates to resolve');
-    return;
-  }
-  
-  let processed = 0;
-  let successful = 0;
-  
-  // Process each unique coordinate
-  for (const coordKey of coordsToResolve) {
-    const [lat, lon] = coordKey.split(',').map(Number);
-    showDebug(`Processing coordinate ${processed + 1}/${coordsToResolve.size}: ${coordKey}`);
-    
-    updateProgress(processed, coordsToResolve.size, `Resolving ${processed}/${coordsToResolve.size} addresses...`);
-    
-    // Try to get address
-    const address = await getAddressFromCoords(lat, lon);
-    
-    if (address && address.length > 5) {
-      geocodeCache.set(coordKey, address);
-      successful++;
-      showDebug(`✅ Cached address for ${coordKey}: ${address}`);
+      log(`✅ SUCCESS: Got formatted address: "${formatted}"`);
+      return formatted;
     } else {
-      geocodeCache.set(coordKey, null);
-      showDebug(`❌ No address found for ${coordKey}`);
+      log(`❌ No results in response`);
+      return null;
     }
     
-    processed++;
-    
-    // Small delay between requests
-    if (processed < coordsToResolve.size) {
-      await delay(1000);
-    }
+  } catch (error) {
+    log(`❌ ERROR: ${error.message}`);
+    return null;
   }
-  
-  // Apply resolved addresses to rows
-  let applied = 0;
-  rows.forEach(row => {
-    if (row.latitude && row.longitude) {
-      const key = `${Number(row.latitude).toFixed(6)},${Number(row.longitude).toFixed(6)}`;
-      const resolvedAddress = geocodeCache.get(key);
-      
-      if (resolvedAddress) {
-        row.resolvedAddress = resolvedAddress;
-        applied++;
-        showDebug(`✅ Applied address to row: ${resolvedAddress.substring(0, 50)}...`);
-      } else {
-        row.resolvedAddress = null;
-        showDebug(`❌ No address available for ${key}`);
-      }
-    }
-  });
-  
-  updateProgress(coordsToResolve.size, coordsToResolve.size, `Complete: ${successful} addresses resolved`);
-  showDebug(`🎯 FINAL RESULT: ${applied} addresses applied to rows, ${successful} total successful resolutions`);
 }
 
 function renderTable(rows){
-  showDebug(`Rendering table with ${rows.length} rows`);
+  log(`🖼️ Rendering table with ${rows.length} rows`);
   
   const resultDiv = document.getElementById('dvirResult');
   let html = `<table class="dvir-table"><thead><tr>
-    <th>Date/Time</th><th>Driver</th><th>Vehicle</th><th>Status</th><th>Driver Inspected</th>
-    <th>Defects</th><th>Location (Address)</th><th>Odometer</th><th>Engine Hours</th><th>Driver Remarks</th>
+    <th>Date/Time</th><th>Driver</th><th>Vehicle</th><th>Status</th>
+    <th>Location</th><th>Odometer</th><th>Remarks</th>
   </tr></thead><tbody>`;
   
   let addressCount = 0;
@@ -462,54 +231,37 @@ function renderTable(rows){
   rows.forEach((r, index) => {
     const status = r.isSafeToOperate===true?'<span class="status-safe">SAFE</span>':
                   r.isSafeToOperate===false?'<span class="status-unsafe">⚠️ UNSAFE</span>':'<span class="status-unknown">UNKNOWN</span>';
-    let defectDisplay = '<em class="muted">None</em>';
-    if (r.defects && r.defects !== '[]' && r.defects !== '') {
-      try{ const d = JSON.parse(r.defects); if(Array.isArray(d)&&d.length>0) defectDisplay = `<span style="color:#e53e3e;font-weight:600;">⚠️ ${d.length}</span>`; }
-      catch(e){ if(r.defects.length>10) defectDisplay = '<span style="color:#e53e3e;font-weight:600;">⚠️ Defects present</span>'; }
-    }
     
     let locationDisplay = '<em class="muted">No location</em>';
     if (r.latitude && r.longitude) {
       const coords = `${Number(r.latitude).toFixed(6)}, ${Number(r.longitude).toFixed(6)}`;
       
-      // Check if we have a resolved address and what level of detail
-      if (r.resolvedAddress && r.resolvedAddress.trim() && r.resolvedAddress.length > 5) {
-        const addr = r.resolvedAddress;
-        const hasStreetDetail = addr.includes('Street') || addr.includes('Road') || addr.includes('Avenue') || addr.includes('Drive') || addr.includes('Lane') || addr.includes('Way') || /^\d+/.test(addr);
-        
-        if (hasStreetDetail) {
-          locationDisplay = `<div class="real-address">🏠 ${addr}</div><small class="muted">${coords}</small>`;
-          addressCount++;
-          showDebug(`Row ${index}: Showing STREET ADDRESS - ${addr.substring(0, 30)}...`);
-        } else {
-          locationDisplay = `<div style="background:#fff3cd;padding:4px 8px;border-radius:4px;border-left:3px solid #ffc107;font-weight:500;">📍 ${addr}</div><small class="muted">${coords}</small>`;
-          addressCount++;
-          showDebug(`Row ${index}: Showing GENERAL LOCATION - ${addr.substring(0, 30)}...`);
-        }
+      // THE CRITICAL CHECK: Does the row have a real address?
+      if (r.streetAddress && r.streetAddress.trim() && r.streetAddress.length > 10) {
+        locationDisplay = `<div class="address-success">${r.streetAddress}</div><small class="muted">${coords}</small>`;
+        addressCount++;
+        log(`Row ${index}: ✅ STREET ADDRESS: ${r.streetAddress.substring(0, 40)}...`);
       } else {
-        locationDisplay = `<span class="coord-only">${coords}</span>`;
+        locationDisplay = `<span class="address-fail">${coords}</span>`;
         coordCount++;
-        showDebug(`Row ${index}: Showing coordinates only - ${coords}`);
+        log(`Row ${index}: ❌ NO ADDRESS: ${coords}`);
       }
     }
     
     html += `<tr>
       <td>${r.dateTime}</td>
-      <td><strong>${r.driverName}</strong><br/><small class="muted">ID: ${r.driverId||''}</small></td>
-      <td><strong>${r.vehicleName}</strong><br/><small class="muted">ID: ${r.deviceId||''}</small></td>
+      <td><strong>${r.driverName}</strong></td>
+      <td><strong>${r.vehicleName}</strong></td>
       <td>${status}</td>
-      <td>${r.isInspectedByDriver===true?'✅ Yes':'❌ No'}</td>
-      <td>${defectDisplay}</td>
       <td>${locationDisplay}</td>
       <td>${r.odometer?Math.round(r.odometer)+' km':'N/A'}</td>
-      <td>${r.engineHours?(Math.round(r.engineHours*10)/10)+' hrs':'N/A'}</td>
-      <td>${r.driverRemark || '<em class="muted">No remarks</em>'}</td>
+      <td>${r.driverRemark || '<em class="muted">None</em>'}</td>
     </tr>`;
   });
   html += `</tbody></table>`;
   resultDiv.innerHTML = html;
   
-  showDebug(`Table rendered: ${addressCount} rows with addresses, ${coordCount} rows with coordinates only`);
+  log(`🖼️ Table complete: ${addressCount} with addresses, ${coordCount} with coordinates only`);
 }
 
 document.getElementById('authButton').onclick = async function(){
@@ -536,43 +288,45 @@ document.getElementById('authButton').onclick = async function(){
   }
 };
 
-document.getElementById('testGeocode').onclick = async function(){
-  document.getElementById('debugInfo').innerHTML = '';
-  showDebug('Testing geocoding with detailed NZ coordinates...');
+document.getElementById('testOne').onclick = async function(){
+  document.getElementById('debugLog').innerHTML = '';
+  log('🧪 TESTING single address geocoding...');
   
-  // Test with a known NZ address that should have street details
-  const testLat = -36.8485;  // Auckland CBD
+  // Test with Auckland Sky Tower coordinates
+  const testLat = -36.8485;
   const testLon = 174.7633;
   
-  showDebug(`Testing with Auckland CBD coordinates: ${testLat}, ${testLon}`);
-  const testResult = await getAddressFromCoords(testLat, testLon);
+  log(`🧪 Testing with Sky Tower coordinates: ${testLat}, ${testLon}`);
+  const result = await getSimpleAddress(testLat, testLon);
   
-  if (testResult && (testResult.includes('Street') || testResult.includes('Road') || testResult.includes('Avenue') || testResult.length > 20)) {
-    showMessage('infoBanner', `✅ SUCCESS! Detailed address: ${testResult}`, 'success');
-  } else if (testResult) {
-    showMessage('infoBanner', `⚠️ PARTIAL: Got address but not street-level: ${testResult}`, 'warning');
+  if (result && result.length > 20) {
+    showMessage('infoBanner', `✅ TEST SUCCESS: ${result}`, 'success');
+    log(`✅ TEST PASSED: Got detailed address`);
+  } else if (result) {
+    showMessage('infoBanner', `⚠️ TEST PARTIAL: ${result}`, 'warning');
+    log(`⚠️ TEST PARTIAL: Got some address but not detailed`);
   } else {
-    showMessage('infoBanner', `❌ FAILED: No address returned`, 'error');
+    showMessage('infoBanner', '❌ TEST FAILED: No address returned', 'error');
+    log(`❌ TEST FAILED: No address returned`);
   }
 };
 
 document.getElementById('getDvir').onclick = async function(){
   if(!credentials && !window.geotab && !window.api){ showMessage('infoBanner','Not authenticated','error'); return; }
   
-  // Clear debug info
-  document.getElementById('debugInfo').innerHTML = '';
+  document.getElementById('debugLog').innerHTML = '';
+  log('🚀 Starting DVIR retrieval and address resolution...');
   
   const fromDate = document.getElementById('fromDate').value;
   const toDate = document.getElementById('toDate').value;
-  const resultsLimit = parseInt(document.getElementById('resultsLimit').value)||10;
+  const resultsLimit = parseInt(document.getElementById('resultsLimit').value)||5;
   if(!fromDate || !toDate){ showMessage('infoBanner','Please select both from and to dates','error'); return; }
 
   showMessage('infoBanner','Getting DVIR logs...','warning');
   document.getElementById('downloadCsv').disabled = true;
-  document.getElementById('downloadReport').disabled = true;
 
   try{
-    showDebug(`Getting DVIR logs from ${fromDate} to ${toDate}, limit: ${resultsLimit}`);
+    log(`📋 Getting DVIR logs from ${fromDate} to ${toDate}, limit: ${resultsLimit}`);
     
     const dvirLogs = await callGeotabAPI('Get', {
       typeName:'DVIRLog',
@@ -580,7 +334,7 @@ document.getElementById('getDvir').onclick = async function(){
       resultsLimit
     });
     
-    showDebug(`Retrieved ${dvirLogs ? dvirLogs.length : 0} DVIR logs`);
+    log(`📋 Retrieved ${dvirLogs ? dvirLogs.length : 0} DVIR logs`);
     
     if(!dvirLogs || dvirLogs.length===0){ 
       showMessage('infoBanner','No DVIR logs for the selected range','warning'); 
@@ -588,6 +342,7 @@ document.getElementById('getDvir').onclick = async function(){
       return; 
     }
 
+    // Get driver/device names
     const driverIds = new Set(), deviceIds = new Set();
     dvirLogs.forEach(l=>{ const did = extractId(l.driver); const vid = extractId(l.device); if(did) driverIds.add(did); if(vid) deviceIds.add(vid); });
     const calls = [];
@@ -598,6 +353,7 @@ document.getElementById('getDvir').onclick = async function(){
     Array.from(driverIds).forEach(id=>{ const r=lookup[idx++]; driverNames[id]=(r && r[0] && (r[0].name || `${r[0].firstName||''} ${r[0].lastName||''}`.trim())) || `Driver ${id}`; });
     Array.from(deviceIds).forEach(id=>{ const r=lookup[idx++]; deviceNames[id]=(r && r[0] && r[0].name) || `Device ${id}`; });
 
+    // Map DVIR data
     mappedDvirData = dvirLogs.map(l=>{
       const driverId = extractId(l.driver);
       const deviceId = extractId(l.device);
@@ -606,91 +362,95 @@ document.getElementById('getDvir').onclick = async function(){
         id:l.id,
         dateTime:new Date(l.dateTime).toLocaleString(),
         driverName:driverNames[driverId] || 'Unknown Driver',
-        driverId:driverId || '',
         vehicleName:deviceNames[deviceId] || 'Unknown Vehicle',
-        deviceId:deviceId || '',
         isSafeToOperate:l.isSafeToOperate,
-        isInspectedByDriver:l.isInspectedByDriver,
         driverRemark:l.driverRemark || '',
         odometer:l.odometer || 0,
-        engineHours:l.engineHours || 0,
         latitude:loc.latitude,
         longitude:loc.longitude,
-        resolvedAddress:null, // Will be populated by geocoding
-        defects:l.defects || ''
+        streetAddress:null // This will be populated with actual addresses
       };
     });
 
-    showDebug(`Mapped ${mappedDvirData.length} DVIR records`);
+    log(`📋 Mapped ${mappedDvirData.length} DVIR records`);
 
-    // Show table with coordinates first
+    // Show initial table with coordinates
     renderTable(mappedDvirData);
 
-    const locationsWithCoords = mappedDvirData.filter(r => r.latitude && r.longitude).length;
-    showDebug(`Found ${locationsWithCoords} records with coordinates`);
-    
-    if (locationsWithCoords > 0) {
-      showMessage('infoBanner', `🌍 Resolving addresses for ${locationsWithCoords} locations...`, 'info');
+    // Find locations that need geocoding
+    const locationsToGeocode = mappedDvirData.filter(r => r.latitude && r.longitude);
+    log(`🌍 Found ${locationsToGeocode.length} locations to geocode`);
+
+    if (locationsToGeocode.length > 0) {
+      showMessage('infoBanner', `🌍 Resolving ${locationsToGeocode.length} addresses...`, 'info');
       
-      // Resolve addresses
-      await resolveAllAddresses(mappedDvirData);
+      // Process each location sequentially
+      for (let i = 0; i < locationsToGeocode.length; i++) {
+        const row = locationsToGeocode[i];
+        
+        updateProgress(i, locationsToGeocode.length, `Resolving address ${i + 1}/${locationsToGeocode.length}...`);
+        log(`🌍 Processing location ${i + 1}/${locationsToGeocode.length}: ${row.latitude}, ${row.longitude}`);
+        
+        // Get address for this location
+        const address = await getSimpleAddress(row.latitude, row.longitude);
+        
+        if (address && address.trim() && address.length > 10) {
+          row.streetAddress = address.trim();
+          log(`✅ SUCCESS for location ${i + 1}: ${address.substring(0, 50)}...`);
+        } else {
+          log(`❌ FAILED for location ${i + 1}: No address found`);
+        }
+        
+        // Rate limiting delay
+        if (i < locationsToGeocode.length - 1) {
+          await delay(1500); // 1.5 second delay between requests
+        }
+      }
       
-      // Re-render table with resolved addresses
+      updateProgress(locationsToGeocode.length, locationsToGeocode.length, 'Complete!');
+      
+      // Re-render table with addresses
       renderTable(mappedDvirData);
       
-      const resolvedCount = mappedDvirData.filter(r => r.resolvedAddress && r.resolvedAddress.trim()).length;
-      const streetAddressCount = mappedDvirData.filter(r => {
-        if (!r.resolvedAddress) return false;
-        const addr = r.resolvedAddress;
-        return addr.includes('Street') || addr.includes('Road') || addr.includes('Avenue') || addr.includes('Drive') || addr.includes('Lane') || addr.includes('Way') || /^\d+/.test(addr);
-      }).length;
-      const generalAddressCount = resolvedCount - streetAddressCount;
-      const failedCount = locationsWithCoords - resolvedCount;
+      // Final status
+      const successCount = mappedDvirData.filter(r => r.streetAddress && r.streetAddress.trim()).length;
+      const failCount = locationsToGeocode.length - successCount;
       
-      if (resolvedCount > 0) {
-        let message = `✅ SUCCESS! ${resolvedCount}/${locationsWithCoords} addresses resolved. `;
-        if (streetAddressCount > 0) message += `${streetAddressCount} street-level addresses. `;
-        if (generalAddressCount > 0) message += `${generalAddressCount} general locations. `;
-        if (failedCount > 0) message += `${failedCount} showing coordinates only.`;
-        showMessage('infoBanner', message, 'success');
+      if (successCount > 0) {
+        showMessage('infoBanner', `✅ SUCCESS! ${successCount}/${locationsToGeocode.length} addresses resolved!${failCount > 0 ? ` ${failCount} failed.` : ''}`, 'success');
+        log(`🎯 FINAL RESULT: ${successCount} addresses resolved, ${failCount} failed`);
       } else {
-        showMessage('infoBanner', `❌ FAILED! No addresses could be resolved. Check debug info above.`, 'error');
+        showMessage('infoBanner', '❌ COMPLETE FAILURE: No addresses could be resolved', 'error');
+        log(`❌ COMPLETE FAILURE: All geocoding attempts failed`);
       }
     } else {
       showMessage('infoBanner', '✅ DVIR loaded! No locations to resolve.', 'success');
     }
     
     document.getElementById('downloadCsv').disabled = false;
-    document.getElementById('downloadReport').disabled = false;
 
   }catch(e){
-    showMessage('infoBanner', `Failed to get DVIR logs: ${e.message}`, 'error');
-    showDebug(`ERROR: ${e.message}`);
+    showMessage('infoBanner', `Failed: ${e.message}`, 'error');
+    log(`❌ CRITICAL ERROR: ${e.message}`);
   }
 };
 
 document.getElementById('downloadCsv').onclick = function(){
   if(!mappedDvirData || mappedDvirData.length===0){ showMessage('infoBanner','No DVIR data to export','warning'); return; }
-  const headers = ['DateTime','Driver_Name','Driver_ID','Vehicle_Name','Device_ID','Safe_To_Operate','Driver_Inspected','Has_Defects','Defect_Count','Address','Latitude','Longitude','Odometer_km','Engine_Hours','Driver_Remarks'];
+  const headers = ['DateTime','Driver','Vehicle','Safe_To_Operate','Address','Latitude','Longitude','Odometer_km','Remarks'];
   let csv = headers.map(h=>`"${h}"`).join(',') + '\n';
   mappedDvirData.forEach(r=>{
-    let hasDefects='NO', defectCount='0';
-    if (r.defects && r.defects !== '[]' && r.defects !== '') {
-      try{ const d = JSON.parse(r.defects); if(Array.isArray(d)&&d.length>0){ hasDefects='YES'; defectCount=String(d.length); } }
-      catch(e){ if(r.defects.length>10){ hasDefects='YES'; defectCount='Unknown'; } }
-    }
     const row = [
-      r.dateTime, r.driverName, r.driverId, r.vehicleName, r.deviceId,
+      r.dateTime, r.driverName, r.vehicleName,
       r.isSafeToOperate===true?'SAFE':r.isSafeToOperate===false?'UNSAFE':'UNKNOWN',
-      r.isInspectedByDriver===true?'YES':'NO',
-      hasDefects, defectCount,
-      r.resolvedAddress || `${r.latitude || ''}, ${r.longitude || ''}`, r.latitude || '', r.longitude || '',
-      r.odometer || '', r.engineHours || '', r.driverRemark || ''
+      r.streetAddress || `${r.latitude || ''}, ${r.longitude || ''}`, 
+      r.latitude || '', r.longitude || '',
+      r.odometer || '', r.driverRemark || ''
     ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
     csv += row + '\n';
   });
   const ts = new Date().toISOString().slice(0,19).replace(/[:.]/g,'-');
-  const filename = `Geotab_DVIR_With_Addresses_${ts}.csv`;
+  const filename = `DVIR_Simple_${ts}.csv`;
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   const a = document.createElement('a');
   const url = URL.createObjectURL(blob);
@@ -699,84 +459,12 @@ document.getElementById('downloadCsv').onclick = function(){
   showMessage('infoBanner', `📊 CSV "${filename}" downloaded`, 'success');
 };
 
-document.getElementById('downloadReport').onclick = function(){
-  if(!mappedDvirData || mappedDvirData.length===0){ showMessage('infoBanner','No DVIR data to report','warning'); return; }
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>DVIR Report (Addresses)</title>
-  <style>
-    body{font-family:Arial,Helvetica,sans-serif;margin:20px;color:#333}
-    h1{margin:0 0 6px 0} .muted{color:#666}
-    table{width:100%;border-collapse:collapse;margin-top:16px}
-    th,td{border:1px solid #e2e8f0;padding:8px;font-size:12px;text-align:left;vertical-align:top}
-    th{background:#2c5aa0;color:#fff}
-    tr:nth-child(even){background:#f7fafc}
-    .badge{padding:2px 6px;border-radius:3px;font-weight:700;font-size:10px;display:inline-block}
-    .safe{background:#c6f6d5;color:#22543d}
-    .unsafe{background:#fed7d7;color:#742a2a}
-    .unknown{background:#e2e8f0;color:#4a5568}
-    .real-address{font-weight:500;color:#2d3748;background:#e6ffed;padding:2px 4px;border-radius:3px}
-    .coord-only{color:#666;font-style:italic}
-  </style></head><body>
-  <h1>Driver Vehicle Inspection Report</h1>
-  <div class="muted">Generated: ${new Date().toLocaleString()}</div>
-  <table><thead><tr>
-    <th>Date/Time</th><th>Driver</th><th>Vehicle</th><th>Status</th><th>Defects</th><th>Location (Address)</th><th>Odometer</th><th>Engine Hours</th><th>Remarks</th>
-  </tr></thead><tbody>
-  ${mappedDvirData.map(r=>{
-    let defects='None';
-    if (r.defects && r.defects !== '[]' && r.defects !== '') {
-      try{ const d = JSON.parse(r.defects); if(Array.isArray(d)&&d.length>0) defects = `⚠️ ${d.length}`; }
-      catch(e){ if(r.defects.length>10) defects = '⚠️ Yes'; }
-    }
-    const badge = r.isSafeToOperate===true?'<span class="badge safe">SAFE</span>':r.isSafeToOperate===false?'<span class="badge unsafe">UNSAFE</span>':'<span class="badge unknown">UNKNOWN</span>';
-    
-    let loc = 'No location';
-    if (r.latitude && r.longitude) {
-      const coords = `${Number(r.latitude).toFixed(6)}, ${Number(r.longitude).toFixed(6)}`;
-      if (r.resolvedAddress && r.resolvedAddress.trim() && r.resolvedAddress.length > 5) {
-        const addr = r.resolvedAddress;
-        const hasStreetDetail = addr.includes('Street') || addr.includes('Road') || addr.includes('Avenue') || addr.includes('Drive') || addr.includes('Lane') || addr.includes('Way') || /^\d+/.test(addr);
-        
-        if (hasStreetDetail) {
-          loc = `<div class="real-address">🏠 ${addr}</div><div class="muted">${coords}</div>`;
-        } else {
-          loc = `<div style="background:#fff3cd;padding:2px 4px;border-radius:3px;">📍 ${addr}</div><div class="muted">${coords}</div>`;
-        }
-      } else {
-        loc = `<span class="coord-only">${coords}</span>`;
-      }
-    }
-    
-    return `<tr>
-      <td>${r.dateTime}</td>
-      <td>${r.driverName}<div class="muted">ID: ${r.driverId||''}</div></td>
-      <td>${r.vehicleName}<div class="muted">ID: ${r.deviceId||''}</div></td>
-      <td>${badge}</td>
-      <td>${defects}</td>
-      <td>${loc}</td>
-      <td>${r.odometer?Math.round(r.odometer)+' km':'N/A'}</td>
-      <td>${r.engineHours?(Math.round(r.engineHours*10)/10)+' hrs':'N/A'}</td>
-      <td>${r.driverRemark || ''}</td>
-    </tr>`;
-  }).join('')}
-  </tbody></table>
-  </body></html>`;
-  const ts = new Date().toISOString().slice(0,19).replace(/[:.]/g,'-');
-  const filename = `DVIR_Report_With_Addresses_${ts}.html`;
-  const blob = new Blob([html], {type:'text/html;charset=utf-8;'});
-  const a = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-  a.href = url; a.download = filename; a.style.display='none';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  showMessage('infoBanner', `📄 Report "${filename}" downloaded`, 'success');
-};
-
 document.getElementById('logout').onclick = function(){
   credentials = null; serverUsed = null; mappedDvirData = [];
-  geocodeCache.clear();
   document.getElementById('dvirSection').style.display = 'none';
   document.getElementById('authResult').innerHTML = '';
   document.getElementById('dvirResult').innerHTML = '';
-  document.getElementById('debugInfo').innerHTML = '';
+  document.getElementById('debugLog').innerHTML = '';
   showMessage('infoBanner','Logged out','info');
 };
 
