@@ -424,6 +424,10 @@
             <span class="icon">📊</span>
             Download CSV
           </button>
+          <button id="testDownload" class="btn btn-warning" onclick="testCSVDownload()">
+            <span class="icon">🧪</span>
+            Test CSV
+          </button>
           <button id="logout" class="btn btn-danger">
             <span class="icon">🚪</span>
             Logout
@@ -855,6 +859,7 @@
         }
         
         console.log('✅ CSV content generated, length:', csvContent.length);
+        console.log('📄 CSV preview (first 200 chars):', csvContent.substring(0, 200));
         
         // Create filename
         const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
@@ -862,37 +867,15 @@
         const typeName = lastApiResult.typeName || 'Data';
         const filename = `DVIR_${method}_${typeName}_${timestamp}.csv`;
         
-        console.log('📁 Creating file:', filename);
+        console.log('📁 Downloading file:', filename);
         
-        // Create and download file
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        console.log('📦 Blob created, size:', blob.size);
+        // Use the robust download function
+        const success = forceDownload(csvContent, filename);
         
-        // Try multiple download methods for better compatibility
-        if (window.navigator && window.navigator.msSaveOrOpenBlob) {
-          // IE/Edge
-          window.navigator.msSaveOrOpenBlob(blob, filename);
-          showMessage('apiResult', `📊 CSV file "${filename}" downloaded successfully!`, 'success');
-        } else {
-          // Modern browsers
-          const link = document.createElement('a');
-          const url = URL.createObjectURL(blob);
-          
-          link.setAttribute('href', url);
-          link.setAttribute('download', filename);
-          link.style.visibility = 'hidden';
-          link.style.display = 'none';
-          
-          // Add to document, click, then remove
-          document.body.appendChild(link);
-          console.log('🖱️ Triggering download...');
-          link.click();
-          document.body.removeChild(link);
-          
-          // Clean up URL
-          setTimeout(() => URL.revokeObjectURL(url), 100);
-          
-          showMessage('apiResult', `📊 CSV file "${filename}" downloaded successfully!`, 'success');
+        if (!success) {
+          // Fallback: show CSV in console
+          console.log('📋 CSV Content (copy from console):\n', csvContent);
+          showMessage('apiResult', '❌ Download failed. Check console for CSV content to copy manually.', 'error');
         }
         
       } catch (error) {
@@ -900,20 +883,111 @@
         showMessage('apiResult', `❌ Failed to download CSV: ${error.message}`, 'error');
       }
     }
+      console.log('🧪 Testing CSV download...');
+      
+      // Create test data
+      const testData = [
+        {
+          id: 'test1',
+          device: { id: 'b1', name: 'Test Vehicle 1' },
+          driver: { id: 'u1', name: 'Test Driver' },
+          dateTime: '2025-01-18T12:00:00.000Z',
+          logType: 'PreTrip',
+          location: { address: '123 Test Street, Auckland' },
+          defectList: [{ defectRemark: 'Test defect' }]
+        }
+      ];
+      
+      // Set test result
+      lastApiResult = {
+        method: 'Get',
+        typeName: 'DVIRLog',
+        data: testData,
+        timestamp: new Date().toISOString()
+      };
+      
+      console.log('📋 Test data set:', testData);
+      
+      // Try download
+      downloadCSV();
+    }
 
-    // Enhanced CSV download button event with error handling
-    document.addEventListener('DOMContentLoaded', function() {
-      const downloadBtn = document.getElementById('downloadCsv');
-      if (downloadBtn) {
-        downloadBtn.onclick = function(e) {
-          e.preventDefault();
-          console.log('📊 Download CSV button clicked');
-          downloadCSV();
-        };
-        console.log('✅ CSV download button event listener attached');
-      } else {
-        console.error('❌ Download CSV button not found');
+    // More robust download function
+    function forceDownload(csvContent, filename) {
+      console.log('🚀 Force downloading file:', filename);
+      
+      try {
+        // Method 1: Direct download link
+        const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showMessage('apiResult', `📊 CSV downloaded: ${filename}`, 'success');
+        return true;
+      } catch (e1) {
+        console.log('❌ Method 1 failed, trying method 2...');
+        
+        try {
+          // Method 2: Blob download
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.style.display = 'none';
+          link.href = url;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          
+          showMessage('apiResult', `📊 CSV downloaded: ${filename}`, 'success');
+          return true;
+        } catch (e2) {
+          console.log('❌ Method 2 failed, trying method 3...');
+          
+          try {
+            // Method 3: Open in new window
+            const dataUri = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent);
+            window.open(dataUri, '_blank');
+            showMessage('apiResult', `📊 CSV opened in new window`, 'success');
+            return true;
+          } catch (e3) {
+            console.error('❌ All download methods failed:', e1, e2, e3);
+            return false;
+          }
+        }
       }
+    }
+
+    // Simple and reliable CSV download button setup
+    window.addEventListener('load', function() {
+      console.log('🔄 Setting up CSV download button...');
+      
+      // Wait a bit for DOM to be ready
+      setTimeout(function() {
+        const downloadBtn = document.getElementById('downloadCsv');
+        if (downloadBtn) {
+          // Remove any existing listeners
+          downloadBtn.onclick = null;
+          
+          // Add new listener
+          downloadBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('📊 CSV Download button clicked!');
+            downloadCSV();
+          });
+          
+          console.log('✅ CSV download button event listener attached successfully');
+        } else {
+          console.error('❌ Download CSV button not found in DOM');
+        }
+      }, 500);
     });
 
     // Load examples - Same format as your working file
