@@ -239,6 +239,11 @@
       flex-wrap: wrap;
       align-items: center;
     }
+<button id="getDvir" class="btn btn-success">📋 Get DVIR Logs</button>
+        <button id="calculateSafety" class="btn btn-warning hidden">🧮 Calculate Safety</button>
+        <button id="downloadCsv" class="btn btn-info">📊 Download CSV</button>
+        <button id="downloadReport" class="btn btn-warning">📄 Download Professional Report</button>
+        <button id="logout" class="btn btn-danger">🚪 Logout</button>
   </style>
 </head>
 <body>
@@ -625,7 +630,23 @@
       message += `This alert was generated automatically by the Fleet DVIR System.\n`;
       message += `For questions, contact your fleet administrator.`;
       
-      return message;
+     return message;
+    }
+
+    // Calculate safety based on automated rules
+    function calculateVehicleSafety(log) {
+      // ... [entire calculateVehicleSafety function code] ...
+    }
+
+    // Add calculated safety columns to existing data
+    function addSafetyCalculations() {
+      // ... [entire addSafetyCalculations function code] ...
+    }
+
+    // Display the enhanced table with safety calculations
+    function displaySafetyCalculations() {
+      // ... [entire displaySafetyCalculations function code] ...
+    }
     }
 
     // Authentication
@@ -671,6 +692,8 @@
       } catch (error) {
         showMessage('authResult', `Authentication failed: ${error.message}`, 'error');
       }
+	// Calculate Safety button
+    document.getElementById('calculateSafety').onclick = addSafetyCalculations;  
     };
 
     // Get DVIR Logs with Driver, Vehicle and Location mapping
@@ -775,6 +798,215 @@
         const deviceNames = {};
         
         let resultIndex = 0;
+		
+		// Calculate safety based on automated rules
+    function calculateVehicleSafety(log) {
+      let calculatedSafe = true;
+      let reasons = [];
+      let riskScore = 0;
+      
+      // Rule 1: Check for reported defects
+      if (log.defects && log.defects !== '[]' && log.defects !== '') {
+        try {
+          const defects = JSON.parse(log.defects);
+          if (Array.isArray(defects) && defects.length > 0) {
+            calculatedSafe = false;
+            reasons.push(`${defects.length} defect(s) reported`);
+            riskScore += defects.length * 25; // 25 points per defect
+          }
+        } catch (e) {
+          if (log.defects.length > 10) {
+            calculatedSafe = false;
+            reasons.push('Defects present in log');
+            riskScore += 50;
+          }
+        }
+      }
+      
+      // Rule 2: High mileage check
+      if (log.odometer && log.odometer > 500000) {
+        calculatedSafe = false;
+        reasons.push(`High mileage: ${Math.round(log.odometer)} km`);
+        riskScore += 30;
+      } else if (log.odometer && log.odometer > 300000) {
+        reasons.push(`Medium-high mileage: ${Math.round(log.odometer)} km`);
+        riskScore += 15;
+      }
+      
+      // Rule 3: High engine hours check
+      if (log.engineHours && log.engineHours > 15000) {
+        calculatedSafe = false;
+        reasons.push(`High engine hours: ${Math.round(log.engineHours)} hrs`);
+        riskScore += 30;
+      } else if (log.engineHours && log.engineHours > 10000) {
+        reasons.push(`Medium-high engine hours: ${Math.round(log.engineHours)} hrs`);
+        riskScore += 15;
+      }
+      
+      // Rule 4: No driver inspection
+      if (log.isInspectedByDriver !== true) {
+        reasons.push('Not inspected by driver');
+        riskScore += 20;
+      }
+      
+      // Rule 5: Driver remarks indicating issues
+      if (log.driverRemark && log.driverRemark.toLowerCase().includes('problem')) {
+        calculatedSafe = false;
+        reasons.push('Driver reported problems in remarks');
+        riskScore += 40;
+      }
+      
+      // Determine risk level
+      let riskLevel = 'LOW';
+      if (riskScore >= 100) riskLevel = 'CRITICAL';
+      else if (riskScore >= 60) riskLevel = 'HIGH';
+      else if (riskScore >= 30) riskLevel = 'MEDIUM';
+      
+      return {
+        calculatedSafe,
+        reasons: reasons.length > 0 ? reasons : ['No safety issues detected'],
+        riskScore,
+        riskLevel
+      };
+    }
+
+    // Add calculated safety columns to existing data
+    function addSafetyCalculations() {
+      if (!mappedDvirData || mappedDvirData.length === 0) {
+        showMessage('dvirResult', 'No DVIR data available. Get DVIR logs first!', 'warning');
+        return;
+      }
+
+      showMessage('dvirResult', 'Calculating safety based on automated rules...', 'warning');
+      
+      // Add calculated safety to each record
+      mappedDvirData.forEach(log => {
+        const safety = calculateVehicleSafety(log);
+        log.calculatedSafe = safety.calculatedSafe;
+        log.calculatedReasons = safety.reasons;
+        log.riskScore = safety.riskScore;
+        log.riskLevel = safety.riskLevel;
+        
+        // Check for discrepancy between inspector and calculated safety
+        log.safetyDiscrepancy = (log.isSafeToOperate === true && !safety.calculatedSafe) || 
+                               (log.isSafeToOperate === false && safety.calculatedSafe);
+      });
+
+      // Update display with new calculations
+      displaySafetyCalculations();
+      
+      // Show summary
+      const discrepancies = mappedDvirData.filter(d => d.safetyDiscrepancy).length;
+      const calculatedUnsafe = mappedDvirData.filter(d => !d.calculatedSafe).length;
+      const criticalRisk = mappedDvirData.filter(d => d.riskLevel === 'CRITICAL').length;
+      
+      showMessage('dvirResult', 
+        `🧮 Safety calculations complete! Found ${calculatedUnsafe} vehicles calculated as unsafe, ` +
+        `${criticalRisk} critical risk vehicles, and ${discrepancies} discrepancies with inspector decisions.`, 
+        'success');
+    }
+
+    // Display the enhanced table with safety calculations
+    function displaySafetyCalculations() {
+      const resultDiv = document.getElementById('dvirResult');
+      
+      let html = `
+        <div style="background: #e6fffa; border: 1px solid #38b2ac; border-radius: 8px; padding: 15px; margin: 20px 0;">
+          <h4 style="color: #234e52; margin-bottom: 10px;">🧮 Automated Safety Calculations</h4>
+          <p style="color: #285e61; font-size: 14px;">
+            This table shows both <strong>inspector decisions</strong> and <strong>calculated safety</strong> based on automated rules.
+            Discrepancies are highlighted for review.
+          </p>
+        </div>
+        
+        <table class="dvir-table">
+          <thead>
+            <tr>
+              <th>Date/Time</th>
+              <th>Driver</th>
+              <th>Vehicle</th>
+              <th>Inspector Decision</th>
+              <th>Calculated Safety</th>
+              <th>Risk Level</th>
+              <th>Safety Reasons</th>
+              <th>Odometer</th>
+              <th>Engine Hours</th>
+              <th>Defects</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      mappedDvirData.forEach(log => {
+        const inspectorStatus = log.isSafeToOperate === true ? 
+          '<span class="status-safe">SAFE</span>' : 
+          log.isSafeToOperate === false ? 
+          '<span class="status-unsafe">UNSAFE</span>' : 
+          '<span class="status-unknown">UNKNOWN</span>';
+          
+        const calculatedStatus = log.calculatedSafe ? 
+          '<span class="status-safe">SAFE</span>' : 
+          '<span class="status-unsafe">UNSAFE</span>';
+          
+        const riskColor = log.riskLevel === 'CRITICAL' ? '#e53e3e' :
+                         log.riskLevel === 'HIGH' ? '#dd6b20' :
+                         log.riskLevel === 'MEDIUM' ? '#d69e2e' : '#38a169';
+                         
+        const riskDisplay = `<span style="color: ${riskColor}; font-weight: 600; font-size: 11px; padding: 2px 6px; background: rgba(${riskColor === '#e53e3e' ? '229,62,62' : riskColor === '#dd6b20' ? '221,107,32' : riskColor === '#d69e2e' ? '214,158,46' : '56,161,105'}, 0.1); border-radius: 3px;">${log.riskLevel}</span>`;
+        
+        // Highlight discrepancies
+        const rowClass = log.safetyDiscrepancy ? 'style="background-color: #fef5e7; border-left: 4px solid #ed8936;"' : '';
+        
+        // Format defects
+        let defectDisplay = 'None';
+        if (log.defects && log.defects !== '[]' && log.defects !== '') {
+          try {
+            const defects = JSON.parse(log.defects);
+            if (Array.isArray(defects) && defects.length > 0) {
+              defectDisplay = `⚠️ ${defects.length}`;
+            }
+          } catch (e) {
+            if (log.defects.length > 10) {
+              defectDisplay = '⚠️ Yes';
+            }
+          }
+        }
+        
+        html += `
+          <tr ${rowClass}>
+            <td>${log.dateTime}</td>
+            <td><strong>${log.driverName}</strong><br><small>ID: ${log.driverId}</small></td>
+            <td><strong>${log.vehicleName}</strong><br><small>ID: ${log.deviceId}</small></td>
+            <td>${inspectorStatus}${log.safetyDiscrepancy ? '<br><small style="color: #ed8936;">⚠️ Discrepancy</small>' : ''}</td>
+            <td>${calculatedStatus}<br><small>Score: ${log.riskScore}</small></td>
+            <td>${riskDisplay}</td>
+            <td><small>${log.calculatedReasons.slice(0, 2).join('; ')}</small></td>
+            <td>${log.odometer ? Math.round(log.odometer) + ' km' : 'N/A'}</td>
+            <td>${log.engineHours ? Math.round(log.engineHours * 10) / 10 + ' hrs' : 'N/A'}</td>
+            <td>${defectDisplay}</td>
+          </tr>
+        `;
+      });
+      
+      html += `
+          </tbody>
+        </table>
+        
+        <div style="background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin: 20px 0;">
+          <h4 style="color: #2d3748; margin-bottom: 10px;">📊 Safety Calculation Rules</h4>
+          <ul style="color: #4a5568; font-size: 13px; line-height: 1.6;">
+            <li>• <strong>Defects:</strong> Any reported defects = UNSAFE (+25 points per defect)</li>
+            <li>• <strong>High Mileage:</strong> >500k km = UNSAFE (+30 points), >300k km = MEDIUM RISK (+15 points)</li>
+            <li>• <strong>Engine Hours:</strong> >15k hrs = UNSAFE (+30 points), >10k hrs = MEDIUM RISK (+15 points)</li>
+            <li>• <strong>Driver Inspection:</strong> Not inspected by driver (+20 points)</li>
+            <li>• <strong>Driver Remarks:</strong> Keywords indicating problems = UNSAFE (+40 points)</li>
+            <li>• <strong>Risk Levels:</strong> 0-29 = LOW, 30-59 = MEDIUM, 60-99 = HIGH, 100+ = CRITICAL</li>
+          </ul>
+        </div>
+      `;
+      
+      resultDiv.innerHTML += html;
+    }
         
         // Map driver results
         Array.from(driverIds).forEach((id, index) => {
