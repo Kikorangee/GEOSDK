@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Geotab DVIR Logs — Native Address Resolution (GetAddresses)</title>
+  <title>Geotab DVIR Logs â€" Native Address Resolution (GetAddresses)</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;color:#333;padding:20px}
@@ -241,9 +241,6 @@ async function resolveAllAddresses(rows) {
         if (addr.formattedAddress && addr.formattedAddress.trim()) {
           row.resolvedAddress = addr.formattedAddress.trim();
           row.zones = addr.zones || [];
-          log(`✅ Row ${rowIndex}: ${addr.formattedAddress.substring(0, 50)}...`);
-        } else {
-          log(`❌ Row ${rowIndex}: No address returned`);
         }
       });
       
@@ -267,7 +264,7 @@ async function resolveAllAddresses(rows) {
 }
 
 function renderTable(rows){
-  log(`🖼️ Rendering table with ${rows.length} rows`);
+  log(`ðŸ–¼ï¸ Rendering table with ${rows.length} rows`);
   
   const resultDiv = document.getElementById('dvirResult');
   let html = `<table class="dvir-table"><thead><tr>
@@ -280,11 +277,11 @@ function renderTable(rows){
   
   rows.forEach((r, index) => {
     const status = r.isSafeToOperate===true?'<span class="status-safe">SAFE</span>':
-                  r.isSafeToOperate===false?'<span class="status-unsafe">⚠️ UNSAFE</span>':'<span class="status-unknown">UNKNOWN</span>';
+                  r.isSafeToOperate===false?'<span class="status-unsafe">âš ï¸ UNSAFE</span>':'<span class="status-unknown">UNKNOWN</span>';
     let defectDisplay = '<em class="muted">None</em>';
     if (r.defects && r.defects !== '[]' && r.defects !== '') {
-      try{ const d = JSON.parse(r.defects); if(Array.isArray(d)&&d.length>0) defectDisplay = `<span style="color:#e53e3e;font-weight:600;">⚠️ ${d.length}</span>`; }
-      catch(e){ if(r.defects.length>10) defectDisplay = '<span style="color:#e53e3e;font-weight:600;">⚠️ Defects present</span>'; }
+      try{ const d = JSON.parse(r.defects); if(Array.isArray(d)&&d.length>0) defectDisplay = `<span style="color:#e53e3e;font-weight:600;">âš ï¸ ${d.length}</span>`; }
+      catch(e){ if(r.defects.length>10) defectDisplay = '<span style="color:#e53e3e;font-weight:600;">âš ï¸ Defects present</span>'; }
     }
     
     let locationDisplay = '<em class="muted">No location</em>';
@@ -293,13 +290,13 @@ function renderTable(rows){
       
       // Check for resolved address
       if (r.resolvedAddress && r.resolvedAddress.trim() && r.resolvedAddress.length > 8) {
-        locationDisplay = `<div class="real-address">📍 ${r.resolvedAddress}</div><small class="muted">${coords}</small>`;
+        locationDisplay = `<div class="real-address">ðŸ" ${r.resolvedAddress}</div><small class="muted">${coords}</small>`;
         addressCount++;
-        log(`Row ${index}: ✅ REAL ADDRESS: ${r.resolvedAddress.substring(0, 50)}...`);
+        log(`Row ${index}: âœ… REAL ADDRESS: ${r.resolvedAddress.substring(0, 50)}...`);
       } else {
         locationDisplay = `<span class="coord-only">${coords}</span>`;
         coordCount++;
-        log(`Row ${index}: ❌ NO ADDRESS: ${coords}`);
+        log(`Row ${index}: âŒ NO ADDRESS: ${coords}`);
       }
     }
     
@@ -308,18 +305,18 @@ function renderTable(rows){
       <td><strong>${r.driverName}</strong><br/><small class="muted">ID: ${r.driverId||''}</small></td>
       <td><strong>${r.vehicleName}</strong><br/><small class="muted">ID: ${r.deviceId||''}</small></td>
       <td>${status}</td>
-      <td>${r.isInspectedByDriver===true?'✅ Yes':'❌ No'}</td>
+      <td>${r.isInspectedByDriver===true?'âœ… Yes':'âŒ No'}</td>
       <td>${defectDisplay}</td>
       <td>${locationDisplay}</td>
       <td>${r.odometer?Math.round(r.odometer/1000*100)/100+' km':'N/A'}</td>
-      <td>${r.engineHours?Math.round(r.engineHours/3600000*100)/100+' hrs':'N/A'}</td>
+      <td>${r.engineHours?Math.round(r.engineHours/3600*100)/100+' hrs':'N/A'}</td>
       <td>${r.driverRemark || '<em class="muted">No remarks</em>'}</td>
     </tr>`;
   });
   html += `</tbody></table>`;
   resultDiv.innerHTML = html;
   
-  log(`🖼️ Table complete: ${addressCount} with addresses, ${coordCount} with coordinates only`);
+  log(`ðŸ–¼ï¸ Table complete: ${addressCount} with addresses, ${coordCount} with coordinates only`);
 }
 
 document.getElementById('authButton').onclick = async function(){
@@ -425,10 +422,6 @@ document.getElementById('getDvir').onclick = async function(){
       const deviceId = extractId(l.device);
       const loc = extractLocation(l.location);
       
-      // Debug odometer and engine hours values
-      if (l.odometer) log(`📊 Raw odometer: ${l.odometer} meters (${Math.round(l.odometer/1000*100)/100} km)`);
-      if (l.engineHours) log(`⏱️ Raw engine hours: ${l.engineHours} ms (${Math.round(l.engineHours/3600000*100)/100} hrs)`);
-      
       return {
         id:l.id,
         dateTime:new Date(l.dateTime).toLocaleString(),
@@ -450,7 +443,6 @@ document.getElementById('getDvir').onclick = async function(){
     });
 
     log(`📋 Mapped ${mappedDvirData.length} DVIR records`);
-    log(`📊 Note: Odometer converted from meters to km, Engine hours converted from milliseconds to hours`);
 
     // Show initial table
     renderTable(mappedDvirData);
@@ -507,7 +499,7 @@ document.getElementById('downloadCsv').onclick = function(){
       r.resolvedAddress || `${r.latitude || ''}, ${r.longitude || ''}`,
       (r.zones||[]).join(' | '),
       r.latitude || '', r.longitude || '',
-      r.odometer ? Math.round(r.odometer/1000*100)/100 : '', r.engineHours ? Math.round(r.engineHours/3600000*100)/100 : '', r.driverRemark || ''
+      r.odometer ? Math.round(r.odometer/1000*100)/100 : '', r.engineHours ? Math.round(r.engineHours/3600*100)/100 : '', r.driverRemark || ''
     ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
     csv += row + '\n';
   });
@@ -570,7 +562,7 @@ document.getElementById('downloadReport').onclick = function(){
       <td>${defects}</td>
       <td>${loc}</td>
       <td>${r.odometer?Math.round(r.odometer/1000*100)/100+' km':'N/A'}</td>
-      <td>${r.engineHours?Math.round(r.engineHours/3600000*100)/100+' hrs':'N/A'}</td>
+      <td>${r.engineHours?Math.round(r.engineHours/3600*100)/100+' hrs':'N/A'}</td>
       <td>${r.driverRemark || ''}</td>
     </tr>`;
   }).join('')}
