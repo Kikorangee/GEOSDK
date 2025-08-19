@@ -358,7 +358,7 @@ document.getElementById('getDvir').onclick = async function(){
     });
     
     if(!dvirLogs || dvirLogs.length===0){ 
-      showMessage('infoBanner','No DVIR logs for the selected range','warning'); 
+      showMessage('infoBanner','No Asset Inspection logs for the selected range','warning'); 
       document.getElementById('dvirResult').innerHTML=''; 
       return; 
     }
@@ -374,8 +374,8 @@ document.getElementById('getDvir').onclick = async function(){
     Array.from(driverIds).forEach(id=>{ const r=lookup[idx++]; driverNames[id]=(r && r[0] && (r[0].name || `${r[0].firstName||''} ${r[0].lastName||''}`.trim())) || `Driver ${id}`; });
     Array.from(deviceIds).forEach(id=>{ const r=lookup[idx++]; deviceNames[id]=(r && r[0] && r[0].name) || `Device ${id}`; });
 
-    // Map DVIR data
-    mappedDvirData = dvirLogs.map(l=>{
+    // Map Asset Inspection data
+    mappedAssetInspectionData = dvirLogs.map(l=>{
       const driverId = extractId(l.driver);
       const deviceId = extractId(l.device);
       const loc = extractLocation(l.location);
@@ -401,19 +401,19 @@ document.getElementById('getDvir').onclick = async function(){
     });
 
     // Show initial table
-    renderTable(mappedDvirData);
+    renderTable(mappedAssetInspectionData);
 
     // Process locations with Geotab geocoding
-    const locationsToResolve = mappedDvirData.filter(r => r.latitude != null && r.longitude != null);
+    const locationsToResolve = mappedAssetInspectionData.filter(r => r.latitude != null && r.longitude != null);
 
     if (locationsToResolve.length > 0) {
       showMessage('infoBanner', `🌍 Resolving ${locationsToResolve.length} addresses using Geotab GetAddresses...`, 'info');
       
       // Resolve addresses using Geotab
-      await resolveAllAddresses(mappedDvirData);
+      await resolveAllAddresses(mappedAssetInspectionData);
       
       // Final status
-      const successCount = mappedDvirData.filter(r => r.resolvedAddress && r.resolvedAddress.trim()).length;
+      const successCount = mappedAssetInspectionData.filter(r => r.resolvedAddress && r.resolvedAddress.trim()).length;
       const failCount = locationsToResolve.length - successCount;
       
       if (successCount > 0) {
@@ -422,7 +422,7 @@ document.getElementById('getDvir').onclick = async function(){
         showMessage('infoBanner', '❌ No addresses could be resolved using Geotab GetAddresses', 'error');
       }
     } else {
-      showMessage('infoBanner', '✅ DVIR loaded! No locations to resolve.', 'success');
+      showMessage('infoBanner', '✅ Asset Inspection loaded! No locations to resolve.', 'success');
     }
     
     document.getElementById('downloadCsv').disabled = false;
@@ -434,10 +434,10 @@ document.getElementById('getDvir').onclick = async function(){
 };
 
 document.getElementById('downloadCsv').onclick = function(){
-  if(!mappedDvirData || mappedDvirData.length===0){ showMessage('infoBanner','No DVIR data to export','warning'); return; }
+  if(!mappedAssetInspectionData || mappedAssetInspectionData.length===0){ showMessage('infoBanner','No Asset Inspection data to export','warning'); return; }
   const headers = ['DateTime','Driver_Name','Vehicle_Name','Safe_To_Operate','Driver_Inspected','Has_Defects','Defect_Count','Address','Zones','Latitude','Longitude','Odometer_km','Engine_Hours','Driver_Remarks'];
   let csv = headers.map(h=>`"${h}"`).join(',') + '\n';
-  mappedDvirData.forEach(r=>{
+  mappedAssetInspectionData.forEach(r=>{
     let hasDefects='NO', defectCount='0';
     if (r.defects && r.defects !== '[]' && r.defects !== '') {
       try{ const d = JSON.parse(r.defects); if(Array.isArray(d)&&d.length>0){ hasDefects='YES'; defectCount=String(d.length); } }
@@ -456,7 +456,7 @@ document.getElementById('downloadCsv').onclick = function(){
     csv += row + '\n';
   });
   const ts = new Date().toISOString().slice(0,19).replace(/[:.]/g,'-');
-  const filename = `Geotab_DVIR_With_Addresses_${ts}.csv`;
+  const filename = `Geotab_Asset_Inspection_With_Addresses_${ts}.csv`;
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   const a = document.createElement('a');
   const url = URL.createObjectURL(blob);
@@ -466,8 +466,8 @@ document.getElementById('downloadCsv').onclick = function(){
 };
 
 document.getElementById('downloadReport').onclick = function(){
-  if(!mappedDvirData || mappedDvirData.length===0){ showMessage('infoBanner','No DVIR data to report','warning'); return; }
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>DVIR Report (Working Addresses)</title>
+  if(!mappedAssetInspectionData || mappedAssetInspectionData.length===0){ showMessage('infoBanner','No Asset Inspection data to report','warning'); return; }
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Asset Inspection Report (Working Addresses)</title>
   <style>
     body{font-family:Arial,Helvetica,sans-serif;margin:20px;color:#333}
     h1{margin:0 0 6px 0} .muted{color:#666}
@@ -482,12 +482,12 @@ document.getElementById('downloadReport').onclick = function(){
     .real-address{background:#d4edda;color:#155724;padding:4px 6px;border-radius:4px;font-weight:500}
     .coord-only{color:#666;font-style:italic}
   </style></head><body>
-  <h1>Driver Vehicle Inspection Report</h1>
+  <h1>Driver Vehicle Asset Inspection Report</h1>
   <div class="muted">Generated: ${new Date().toLocaleString()} | Addresses resolved using Geotab GetAddresses API</div>
   <table><thead><tr>
     <th>Date/Time</th><th>Driver</th><th>Vehicle</th><th>Status</th><th>Defects</th><th>Location (Address)</th><th>Odometer</th><th>Engine Hours</th><th>Remarks</th>
   </tr></thead><tbody>
-  ${mappedDvirData.map(r=>{
+  ${mappedAssetInspectionData.map(r=>{
     let defects='None';
     if (r.defects && r.defects !== '[]' && r.defects !== '') {
       try{ const d = JSON.parse(r.defects); if(Array.isArray(d)&&d.length>0) defects = `⚠️ ${d.length}`; }
@@ -521,7 +521,7 @@ document.getElementById('downloadReport').onclick = function(){
   </tbody></table>
   </body></html>`;
   const ts = new Date().toISOString().slice(0,19).replace(/[:.]/g,'-');
-  const filename = `DVIR_Report_Geotab_Addresses_${ts}.html`;
+  const filename = `Asset_Inspection_Report_Geotab_Addresses_${ts}.html`;
   const blob = new Blob([html], {type:'text/html;charset=utf-8;'});
   const a = document.createElement('a');
   const url = URL.createObjectURL(blob);
@@ -531,7 +531,7 @@ document.getElementById('downloadReport').onclick = function(){
 };
 
 document.getElementById('logout').onclick = function(){
-  credentials = null; serverUsed = null; mappedDvirData = [];
+  credentials = null; serverUsed = null; mappedAssetInspectionData = [];
   document.getElementById('dvirSection').style.display = 'none';
   document.getElementById('authResult').innerHTML = '';
   document.getElementById('dvirResult').innerHTML = '';
