@@ -682,7 +682,7 @@
             // Clear any existing data
             csvData = [];
             
-            // Load hardcoded data with proper structure
+            // Load hardcoded data with proper structure (removed currentOdometer)
             hardcodedRUCData.forEach(record => {
                 csvData.push({
                     fleetNumber: parseInt(record.fleetNumber) || record.fleetNumber,
@@ -761,14 +761,6 @@
                 document.getElementById('refreshBtn').innerHTML = '🔄 Refresh All Data';
                 showStatus('csvStatus', '🔄 Data refreshed. Load hardcoded data or upload a file.', 'info');
             }, 1000);
-        }
-
-        // Clear all data
-        function clearAllData() {
-            if (confirm('Are you sure you want to clear all data? This cannot be undone.')) {
-                refreshData();
-                showStatus('csvStatus', '🗑️ All data cleared successfully.', 'info');
-            }
         }
 
         // Enhanced file loading that supports CSV and Excel
@@ -1110,7 +1102,7 @@
             document.getElementById('updateSection').style.display = 'block';
         }
 
-        // Update distances with real odometer data
+        // Update distances with real odometer data (removed currentOdometer references)
         async function updateDistancesFromGeotab() {
             if (!isGeotabAddIn && !credentials) {
                 showStatus('updateStatus', 'Please authenticate first', 'error');
@@ -1154,7 +1146,7 @@
 
                 showProgress(75, 'Converting meters to kilometers and calculating distances...');
 
-                // Process results
+                // Process results (removed currentOdometer, update huboOdoReading directly)
                 let successCount = 0;
                 mappedDevices.forEach((row, index) => {
                     const odometerData = results[index];
@@ -1192,7 +1184,7 @@
             }
         }
 
-        // Display updated data with simple button-based editing
+        // Display updated data with simple button-based editing (removed currentOdometer column)
         function displayUpdatedData() {
             let html = `
                 <h4>📊 Updated RUC Data</h4>
@@ -1296,7 +1288,7 @@
             }
         }
 
-        // Recalculate all distances
+        // Recalculate all distances (simplified without currentOdometer logic)
         function recalculateAll() {
             console.log('🔄 recalculateAll() called');
             
@@ -1402,7 +1394,7 @@
             }
         }
 
-        // Recalculate distance for a specific row
+        // Recalculate distance for a specific row (simplified without currentOdometer logic)
         function recalculateRow(rowIndex) {
             try {
                 if (rowIndex >= csvData.length || rowIndex < 0) {
@@ -1556,4 +1548,50 @@
                 
                 html += `
                     <tr style="background: white;">
-                        <td><strong>${
+                        <td><strong>${vehicle.fleetNumber}</strong></td>
+                        <td>${vehicle.driverName || 'No Driver'}<br><small>${vehicle.driverEmail || 'No email'}</small></td>
+                        <td><strong>${vehicle.distanceRemaining}km</strong></td>
+                        <td style="color: ${urgencyColor}; font-weight: bold;">${vehicle.urgency}</td>
+                        <td id="email-status-${index}">📤 Pending</td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table></div>`;
+            document.getElementById('dueVehiclesList').innerHTML = html;
+        }
+
+        // Download updated CSV with driver information and manual override tracking (removed currentOdometer)
+        function downloadUpdatedCSV() {
+            let csvContent = ', ROAD USER (RUC) ,,, ,,\n';
+            csvContent += 'Fleet #, Hubo Paid To , Hubo/Odo Reading ,distance remaining,Driver,Driver Email,RUC Admin\n';
+
+            let manualEditCount = 0;
+            
+            csvData.forEach(row => {
+                // Check if values were manually edited
+                if (row.originalHuboPaidTo && 
+                    (row.huboPaidTo !== row.originalHuboPaidTo || row.huboOdoReading !== row.originalHuboOdoReading)) {
+                    manualEditCount++;
+                }
+                
+                const distanceRemaining = row.calculatedDistance !== null ? row.calculatedDistance : row.distanceRemaining;
+                csvContent += `${row.fleetNumber},"${row.huboPaidTo}","${row.huboOdoReading}","${distanceRemaining}","${row.driverName || ''}","${row.driverEmail || ''}","${row.rucAdminEmail || ''}"\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `updated_ruc_data_with_emails_${new Date().toISOString().slice(0,10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            const editInfo = manualEditCount > 0 ? ` (${manualEditCount} manual edits included)` : '';
+            showStatus('updateStatus', `✅ Updated CSV file with driver emails downloaded successfully!${editInfo}`, 'success');
+        }
+    </script>
+</body>
+</html>
