@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Geotab Asset Inspection Logs - Native Address Resolution (GetAddresses)</title>
+  <title>Geotab Asset Inspection Module</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;color:#333;padding:20px;font-size:16px}
@@ -78,12 +78,12 @@
       <div class="form-row">
         <input id="fromDate" class="form-control" type="date" />
         <input id="toDate" class="form-control" type="date" />
-        <input id="resultsLimit" class="form-control" placeholder="Results Limit" value="5" />
+        <input id="resultsLimit" class="form-control" placeholder="Results Limit" value="150" />
       </div>
       <div>
         <button id="getDvir" class="btn btn-success">📋 Get Asset Inspection Sheets</button>
         <button id="downloadCsv" class="btn btn-info" disabled>📊 Download Excel</button>
-        <button id="downloadReport" class="btn btn-warning" disabled>📄 Download Report</button>
+        <button id="downloadReport" class="btn btn-warning" disabled>📄 Download Report Overview</button>
         <button id="logout" class="btn btn-danger">🚪 Logout</button>
       </div>
       <div id="dvirResult"></div>
