@@ -224,7 +224,7 @@
                 <input type="text" id="database" class="form-control" placeholder="Database" value="uccnz">
                 <input type="text" id="username" class="form-control" placeholder="Username" value="francis@directt.co.nz">
                 <input type="password" id="password" class="form-control" placeholder="Password" value="@fr4nc1sWynn5">
-                <button onclick="authenticateGeotab()" id="authBtn" class="btn btn-primary">🔐 Connect to Geotab</button>
+                <button onclick="authenticateGeotab()" id="authBtn" class="btn btn-primary">🔒 Connect to Geotab</button>
             </div>
             <div id="authStatus"></div>
         </div>
@@ -235,7 +235,7 @@
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                 <button onclick="loadHardcodedData()" class="btn btn-success" id="hardcodedBtn">
-                    ⚡ Load Hardcoded Data (66 Records)
+                    ⚡ Load Hardcoded Data (79 Records)
                 </button>
                 <button onclick="refreshData()" class="btn btn-primary" id="refreshBtn">
                     🔄 Refresh All Data
@@ -256,7 +256,7 @@
                 <h4>📊 Hardcoded Data Info:</h4>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
                     <div style="background: white; padding: 10px; border-radius: 5px; text-align: center;">
-                        <strong style="color: #1976d2;">66</strong><br>
+                        <strong style="color: #1976d2;">79</strong><br>
                         <small>Total Vehicles</small>
                     </div>
                     <div style="background: white; padding: 10px; border-radius: 5px; text-align: center;">
@@ -264,7 +264,7 @@
                         <small>With Valid Emails</small>
                     </div>
                     <div style="background: white; padding: 10px; border-radius: 5px; text-align: center;">
-                        <strong style="color: #f57c00;">Fleet 1-615</strong><br>
+                        <strong style="color: #f57c00;">Fleet 1-3414</strong><br>
                         <small>Vehicle Range</small>
                     </div>
                     <div style="background: white; padding: 10px; border-radius: 5px; text-align: center;">
@@ -330,7 +330,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script>
-        // HARDCODED RUC DATA FROM 23.CSV SPREADSHEET
+        // HARDCODED RUC DATA FROM 23.CSV SPREADSHEET + 22.CSV ADDITIONAL VEHICLES
         const hardcodedRUCData = [
           { fleetNumber: "545", huboPaidTo: "22,319", huboOdoReading: "15,476", distanceRemaining: "", driverName: "Akash Nada", driverEmail: "akash.nada@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
           { fleetNumber: "544", huboPaidTo: "46,009", huboOdoReading: "33,670", distanceRemaining: "", driverName: "Alex Fitch", driverEmail: "alex.fitch@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
@@ -401,7 +401,22 @@
           { fleetNumber: "4", huboPaidTo: "237,005", huboOdoReading: "236,150", distanceRemaining: "", driverName: "Witapeta Nathan", driverEmail: "witapeta.nathan@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
           { fleetNumber: "534", huboPaidTo: "36,965", huboOdoReading: "28,363", distanceRemaining: "", driverName: "Zain Kader/Tania Tipene", driverEmail: "witapeta.nathan", rucAdminEmail: "francis@directt.co.nz" },
           { fleetNumber: "445", huboPaidTo: "344,012", huboOdoReading: "339,229", distanceRemaining: "", driverName: "zac.johnstone", driverEmail: "zac.johnstone", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "448", huboPaidTo: "268,000", huboOdoReading: "261,683", distanceRemaining: "", driverName: "zain.kader", driverEmail: "zain.kader@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" }
+          { fleetNumber: "448", huboPaidTo: "268,000", huboOdoReading: "261,683", distanceRemaining: "", driverName: "zain.kader", driverEmail: "zain.kader@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          
+          // Additional vehicles from 22.CSV
+          { fleetNumber: "601", huboPaidTo: "347,700", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "602", huboPaidTo: "69,400", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "603", huboPaidTo: "16,900", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "607", huboPaidTo: "277,400", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "608", huboPaidTo: "25,800", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "609", huboPaidTo: "10,001", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "610", huboPaidTo: "57,700", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "611", huboPaidTo: "30,200", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "612", huboPaidTo: "40,100", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "613", huboPaidTo: "71,300", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "615", huboPaidTo: "74,200", huboOdoReading: "", distanceRemaining: "", driverName: "Nick Stewart", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "616", huboPaidTo: "10,003", huboOdoReading: "", distanceRemaining: "", driverName: "Heta Te Nana", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "3414", huboPaidTo: "19,000", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" }
         ];
 
         let credentials = null;
@@ -529,7 +544,7 @@
                     </div>
                     
                     <div style="background: #d1ecf1; padding: 15px; border-radius: 8px;">
-                        <h4>📧 Need Help?</h4>
+                        <h4>🔧 Need Help?</h4>
                         <p>Contact: <strong>francis@directt.co.nz</strong></p>
                         <p>Include this error info: <code>${navigator.userAgent}</code></p>
                     </div>
@@ -677,7 +692,6 @@
                     driverName: record.driverName,
                     driverEmail: record.driverEmail,
                     rucAdminEmail: record.rucAdminEmail || 'francis@directt.co.nz',
-                    currentOdometer: null,
                     calculatedDistance: null,
                     geotabDeviceId: null
                 });
@@ -685,7 +699,7 @@
             
             setTimeout(() => {
                 document.getElementById('hardcodedBtn').disabled = false;
-                document.getElementById('hardcodedBtn').innerHTML = '⚡ Load Hardcoded Data (66 Records)';
+                document.getElementById('hardcodedBtn').innerHTML = '⚡ Load Hardcoded Data (79 Records)';
                 
                 const emailCount = csvData.filter(row => row.driverEmail && row.driverEmail.includes('@')).length;
                 showStatus('csvStatus', 
@@ -738,7 +752,7 @@
                     // Reset button text if needed
                     if (btnId === 'devicesBtn') btn.textContent = '📡 Get All Fleet Devices';
                     if (btnId === 'updateBtn') btn.textContent = '🔄 Update All Distances';
-                    if (btnId === 'hardcodedBtn') btn.innerHTML = '⚡ Load Hardcoded Data (66 Records)';
+                    if (btnId === 'hardcodedBtn') btn.innerHTML = '⚡ Load Hardcoded Data (79 Records)';
                 }
             });
             
@@ -860,7 +874,6 @@
                                 driverName: driverName,
                                 driverEmail: driverEmail,
                                 rucAdminEmail: rucAdminEmail,
-                                currentOdometer: null,
                                 calculatedDistance: null,
                                 geotabDeviceId: null
                             });
@@ -976,41 +989,6 @@
             } else {
                 detailedPreview.style.display = 'none';
                 toggleBtn.textContent = '👁️ Show Details';
-            }
-        }
-
-        // Parse CSV data - UPDATED for new format with emails
-        function parseCSV(csvText) {
-            const lines = csvText.split('\n');
-            csvData = [];
-            
-            // Skip the first 2 lines (headers) and parse the data
-            for (let i = 2; i < lines.length; i++) {
-                const line = lines[i].trim();
-                if (line) {
-                    const cols = parseCSVLine(line);
-                    if (cols.length >= 6 && cols[0]) {
-                        csvData.push({
-                            fleetNumber: parseInt(cols[0]) || cols[0],
-                            huboPaidTo: cols[1] ? cols[1].replace(/[",]/g, '') : '',
-                            huboOdoReading: cols[2] ? cols[2].replace(/[",]/g, '') : '',
-                            distanceRemaining: cols[3] || '',
-                            driverName: cols[4] ? cols[4].trim() : '',
-                            driverEmail: cols[5] ? cols[5].trim() : '',
-                            rucAdminEmail: cols[6] ? cols[6].trim() : '',
-                            currentOdometer: null,
-                            calculatedDistance: null,
-                            geotabDeviceId: null
-                        });
-                    }
-                }
-            }
-
-            if (csvData.length > 0) {
-                showStatus('csvStatus', `✅ Successfully loaded ${csvData.length} RUC records with driver emails`, 'success');
-                document.getElementById('deviceSection').style.display = 'block';
-            } else {
-                showStatus('csvStatus', 'No valid data found in CSV file', 'error');
             }
         }
 
@@ -1183,15 +1161,16 @@
                     if (odometerData && odometerData.length > 0 && odometerData[0].data !== undefined) {
                         // Geotab odometer is in METERS - convert to kilometers
                         const odometerMeters = odometerData[0].data;
-                        const odometerKilometers = odometerMeters / 1000;
-                        row.currentOdometer = Math.round(odometerKilometers); // Round to nearest km
+                        const odometerKilometers = Math.round(odometerMeters / 1000); // Round to nearest km
                         
-                        // Calculate distance remaining: Hubo Paid To - Current Odometer (in km)
+                        // Update huboOdoReading with current Geotab odometer reading
+                        row.huboOdoReading = odometerKilometers.toString();
+                        
+                        // Calculate distance remaining: Hubo Paid To - Hubo/Odo Reading (in km)
                         const huboPaidKm = parseInt(row.huboPaidTo.replace(/,/g, '')) || 0;
-                        row.calculatedDistance = Math.max(0, huboPaidKm - row.currentOdometer);
+                        row.calculatedDistance = Math.max(0, huboPaidKm - odometerKilometers);
                         successCount++;
                     } else {
-                        row.currentOdometer = 'No data';
                         row.calculatedDistance = 'Unable to calculate';
                     }
                 });
@@ -1204,13 +1183,7 @@
 
                 displayUpdatedData();
                 document.getElementById('downloadSection').style.display = 'block';
-
-                // Automatically check and send RUC emails if enabled
-                if (document.getElementById('autoSendEmails') && document.getElementById('autoSendEmails').checked) {
-                    setTimeout(() => {
-                        checkAndSendRUCEmails();
-                    }, 2000); // Small delay to let the user see the updated data first
-                }
+                document.getElementById('emailSection').style.display = 'block';
 
             } catch (error) {
                 hideProgress();
@@ -1219,7 +1192,7 @@
             }
         }
 
-        // Display updated data with simple button-based editing (more reliable)
+        // Display updated data with simple button-based editing
         function displayUpdatedData() {
             let html = `
                 <h4>📊 Updated RUC Data</h4>
@@ -1229,7 +1202,6 @@
                 <div style="margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px;">
                     <button onclick="recalculateAll()" class="btn btn-success" id="recalcAllBtn">🔄 Recalculate All</button>
                     <button onclick="resetToOriginal()" class="btn" style="background: #f56565; color: white;" id="resetBtn">↩️ Reset to Original</button>
-                    <button onclick="testRecalculate()" class="btn" style="background: #805ad5; color: white;" id="testRecalcBtn">🧪 Test Recalculate</button>
                 </div>
                 
                 <table>
@@ -1240,7 +1212,6 @@
                             <th>Edit</th>
                             <th>Hubo/Odo Reading (km)</th>
                             <th>Edit</th>
-                            <th>Current Odometer (km)</th>
                             <th>Distance Remaining (km)</th>
                             <th>Status</th>
                         </tr>
@@ -1277,7 +1248,6 @@
                                 ✏️ Edit
                             </button>
                         </td>
-                        <td>${row.currentOdometer || 'Not fetched'}</td>
                         <td id="distance_${index}">${row.calculatedDistance !== null ? row.calculatedDistance : row.distanceRemaining}</td>
                         <td>${status}</td>
                     </tr>
@@ -1288,7 +1258,7 @@
             document.getElementById('tableContainer').innerHTML = html;
         }
 
-        // Simple edit field function using prompt (guaranteed to work)
+        // Simple edit field function using prompt
         function editField(rowIndex, field) {
             console.log(`editField called: rowIndex=${rowIndex}, field=${field}`);
             
@@ -1326,167 +1296,7 @@
             }
         }
 
-        // Toggle edit mode function (simplified since we're using buttons now)
-        function toggleEditMode() {
-            // This function is kept for compatibility but edit mode is always on with buttons
-            showStatus('updateStatus', 'ℹ️ Edit mode is always available with the Edit buttons. Click any "Edit" button to modify values.', 'info');
-        }
-
-        // Start editing a cell - IMPROVED VERSION
-        function startEdit(rowIndex, field) {
-            if (!editModeEnabled) {
-                showStatus('updateStatus', '⚠️ Please enable edit mode first by clicking "Enable Edit Mode"', 'error');
-                return;
-            }
-
-            const cellId = `${field}_${rowIndex}`;
-            const cell = document.getElementById(cellId);
-            
-            // Prevent multiple edits on the same cell
-            if (cell.querySelector('input')) {
-                return;
-            }
-            
-            const currentValue = cell.textContent.trim();
-            
-            // Create input field with better styling and events
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.value = currentValue;
-            input.className = 'edit-input';
-            input.style.cssText = `
-                width: 100% !important;
-                padding: 8px !important;
-                border: 3px solid #667eea !important;
-                border-radius: 4px !important;
-                font-size: 14px !important;
-                background: white !important;
-                box-sizing: border-box !important;
-                margin: 0 !important;
-                outline: none !important;
-                z-index: 1000 !important;
-                position: relative !important;
-            `;
-            
-            // Store original cell content and styling
-            const originalContent = cell.innerHTML;
-            const originalStyle = cell.style.cssText;
-            
-            // Replace cell content with input
-            cell.innerHTML = '';
-            cell.style.padding = '0';
-            cell.appendChild(input);
-            
-            // Focus and select all text
-            setTimeout(() => {
-                input.focus();
-                input.select();
-            }, 10);
-            
-            // Save function
-            function saveEdit() {
-                const newValue = input.value.trim();
-                
-                if (newValue && newValue !== currentValue) {
-                    // Update the data
-                    csvData[rowIndex][field] = newValue;
-                    
-                    // Update display with new value
-                    cell.innerHTML = newValue;
-                    cell.style.cssText = originalStyle;
-                    cell.style.background = '#d4edda';
-                    cell.style.border = '2px solid #48bb78';
-                    
-                    // Auto-recalculate this row
-                    recalculateRow(rowIndex);
-                    
-                    showStatus('updateStatus', `✅ Updated ${field.replace(/([A-Z])/g, ' $1')} for Fleet ${csvData[rowIndex].fleetNumber}`, 'success');
-                } else {
-                    // Restore original content
-                    cell.innerHTML = originalContent;
-                    cell.style.cssText = originalStyle;
-                    
-                    if (editModeEnabled) {
-                        cell.style.background = '#fff3cd';
-                        cell.style.border = '2px dashed #d69e2e';
-                    }
-                }
-                
-                // Re-enable double-click
-                cell.ondblclick = () => startEdit(rowIndex, field);
-            }
-            
-            // Cancel function
-            function cancelEdit() {
-                cell.innerHTML = originalContent;
-                cell.style.cssText = originalStyle;
-                
-                if (editModeEnabled) {
-                    cell.style.background = '#fff3cd';
-                    cell.style.border = '2px dashed #d69e2e';
-                }
-                
-                // Re-enable double-click
-                cell.ondblclick = () => startEdit(rowIndex, field);
-            }
-            
-            // Event handlers
-            input.addEventListener('keydown', function(e) {
-                e.stopPropagation();
-                
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    saveEdit();
-                } else if (e.key === 'Escape') {
-                    e.preventDefault();
-                    cancelEdit();
-                }
-            });
-            
-            input.addEventListener('keypress', function(e) {
-                e.stopPropagation();
-            });
-            
-            input.addEventListener('keyup', function(e) {
-                e.stopPropagation();
-            });
-            
-            // Save when clicking outside (with delay to prevent immediate trigger)
-            let saveTimeout;
-            input.addEventListener('blur', function(e) {
-                saveTimeout = setTimeout(() => {
-                    if (document.activeElement !== input) {
-                        saveEdit();
-                    }
-                }, 150);
-            });
-            
-            input.addEventListener('focus', function() {
-                if (saveTimeout) {
-                    clearTimeout(saveTimeout);
-                }
-            });
-            
-            // Prevent cell click from interfering
-            cell.ondblclick = null;
-        }
-
-        // Test recalculate function for debugging
-        function testRecalculate() {
-            console.log('🧪 Testing recalculate function');
-            console.log('csvData length:', csvData ? csvData.length : 'csvData is null/undefined');
-            console.log('csvData sample:', csvData ? csvData[0] : 'No data');
-            
-            if (!csvData || csvData.length === 0) {
-                alert('No CSV data found! Please load CSV and get device data first.');
-                return;
-            }
-            
-            alert(`Found ${csvData.length} rows of data. Now testing recalculation...`);
-            recalculateAll();
-        }
-
-        // Recalculate all distances - FIXED to respect manual edits
+        // Recalculate all distances
         function recalculateAll() {
             console.log('🔄 recalculateAll() called');
             
@@ -1499,7 +1309,6 @@
 
                 console.log(`Processing ${csvData.length} rows for recalculation`);
                 let updatedCount = 0;
-                let geotabCount = 0;
                 let manualEditCount = 0;
                 let csvFallbackCount = 0;
                 let errorCount = 0;
@@ -1531,17 +1340,11 @@
                             dataSource = `Manual Edit (${huboReading} km)`;
                             manualEditCount++;
                             console.log(`Row ${index}: Using MANUAL EDIT ${huboReading}, distance = ${newDistance}`);
-                        } else if (row.currentOdometer && typeof row.currentOdometer === 'number' && row.currentOdometer > 0) {
-                            // PRIORITY 2: Use current Geotab odometer if available and no manual edit
-                            newDistance = Math.max(0, huboPaidKm - row.currentOdometer);
-                            dataSource = `Geotab API (${row.currentOdometer} km)`;
-                            geotabCount++;
-                            console.log(`Row ${index}: Using Geotab odometer ${row.currentOdometer}, distance = ${newDistance}`);
                         } else {
-                            // PRIORITY 3: Fallback to original CSV reading
+                            // PRIORITY 2: Use current CSV reading
                             const huboReading = parseInt(currentHuboReading) || 0;
                             newDistance = Math.max(0, huboPaidKm - huboReading);
-                            dataSource = `CSV Fallback (${huboReading} km)`;
+                            dataSource = `CSV Reading (${huboReading} km)`;
                             csvFallbackCount++;
                             console.log(`Row ${index}: Using CSV reading ${huboReading}, distance = ${newDistance}`);
                         }
@@ -1560,12 +1363,8 @@
                                 distanceCell.style.background = '#e2f8f5'; // Teal for manual edits
                                 distanceCell.style.border = '2px solid #48bb78';
                                 distanceCell.title = `Manual Edit: ${dataSource}`;
-                            } else if (row.currentOdometer) {
-                                distanceCell.style.background = '#d4edda'; // Green for Geotab
-                                distanceCell.style.border = '2px solid #38a169';
-                                distanceCell.title = `Geotab Data: ${dataSource}`;
                             } else {
-                                distanceCell.style.background = '#fff3cd'; // Yellow for CSV fallback
+                                distanceCell.style.background = '#fff3cd'; // Yellow for CSV data
                                 distanceCell.style.border = '2px solid #d69e2e';
                                 distanceCell.title = `CSV Data: ${dataSource}`;
                             }
@@ -1590,13 +1389,12 @@
                     <br>• Total rows: ${csvData.length}
                     <br>• Values changed: ${updatedCount}
                     <br>• <span style="color: #48bb78;">Manual edits: ${manualEditCount}</span>
-                    <br>• <span style="color: #38a169;">Geotab data: ${geotabCount}</span>
-                    <br>• <span style="color: #d69e2e;">CSV fallback: ${csvFallbackCount}</span>
+                    <br>• <span style="color: #d69e2e;">CSV data: ${csvFallbackCount}</span>
                     ${errorCount > 0 ? `<br>• Errors: ${errorCount}` : ''}
                     <br><small>💡 Hover over distance values to see data source</small>`;
                 
                 showStatus('updateStatus', message, 'success');
-                console.log(`Recalculation complete: ${updatedCount} changed, ${manualEditCount} manual, ${geotabCount} Geotab, ${csvFallbackCount} CSV, ${errorCount} errors`);
+                console.log(`Recalculation complete: ${updatedCount} changed, ${manualEditCount} manual, ${csvFallbackCount} CSV, ${errorCount} errors`);
                 
             } catch (error) {
                 console.error('Error in recalculateAll:', error);
@@ -1604,7 +1402,7 @@
             }
         }
 
-        // Recalculate distance for a specific row - FIXED to respect manual edits
+        // Recalculate distance for a specific row
         function recalculateRow(rowIndex) {
             try {
                 if (rowIndex >= csvData.length || rowIndex < 0) {
@@ -1630,12 +1428,8 @@
                     const huboReading = parseInt(currentHuboReading) || 0;
                     newDistance = Math.max(0, huboPaidKm - huboReading);
                     console.log(`Row ${rowIndex}: Using MANUAL EDIT ${huboReading}`);
-                } else if (row.currentOdometer && typeof row.currentOdometer === 'number' && row.currentOdometer > 0) {
-                    // Use Geotab odometer
-                    newDistance = Math.max(0, huboPaidKm - row.currentOdometer);
-                    console.log(`Row ${rowIndex}: Using Geotab ${row.currentOdometer}`);
                 } else {
-                    // Use original CSV reading
+                    // Use current CSV reading
                     const huboReading = parseInt(currentHuboReading) || 0;
                     newDistance = Math.max(0, huboPaidKm - huboReading);
                     console.log(`Row ${rowIndex}: Using CSV ${huboReading}`);
@@ -1652,8 +1446,8 @@
                         distanceCell.style.background = '#e2f8f5'; // Teal for manual
                         distanceCell.style.border = '2px solid #48bb78';
                     } else {
-                        distanceCell.style.background = '#d4edda'; // Green for auto
-                        distanceCell.style.border = '2px solid #38a169';
+                        distanceCell.style.background = '#fff3cd'; // Yellow for CSV
+                        distanceCell.style.border = '2px solid #d69e2e';
                     }
                     distanceCell.style.fontWeight = 'bold';
                 }
@@ -1665,32 +1459,47 @@
             }
         }
 
-        // Test edit function for debugging
-        function testEdit() {
-            if (csvData.length === 0) {
-                showStatus('updateStatus', '⚠️ Please load CSV data first', 'error');
+        // Reset to original values
+        function resetToOriginal() {
+            if (!confirm('Are you sure you want to reset all values to original? This will undo all manual edits.')) {
                 return;
             }
-            
-            if (!editModeEnabled) {
-                editModeEnabled = true;
-                toggleEditMode(); // This will enable edit mode
-            }
-            
-            // Try to edit the first row automatically
-            showStatus('updateStatus', '🧪 Testing edit on first row - an input field should appear', 'info');
-            setTimeout(() => {
-                startEdit(0, 'huboPaidTo');
-            }, 500);
+
+            csvData.forEach((row, index) => {
+                if (row.originalHuboPaidTo) {
+                    row.huboPaidTo = row.originalHuboPaidTo;
+                    row.huboOdoReading = row.originalHuboOdoReading;
+                    
+                    // Update display
+                    const huboPaidCell = document.getElementById(`huboPaidTo_${index}`);
+                    const huboReadingCell = document.getElementById(`huboOdoReading_${index}`);
+                    
+                    if (huboPaidCell) {
+                        huboPaidCell.textContent = row.huboPaidTo;
+                        huboPaidCell.style.background = '';
+                        huboPaidCell.style.border = '';
+                        huboPaidCell.style.fontWeight = '';
+                    }
+                    
+                    if (huboReadingCell) {
+                        huboReadingCell.textContent = row.huboOdoReading;
+                        huboReadingCell.style.background = '';
+                        huboReadingCell.style.border = '';
+                        huboReadingCell.style.fontWeight = '';
+                    }
+                }
+            });
+
+            recalculateAll();
+            showStatus('updateStatus', '✅ All values reset to original data', 'success');
         }
 
-        // Check for RUC licenses due soon and automatically send emails
-        async function checkAndSendRUCEmails() {
+        // Check for RUC licenses due soon
+        function checkRUCDue() {
             const threshold = parseInt(document.getElementById('alertThreshold').value) || 200;
-            const autoSend = document.getElementById('autoSendEmails').checked;
             
             if (!csvData || csvData.length === 0) {
-                showStatus('emailStatus', '⚠️ No data available. Please complete the odometer update process first.', 'error');
+                showStatus('emailStatus', '⚠️ No data available. Please complete the update process first.', 'error');
                 return;
             }
 
@@ -1721,10 +1530,6 @@
             // Display due vehicles
             showStatus('emailStatus', `⚠️ Found ${dueVehicles.length} vehicles with RUC due within ${threshold}km`, 'error');
             displayDueVehicles(dueVehicles);
-
-            if (autoSend) {
-                await sendAutomatedEmails(dueVehicles);
-            }
         }
 
         // Display due vehicles in a table
@@ -1750,372 +1555,5 @@
                                    vehicle.urgency === 'DUE SOON' ? '#d69e2e' : '#38a169';
                 
                 html += `
-                    <tr style="background: white;" id="vehicle-row-${index}">
-                        <td><strong>${vehicle.fleetNumber}</strong></td>
-                        <td>${vehicle.driverName || 'No Driver'}<br><small>${vehicle.driverEmail || 'No email'}</small></td>
-                        <td><strong>${vehicle.distanceRemaining}km</strong></td>
-                        <td style="color: ${urgencyColor}; font-weight: bold;">${vehicle.urgency}</td>
-                        <td id="email-status-${index}">📤 Pending</td>
-                    </tr>
-                `;
-            });
-
-            html += `</tbody></table></div>`;
-            document.getElementById('dueVehiclesList').innerHTML = html;
-        }
-
-        // Send automated emails using your SMTP server
-        async function sendAutomatedEmails(dueVehicles) {
-            const serviceUrl = document.getElementById('emailServiceUrl').value;
-            
-            if (!serviceUrl) {
-                showStatus('emailStatus', '⚠️ Please configure the email service URL', 'error');
-                return;
-            }
-
-            showStatus('emailStatus', '📧 Sending automated email notifications...', 'info');
-            
-            let successCount = 0;
-            let errorCount = 0;
-
-            // Group vehicles by driver email to avoid duplicate emails
-            const emailGroups = {};
-            dueVehicles.forEach((vehicle, index) => {
-                vehicle.originalIndex = index; // Store original index for status updates
-                if (vehicle.driverEmail) {
-                    if (!emailGroups[vehicle.driverEmail]) {
-                        emailGroups[vehicle.driverEmail] = {
-                            email: vehicle.driverEmail,
-                            rucAdmin: vehicle.rucAdminEmail,
-                            driverName: vehicle.driverName,
-                            vehicles: []
-                        };
-                    }
-                    emailGroups[vehicle.driverEmail].vehicles.push(vehicle);
-                }
-            });
-
-            // Send emails to each driver
-            for (const group of Object.values(emailGroups)) {
-                try {
-                    await sendRUCEmail(group, serviceUrl);
-                    successCount++;
-                    
-                    // Update status for all vehicles in this group
-                    group.vehicles.forEach(vehicle => {
-                        const statusCell = document.getElementById(`email-status-${vehicle.originalIndex}`);
-                        if (statusCell) {
-                            statusCell.innerHTML = '✅ Sent';
-                            statusCell.style.color = '#38a169';
-                        }
-                    });
-
-                } catch (error) {
-                    errorCount++;
-                    console.error('Email sending error:', error);
-                    
-                    // Update status for all vehicles in this group
-                    group.vehicles.forEach(vehicle => {
-                        const statusCell = document.getElementById(`email-status-${vehicle.originalIndex}`);
-                        if (statusCell) {
-                            statusCell.innerHTML = '❌ Failed';
-                            statusCell.style.color = '#c53030';
-                        }
-                    });
-                }
-                
-                // Small delay between emails to avoid overwhelming the server
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-
-            const totalEmails = Object.keys(emailGroups).length;
-            if (successCount === totalEmails) {
-                showStatus('emailStatus', `✅ Successfully sent ${successCount} email notifications to drivers!`, 'success');
-            } else {
-                showStatus('emailStatus', `⚠️ Sent ${successCount} emails successfully, ${errorCount} failed. Check individual statuses above.`, 'error');
-            }
-        }
-
-        // Send individual RUC email via SMTP backend
-        async function sendRUCEmail(group, serviceUrl) {
-            // Build vehicle list for email
-            let vehicleList = '';
-            group.vehicles.forEach(vehicle => {
-                vehicleList += `• Fleet ${vehicle.fleetNumber}: ${vehicle.distanceRemaining}km remaining (${vehicle.urgency})\n`;
-            });
-
-            const emailData = {
-                to_email: group.email,
-                cc_email: group.rucAdmin,
-                driver_name: group.driverName || 'Driver',
-                subject: `🚨 RUC License Renewal Required - ${group.vehicles.length} Vehicle(s)`,
-                vehicle_count: group.vehicles.length,
-                vehicle_list: vehicleList,
-                ruc_admin: group.rucAdmin,
-                urgent_count: group.vehicles.filter(v => v.urgency === 'URGENT').length,
-                due_soon_count: group.vehicles.filter(v => v.urgency === 'DUE SOON').length
-            };
-
-            const response = await fetch(serviceUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(emailData)
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const result = await response.json();
-            if (!result.success) {
-                throw new Error(result.error || 'Email sending failed');
-            }
-
-            return result;
-        }
-
-        // Test email service connectivity
-        async function testEmailService() {
-            const serviceUrl = document.getElementById('emailServiceUrl').value;
-            
-            if (!serviceUrl) {
-                showStatus('emailStatus', '⚠️ Please enter the email service URL', 'error');
-                return;
-            }
-
-            try {
-                showStatus('emailStatus', '🧪 Testing email service connection...', 'info');
-                
-                const testData = {
-                    test: true,
-                    to_email: 'francis@directt.co.nz',
-                    driver_name: 'Test Driver',
-                    subject: 'RUC Email Service Test',
-                    vehicle_list: '• Fleet 999: 50km remaining (TEST)'
-                };
-
-                const response = await fetch(serviceUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(testData)
-                });
-
-                if (response.ok) {
-                    const result = await response.json();
-                    if (result.success) {
-                        showStatus('emailStatus', '✅ Email service test successful! Ready for automated sending.', 'success');
-                    } else {
-                        showStatus('emailStatus', `❌ Email service error: ${result.error}`, 'error');
-                    }
-                } else {
-                    showStatus('emailStatus', `❌ Email service connection failed: HTTP ${response.status}`, 'error');
-                }
-
-            } catch (error) {
-                showStatus('emailStatus', `❌ Email service test failed: ${error.message}`, 'error');
-            }
-        }
-
-        // Enhanced data validation and error checking
-        function validateSpreadsheetData() {
-            if (!csvData || csvData.length === 0) {
-                return { valid: false, errors: ['No data loaded'] };
-            }
-
-            const errors = [];
-            const warnings = [];
-            let validRecords = 0;
-
-            csvData.forEach((row, index) => {
-                const rowNum = index + 1;
-                
-                // Check required fields
-                if (!row.fleetNumber) {
-                    errors.push(`Row ${rowNum}: Missing Fleet Number`);
-                }
-                
-                if (!row.huboPaidTo || parseInt(row.huboPaidTo.replace(/,/g, '')) <= 0) {
-                    errors.push(`Row ${rowNum}: Invalid or missing Hubo Paid To value`);
-                }
-                
-                if (!row.huboOdoReading) {
-                    warnings.push(`Row ${rowNum}: Missing Hubo/Odo Reading`);
-                }
-                
-                // Check email format if provided
-                if (row.driverEmail && !isValidEmail(row.driverEmail)) {
-                    warnings.push(`Row ${rowNum}: Invalid email format for ${row.driverEmail}`);
-                }
-                
-                // Check for reasonable values
-                const huboPaid = parseInt(row.huboPaidTo.replace(/,/g, ''));
-                const huboReading = parseInt(row.huboOdoReading.replace(/,/g, ''));
-                
-                if (huboPaid > 1000000) {
-                    warnings.push(`Row ${rowNum}: Unusually high Hubo Paid To value (${huboPaid})`);
-                }
-                
-                if (huboReading > huboPaid) {
-                    warnings.push(`Row ${rowNum}: Odometer reading (${huboReading}) higher than paid amount (${huboPaid})`);
-                }
-                
-                if (errors.length === 0) {
-                    validRecords++;
-                }
-            });
-
-            return {
-                valid: errors.length === 0,
-                errors: errors,
-                warnings: warnings,
-                validRecords: validRecords,
-                totalRecords: csvData.length
-            };
-        }
-
-        // Email validation helper
-        function isValidEmail(email) {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            return emailRegex.test(email);
-        }
-
-        // Show validation results
-        function showValidationResults() {
-            const validation = validateSpreadsheetData();
-            
-            if (!validation.valid) {
-                let errorHtml = '<div style="background: #fed7d7; padding: 15px; border-radius: 8px; margin: 15px 0;">';
-                errorHtml += '<h4 style="color: #c53030;">❌ Data Validation Errors:</h4><ul>';
-                validation.errors.forEach(error => {
-                    errorHtml += `<li style="color: #c53030;">${error}</li>`;
-                });
-                errorHtml += '</ul></div>';
-                
-                showStatus('csvStatus', errorHtml, 'error');
-                return false;
-            }
-            
-            if (validation.warnings.length > 0) {
-                let warningHtml = '<div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 15px 0;">';
-                warningHtml += '<h4 style="color: #856404;">⚠️ Data Warnings:</h4><ul>';
-                validation.warnings.forEach(warning => {
-                    warningHtml += `<li style="color: #856404;">${warning}</li>`;
-                });
-                warningHtml += '</ul>';
-                warningHtml += `<p style="color: #856404;"><strong>Valid Records:</strong> ${validation.validRecords}/${validation.totalRecords}</p></div>`;
-                
-                document.getElementById('csvStatus').innerHTML += warningHtml;
-            }
-            
-            return true;
-        }
-
-        // Export current data to different formats
-        function exportData(format) {
-            if (!csvData || csvData.length === 0) {
-                alert('No data to export. Please load a file first.');
-                return;
-            }
-
-            const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-            
-            if (format === 'csv') {
-                exportToCSV(timestamp);
-            } else if (format === 'excel') {
-                exportToExcel(timestamp);
-            } else if (format === 'json') {
-                exportToJSON(timestamp);
-            }
-        }
-
-        // Export to CSV
-        function exportToCSV(timestamp) {
-            let csvContent = 'Fleet_Number,Hubo_Paid_To,Hubo_Odo_Reading,Distance_Remaining,Driver_Name,Driver_Email,RUC_Admin_Email,Current_Odometer,Calculated_Distance,Geotab_Device_ID\n';
-            
-            csvData.forEach(row => {
-                csvContent += `"${row.fleetNumber}","${row.huboPaidTo}","${row.huboOdoReading}","${row.distanceRemaining}","${row.driverName || ''}","${row.driverEmail || ''}","${row.rucAdminEmail || ''}","${row.currentOdometer || ''}","${row.calculatedDistance || ''}","${row.geotabDeviceId || ''}"\n`;
-            });
-
-            downloadFile(csvContent, `ruc_data_export_${timestamp}.csv`, 'text/csv');
-        }
-
-        // Export to Excel
-        function exportToExcel(timestamp) {
-            const ws = XLSX.utils.json_to_sheet(csvData.map(row => ({
-                'Fleet Number': row.fleetNumber,
-                'Hubo Paid To': row.huboPaidTo,
-                'Hubo Odo Reading': row.huboOdoReading,
-                'Distance Remaining': row.distanceRemaining,
-                'Driver Name': row.driverName || '',
-                'Driver Email': row.driverEmail || '',
-                'RUC Admin Email': row.rucAdminEmail || '',
-                'Current Odometer': row.currentOdometer || '',
-                'Calculated Distance': row.calculatedDistance || '',
-                'Geotab Device ID': row.geotabDeviceId || ''
-            })));
-            
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'RUC Data');
-            
-            XLSX.writeFile(wb, `ruc_data_export_${timestamp}.xlsx`);
-        }
-
-        // Export to JSON
-        function exportToJSON(timestamp) {
-            const jsonContent = JSON.stringify(csvData, null, 2);
-            downloadFile(jsonContent, `ruc_data_export_${timestamp}.json`, 'application/json');
-        }
-
-        // Helper function to download files
-        function downloadFile(content, filename, contentType) {
-            const blob = new Blob([content], { type: contentType });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-            
-            showStatus('csvStatus', `✅ Exported ${filename} successfully!`, 'success');
-        }
-
-        // Download updated CSV with driver information and manual override tracking
-        function downloadUpdatedCSV() {
-            let csvContent = ', ROAD USER (RUC) ,,, ,,\n';
-            csvContent += 'Fleet #, Hubo Paid To , Hubo/Odo Reading ,distance remaining,Driver,Driver Email,RUC Admin\n';
-
-            let manualEditCount = 0;
-            
-            csvData.forEach(row => {
-                // Check if values were manually edited
-                if (row.originalHuboPaidTo && 
-                    (row.huboPaidTo !== row.originalHuboPaidTo || row.huboOdoReading !== row.originalHuboOdoReading)) {
-                    manualEditCount++;
-                }
-                
-                const distanceRemaining = row.calculatedDistance !== null ? row.calculatedDistance : row.distanceRemaining;
-                csvContent += `${row.fleetNumber},"${row.huboPaidTo}","${row.huboOdoReading}","${distanceRemaining}","${row.driverName || ''}","${row.driverEmail || ''}","${row.rucAdminEmail || ''}"\n`;
-            });
-
-            const blob = new Blob([csvContent], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `updated_ruc_data_with_emails_${new Date().toISOString().slice(0,10)}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-
-            const editInfo = manualEditCount > 0 ? ` (${manualEditCount} manual edits included)` : '';
-            showStatus('updateStatus', `✅ Updated CSV file with driver emails downloaded successfully!${editInfo}`, 'success');
-        }
-    </script>
-</body>
-</html>
+                    <tr style="background: white;">
+                        <td><strong>${
