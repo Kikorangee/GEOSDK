@@ -463,8 +463,7 @@ document.getElementById('downloadReport').onclick = function(){
     .coord-only{color:#666;font-style:italic;font-size:14px}
   </style></head><body>
   <h1>Asset Inspection Report Details</h1>
-  <div class="muted">Generated: ${new Date().toLocaleString()} | Addresses resolved using Geotab GetAddresses API</div>
-  <table><thead><tr>
+   <table><thead><tr>
     <th>Date/Time</th><th>Driver</th><th>Vehicle</th><th>Status</th><th>Defects</th><th>Location</th><th>Odometer</th><th>Engine Hours</th><th>Remarks</th>
   </tr></thead><tbody>
   ${mappedDvirData.map(r=>{
