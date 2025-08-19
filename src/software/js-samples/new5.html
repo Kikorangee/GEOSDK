@@ -49,7 +49,7 @@
   <div class="container">
     <div class="header">
       <h1>🚛 Geotab Asset Inspection Dashboard</h1>
-      <p>United Civil Construction Ltd Asset Inspections</p>
+      <p>United Civil Construction Ltd</p>
     </div>
 
     <div class="card">
@@ -67,7 +67,7 @@
     </div>
 
     <div id="dvirSection" class="card" style="display:none;">
-      <h3 class="card-title">📋 Asset Inspection Logs</h3>
+      <h3 class="card-title">📋 Asset Inspection Reports</h3>
       <div id="infoBanner" class="alert alert-info" style="display:none;"></div>
       <div id="progressContainer" style="display:none;">
         <div class="progress-bar">
@@ -81,9 +81,9 @@
         <input id="resultsLimit" class="form-control" placeholder="Results Limit" value="150" />
       </div>
       <div>
-        <button id="getDvir" class="btn btn-success">📋 Get Asset Inspection Sheets</button>
+        <button id="getDvir" class="btn btn-success">📋 First retrieve Asset Inspection Sheets</button>
         <button id="downloadCsv" class="btn btn-info" disabled>📊 Download Excel</button>
-        <button id="downloadReport" class="btn btn-warning" disabled>📄 Download Report Overview</button>
+        <button id="downloadReport" class="btn btn-warning" disabled>📄 Download Asset Inspection Report Details</button>
         <button id="logout" class="btn btn-danger">🚪 Logout</button>
       </div>
       <div id="dvirResult"></div>
@@ -462,7 +462,7 @@ document.getElementById('downloadReport').onclick = function(){
     .real-address{background:#d4edda;color:#155724;padding:6px 8px;border-radius:5px;font-weight:500}
     .coord-only{color:#666;font-style:italic;font-size:14px}
   </style></head><body>
-  <h1>Driver Vehicle Inspection Report</h1>
+  <h1>Asset Inspection Report Details</h1>
   <div class="muted">Generated: ${new Date().toLocaleString()} | Addresses resolved using Geotab GetAddresses API</div>
   <table><thead><tr>
     <th>Date/Time</th><th>Driver</th><th>Vehicle</th><th>Status</th><th>Defects</th><th>Location</th><th>Odometer</th><th>Engine Hours</th><th>Remarks</th>
