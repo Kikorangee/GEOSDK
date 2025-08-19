@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Geotab DVIR Logs â€" Native Address Resolution (GetAddresses)</title>
+  <title>Geotab Asset Inspection Logs - Native Address Resolution (GetAddresses)</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;color:#333;padding:20px}
@@ -41,15 +41,14 @@
     .progress-fill{height:20px;background:linear-gradient(90deg,#667eea,#764ba2);transition:width 0.3s ease;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600}
     .real-address{background:#d4edda;color:#155724;padding:6px 10px;border-radius:5px;font-weight:500;border-left:4px solid #28a745}
     .coord-only{color:#666;font-style:italic}
-    .debug{background:#f8f9fa;padding:15px;margin:15px 0;border-radius:8px;font-size:13px;font-family:monospace;max-height:400px;overflow-y:auto;border:1px solid #dee2e6}
     .zone-pill{display:inline-block;background:#e2e8f0;border-radius:999px;padding:2px 6px;margin:1px;font-size:10px;color:#495057}
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1>🚛 Geotab DVIR with Native Address Resolution</h1>
-      <p>Using Geotab's built-in GetAddresses API - PROVEN TO WORK with street addresses and zones</p>
+      <h1>🚛 Geotab Asset Inspection Dashboard</h1>
+      <p>United Civil Construction Ltd Asset Inspections</p>
     </div>
 
     <div class="card">
@@ -67,9 +66,8 @@
     </div>
 
     <div id="dvirSection" class="card" style="display:none;">
-      <h3 class="card-title">📋 DVIR Logs with Geotab Address Resolution</h3>
+      <h3 class="card-title">📋 Asset Inspection Logs</h3>
       <div id="infoBanner" class="alert alert-info" style="display:none;"></div>
-      <div id="debugLog" class="debug"></div>
       <div id="progressContainer" style="display:none;">
         <div class="progress-bar">
           <div id="progressBar" class="progress-fill" style="width:0%;">0%</div>
@@ -82,9 +80,8 @@
         <input id="resultsLimit" class="form-control" placeholder="Results Limit" value="5" />
       </div>
       <div>
-        <button id="getDvir" class="btn btn-success">📋 Get DVIR with Addresses</button>
-        <button id="testGeocode" class="btn btn-warning">🧪 Test Geotab Geocoding</button>
-        <button id="downloadCsv" class="btn btn-info" disabled>📊 Download CSV</button>
+        <button id="getDvir" class="btn btn-success">📋 Get Asset Inspection Sheets</button>
+        <button id="downloadCsv" class="btn btn-info" disabled>📊 Download Excel</button>
         <button id="downloadReport" class="btn btn-warning" disabled>📄 Download Report</button>
         <button id="logout" class="btn btn-danger">🚪 Logout</button>
       </div>
@@ -95,7 +92,7 @@
 <script>
 let credentials = null;
 let serverUsed = null;
-let mappedDvirData = [];
+let mappedAssetInspectionData = [];
 
 function setDefaultDates(){
   const today = new Date();
@@ -110,14 +107,6 @@ function showMessage(elId, msg, type='info'){
   const c = type==='error'?'alert-error':type==='success'?'alert-success':type==='warning'?'alert-warning':'alert-info';
   el.style.display = '';
   el.innerHTML = `<div class="alert ${c}">${msg}</div>`;
-}
-
-function log(msg) {
-  const debugEl = document.getElementById('debugLog');
-  const timestamp = new Date().toLocaleTimeString();
-  debugEl.innerHTML += `[${timestamp}] ${msg}<br>`;
-  debugEl.scrollTop = debugEl.scrollHeight;
-  console.log(`DEBUG: ${msg}`);
 }
 
 function updateProgress(current, total, text = '') {
@@ -183,11 +172,9 @@ async function getGeotabAddresses(coordinates) {
   
   // Convert to Geotab format: {x: lon, y: lat}
   const geotabCoords = coordinates.map(c => ({ x: Number(c.lon), y: Number(c.lat) }));
-  log(`🌍 Calling GetAddresses for ${geotabCoords.length} coordinate(s)`);
   
   try {
     const results = await callGeotabAPI('GetAddresses', { coordinates: geotabCoords });
-    log(`🌍 GetAddresses response: ${JSON.stringify(results, null, 2)}`);
     
     // Map results to extract formatted addresses
     return results.map(r => ({
@@ -201,7 +188,6 @@ async function getGeotabAddresses(coordinates) {
       zones: (r && (r.zones || r.Zones) || []).map(z => (z && (z.name || z.Name)) || '').filter(Boolean)
     }));
   } catch (error) {
-    log(`❌ GetAddresses ERROR: ${error.message}`);
     return coordinates.map(() => ({ formattedAddress: '', zones: [] }));
   }
 }
@@ -215,11 +201,8 @@ async function resolveAllAddresses(rows) {
   });
   
   if (!points.length) {
-    log('📍 No coordinates to geocode');
     return;
   }
-  
-  log(`🌍 Starting Geotab address resolution for ${points.length} locations`);
   
   const BATCH_SIZE = 50; // Process in batches to avoid API limits
   
@@ -228,7 +211,6 @@ async function resolveAllAddresses(rows) {
     const progress = Math.min(start + BATCH_SIZE, points.length);
     
     updateProgress(start, points.length, `Resolving addresses ${progress}/${points.length}...`);
-    log(`🌍 Processing batch ${start + 1}-${progress} of ${points.length}`);
     
     try {
       const addresses = await getGeotabAddresses(chunk);
@@ -248,7 +230,7 @@ async function resolveAllAddresses(rows) {
       renderTable(rows);
       
     } catch (error) {
-      log(`❌ Batch error: ${error.message}`);
+      // Continue processing other batches
     }
     
     // Small delay between batches
@@ -260,12 +242,9 @@ async function resolveAllAddresses(rows) {
   updateProgress(points.length, points.length, 'Complete!');
   
   const successCount = rows.filter(r => r.resolvedAddress && r.resolvedAddress.trim()).length;
-  log(`🎯 FINAL RESULT: ${successCount}/${points.length} addresses resolved using Geotab`);
 }
 
 function renderTable(rows){
-  log(`ðŸ–¼ï¸ Rendering table with ${rows.length} rows`);
-  
   const resultDiv = document.getElementById('dvirResult');
   let html = `<table class="dvir-table"><thead><tr>
     <th>Date/Time</th><th>Driver</th><th>Vehicle</th><th>Status</th><th>Driver Inspected</th>
@@ -277,11 +256,11 @@ function renderTable(rows){
   
   rows.forEach((r, index) => {
     const status = r.isSafeToOperate===true?'<span class="status-safe">SAFE</span>':
-                  r.isSafeToOperate===false?'<span class="status-unsafe">âš ï¸ UNSAFE</span>':'<span class="status-unknown">UNKNOWN</span>';
+                  r.isSafeToOperate===false?'<span class="status-unsafe">⚠️ UNSAFE</span>':'<span class="status-unknown">UNKNOWN</span>';
     let defectDisplay = '<em class="muted">None</em>';
     if (r.defects && r.defects !== '[]' && r.defects !== '') {
-      try{ const d = JSON.parse(r.defects); if(Array.isArray(d)&&d.length>0) defectDisplay = `<span style="color:#e53e3e;font-weight:600;">âš ï¸ ${d.length}</span>`; }
-      catch(e){ if(r.defects.length>10) defectDisplay = '<span style="color:#e53e3e;font-weight:600;">âš ï¸ Defects present</span>'; }
+      try{ const d = JSON.parse(r.defects); if(Array.isArray(d)&&d.length>0) defectDisplay = `<span style="color:#e53e3e;font-weight:600;">⚠️ ${d.length}</span>`; }
+      catch(e){ if(r.defects.length>10) defectDisplay = '<span style="color:#e53e3e;font-weight:600;">⚠️ Defects present</span>'; }
     }
     
     let locationDisplay = '<em class="muted">No location</em>';
@@ -290,22 +269,20 @@ function renderTable(rows){
       
       // Check for resolved address
       if (r.resolvedAddress && r.resolvedAddress.trim() && r.resolvedAddress.length > 8) {
-        locationDisplay = `<div class="real-address">ðŸ" ${r.resolvedAddress}</div><small class="muted">${coords}</small>`;
+        locationDisplay = `<div class="real-address">📍 ${r.resolvedAddress}</div><small class="muted">${coords}</small>`;
         addressCount++;
-        log(`Row ${index}: âœ… REAL ADDRESS: ${r.resolvedAddress.substring(0, 50)}...`);
       } else {
         locationDisplay = `<span class="coord-only">${coords}</span>`;
         coordCount++;
-        log(`Row ${index}: âŒ NO ADDRESS: ${coords}`);
       }
     }
     
     html += `<tr>
       <td>${r.dateTime}</td>
-      <td><strong>${r.driverName}</strong><br/><small class="muted">ID: ${r.driverId||''}</small></td>
-      <td><strong>${r.vehicleName}</strong><br/><small class="muted">ID: ${r.deviceId||''}</small></td>
+      <td><strong>${r.driverName}</strong></td>
+      <td><strong>${r.vehicleName}</strong></td>
       <td>${status}</td>
-      <td>${r.isInspectedByDriver===true?'âœ… Yes':'âŒ No'}</td>
+      <td>${r.isInspectedByDriver===true?'✅ Yes':'❌ No'}</td>
       <td>${defectDisplay}</td>
       <td>${locationDisplay}</td>
       <td>${r.odometer?Math.round(r.odometer/1000*100)/100+' km':'N/A'}</td>
@@ -315,8 +292,6 @@ function renderTable(rows){
   });
   html += `</tbody></table>`;
   resultDiv.innerHTML = html;
-  
-  log(`ðŸ–¼ï¸ Table complete: ${addressCount} with addresses, ${coordCount} with coordinates only`);
 }
 
 document.getElementById('authButton').onclick = async function(){
@@ -344,14 +319,9 @@ document.getElementById('authButton').onclick = async function(){
 };
 
 document.getElementById('testGeocode').onclick = async function(){
-  document.getElementById('debugLog').innerHTML = '';
-  log('🧪 TESTING Geotab GetAddresses method...');
-  
   // Test with Auckland Sky Tower
   const testLat = -36.8485;
   const testLon = 174.7633;
-  
-  log(`🧪 Testing with Auckland Sky Tower: ${testLat}, ${testLon}`);
   
   try {
     const addresses = await getGeotabAddresses([{lat: testLat, lon: testLon, idx: 0}]);
@@ -359,45 +329,32 @@ document.getElementById('testGeocode').onclick = async function(){
     
     if (result && result.formattedAddress && result.formattedAddress.trim()) {
       showMessage('infoBanner', `✅ GEOTAB TEST SUCCESS: ${result.formattedAddress}`, 'success');
-      log(`✅ TEST PASSED: Got Geotab address`);
-      if (result.zones && result.zones.length) {
-        log(`📍 Zones found: ${result.zones.join(', ')}`);
-      }
     } else {
       showMessage('infoBanner', `⚠️ TEST PARTIAL: ${JSON.stringify(result)}`, 'warning');
-      log(`⚠️ TEST PARTIAL: Got response but no formatted address`);
     }
   } catch (error) {
     showMessage('infoBanner', `❌ TEST FAILED: ${error.message}`, 'error');
-    log(`❌ TEST FAILED: ${error.message}`);
   }
 };
 
 document.getElementById('getDvir').onclick = async function(){
   if(!credentials && !window.geotab && !window.api){ showMessage('infoBanner','Not authenticated','error'); return; }
   
-  document.getElementById('debugLog').innerHTML = '';
-  log('🚀 Starting DVIR with working address resolution...');
-  
   const fromDate = document.getElementById('fromDate').value;
   const toDate = document.getElementById('toDate').value;
   const resultsLimit = parseInt(document.getElementById('resultsLimit').value)||5;
   if(!fromDate || !toDate){ showMessage('infoBanner','Please select both from and to dates','error'); return; }
 
-  showMessage('infoBanner','Getting DVIR logs...','warning');
+  showMessage('infoBanner','Getting Asset Inspection logs...','warning');
   document.getElementById('downloadCsv').disabled = true;
   document.getElementById('downloadReport').disabled = true;
 
   try{
-    log(`📋 Getting DVIR logs from ${fromDate} to ${toDate}, limit: ${resultsLimit}`);
-    
     const dvirLogs = await callGeotabAPI('Get', {
       typeName:'DVIRLog',
       search:{ fromDate: fromDate+'T00:00:00.000Z', toDate: toDate+'T23:59:59.000Z' },
       resultsLimit
     });
-    
-    log(`📋 Retrieved ${dvirLogs ? dvirLogs.length : 0} DVIR logs`);
     
     if(!dvirLogs || dvirLogs.length===0){ 
       showMessage('infoBanner','No DVIR logs for the selected range','warning'); 
@@ -442,14 +399,11 @@ document.getElementById('getDvir').onclick = async function(){
       };
     });
 
-    log(`📋 Mapped ${mappedDvirData.length} DVIR records`);
-
     // Show initial table
     renderTable(mappedDvirData);
 
     // Process locations with Geotab geocoding
     const locationsToResolve = mappedDvirData.filter(r => r.latitude != null && r.longitude != null);
-    log(`🌍 Found ${locationsToResolve.length} locations to resolve using Geotab`);
 
     if (locationsToResolve.length > 0) {
       showMessage('infoBanner', `🌍 Resolving ${locationsToResolve.length} addresses using Geotab GetAddresses...`, 'info');
@@ -463,10 +417,8 @@ document.getElementById('getDvir').onclick = async function(){
       
       if (successCount > 0) {
         showMessage('infoBanner', `✅ SUCCESS! ${successCount}/${locationsToResolve.length} addresses resolved using Geotab!${failCount > 0 ? ` ${failCount} failed.` : ''}`, 'success');
-        log(`🎯 FINAL: ${successCount} Geotab addresses resolved, ${failCount} failed`);
       } else {
         showMessage('infoBanner', '❌ No addresses could be resolved using Geotab GetAddresses', 'error');
-        log(`❌ COMPLETE FAILURE: No Geotab addresses resolved`);
       }
     } else {
       showMessage('infoBanner', '✅ DVIR loaded! No locations to resolve.', 'success');
@@ -477,13 +429,12 @@ document.getElementById('getDvir').onclick = async function(){
 
   }catch(e){
     showMessage('infoBanner', `Failed: ${e.message}`, 'error');
-    log(`❌ ERROR: ${e.message}`);
   }
 };
 
 document.getElementById('downloadCsv').onclick = function(){
   if(!mappedDvirData || mappedDvirData.length===0){ showMessage('infoBanner','No DVIR data to export','warning'); return; }
-  const headers = ['DateTime','Driver_Name','Driver_ID','Vehicle_Name','Device_ID','Safe_To_Operate','Driver_Inspected','Has_Defects','Defect_Count','Address','Zones','Latitude','Longitude','Odometer_km','Engine_Hours','Driver_Remarks'];
+  const headers = ['DateTime','Driver_Name','Vehicle_Name','Safe_To_Operate','Driver_Inspected','Has_Defects','Defect_Count','Address','Zones','Latitude','Longitude','Odometer_km','Engine_Hours','Driver_Remarks'];
   let csv = headers.map(h=>`"${h}"`).join(',') + '\n';
   mappedDvirData.forEach(r=>{
     let hasDefects='NO', defectCount='0';
@@ -492,7 +443,7 @@ document.getElementById('downloadCsv').onclick = function(){
       catch(e){ if(r.defects.length>10){ hasDefects='YES'; defectCount='Unknown'; } }
     }
     const row = [
-      r.dateTime, r.driverName, r.driverId, r.vehicleName, r.deviceId,
+      r.dateTime, r.driverName, r.vehicleName,
       r.isSafeToOperate===true?'SAFE':r.isSafeToOperate===false?'UNSAFE':'UNKNOWN',
       r.isInspectedByDriver===true?'YES':'NO',
       hasDefects, defectCount,
@@ -556,8 +507,8 @@ document.getElementById('downloadReport').onclick = function(){
     
     return `<tr>
       <td>${r.dateTime}</td>
-      <td>${r.driverName}<div class="muted">ID: ${r.driverId||''}</div></td>
-      <td>${r.vehicleName}<div class="muted">ID: ${r.deviceId||''}</div></td>
+      <td>${r.driverName}</td>
+      <td>${r.vehicleName}</td>
       <td>${badge}</td>
       <td>${defects}</td>
       <td>${loc}</td>
@@ -583,7 +534,6 @@ document.getElementById('logout').onclick = function(){
   document.getElementById('dvirSection').style.display = 'none';
   document.getElementById('authResult').innerHTML = '';
   document.getElementById('dvirResult').innerHTML = '';
-  document.getElementById('debugLog').innerHTML = '';
   showMessage('infoBanner','Logged out','info');
 };
 
