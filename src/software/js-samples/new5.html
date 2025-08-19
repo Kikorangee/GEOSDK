@@ -1,21 +1,22 @@
-p<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Geotab Asset Inspection Reports</title>
+  <title>Geotab Asset Inspection Logs - Native Address Resolution (GetAddresses)</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;color:#333;padding:40px}
-    .container{max-width:1200px;margin:0 auto}
-    .header,.card{background:rgba(255,255,255,.95);backdrop-filter:blur(10px);border-radius:15px;padding:25px;margin-bottom:25px;box-shadow:0 10px 30px rgba(0,0,0,.1)}
+    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;color:#333;padding:20px;font-size:16px}
+    .container{max-width:1400px;margin:0 auto}
+    .header,.card{background:rgba(255,255,255,.95);backdrop-filter:blur(10px);border-radius:15px;padding:30px;margin-bottom:30px;box-shadow:0 10px 30px rgba(0,0,0,.1)}
     .header{text-align:center}
-    .header h1{color:#2d3748;font-size:2em;font-weight:700;margin-bottom:10px}
-    .card-title{color:#2d3748;font-size:1.3em;font-weight:700;margin-bottom:20px;padding-bottom:10px;border-border:2px solid #e2e8f0}
-    .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:15px}
-    .form-control{width:100%;padding:12px 16px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;transition:all .2s ease}
+    .header h1{color:#2d3748;font-size:2.5em;font-weight:700;margin-bottom:15px}
+    .header p{font-size:1.1em;color:#666}
+    .card-title{color:#2d3748;font-size:1.5em;font-weight:700;margin-bottom:25px;padding-bottom:15px;border-bottom:2px solid #e2e8f0}
+    .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin-bottom:20px}
+    .form-control{width:100%;padding:14px 18px;border:2px solid #e2e8f0;border-radius:8px;font-size:16px;transition:all .2s ease}
     .form-control:focus{outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,.1)}
-    .btn{padding:12px 24px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s ease;margin:5px}
+    .btn{padding:14px 28px;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s ease;margin:5px}
     .btn:hover{transform:translateY(-1px);box-shadow:0 4px 15px rgba(0,0,0,.2)}
     .btn-primary{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
     .btn-success{background:linear-gradient(135deg,#48bb78,#38a169);color:#fff}
@@ -23,32 +24,32 @@ p<!DOCTYPE html>
     .btn-warning{background:linear-gradient(135deg,#ed8936,#dd6b20);color:#fff}
     .btn-danger{background:linear-gradient(135deg,#f56565,#e53e3e);color:#fff}
     .btn[disabled]{opacity:.5;cursor:not-allowed}
-    .alert{padding:15px;border-radius:8px;margin:15px 0;font-weight:500}
+    .alert{padding:18px;border-radius:8px;margin:18px 0;font-weight:500;font-size:16px}
     .alert-success{background:#c6f6d5;color:#22543d;border-left:4px solid #38a169}
     .alert-error{background:#fed7d7;color:#742a2a;border-left:4px solid #e53e3e}
     .alert-warning{background:#fefcbf;color:#744210;border-left:4px solid #d69e2e}
     .alert-info{background:#ebf8ff;color:#2b6cb0;border-left:4px solid #4299e1}
-    .dvir-table{width:100%;border-collapse:collapse;margin-top:20px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,.1)}
-    .dvir-table th{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:12px;text-align:left;font-weight:600;font-size:13px}
-    .dvir-table td{padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:13px;vertical-align:top}
+    .dvir-table{width:100%;border-collapse:collapse;margin-top:25px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,.1)}
+    .dvir-table th{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:16px;text-align:left;font-weight:600;font-size:16px}
+    .dvir-table td{padding:14px 16px;border-bottom:1px solid #e2e8f0;font-size:15px;vertical-align:top;line-height:1.4}
     .dvir-table tr:hover{background:#f7fafc}
     .dvir-table tr:nth-child(even){background:#f8f9fa}
-    .status-safe{background:#c6f6d5;color:#22543d;padding:4px 8px;border-radius:4px;font-weight:600;font-size:11px}
-    .status-unsafe{background:#fed7d7;color:#742a2a;padding:4px 8px;border-radius:4px;font-weight:600;font-size:11px}
-    .status-unknown{background:#e2e8f0;color:#4a5568;padding:4px 8px;border-radius:4px;font-weight:600;font-size:11px}
-    .muted{color:#718096}
-    .progress-bar{width:100%;background:#e2e8f0;border-radius:4px;overflow:hidden;margin:10px 0}
-    .progress-fill{height:20px;background:linear-gradient(90deg,#667eea,#764ba2);transition:width 0.3s ease;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600}
-    .real-address{background:#d4edda;color:#155724;padding:6px 10px;border-radius:5px;font-weight:500;border-left:4px solid #28a745}
-    .coord-only{color:#666;font-style:italic}
-    .zone-pill{display:inline-block;background:#e2e8f0;border-radius:999px;padding:2px 6px;margin:1px;font-size:10px;color:#495057}
+    .status-safe{background:#c6f6d5;color:#22543d;padding:6px 12px;border-radius:6px;font-weight:600;font-size:14px}
+    .status-unsafe{background:#fed7d7;color:#742a2a;padding:6px 12px;border-radius:6px;font-weight:600;font-size:14px}
+    .status-unknown{background:#e2e8f0;color:#4a5568;padding:6px 12px;border-radius:6px;font-weight:600;font-size:14px}
+    .muted{color:#718096;font-size:14px}
+    .progress-bar{width:100%;background:#e2e8f0;border-radius:4px;overflow:hidden;margin:12px 0}
+    .progress-fill{height:24px;background:linear-gradient(90deg,#667eea,#764ba2);transition:width 0.3s ease;display:flex;align-items:center;justify-content:center;color:white;font-size:14px;font-weight:600}
+    .real-address{background:#d4edda;color:#155724;padding:8px 12px;border-radius:6px;font-weight:500;border-left:4px solid #28a745;font-size:15px}
+    .coord-only{color:#666;font-style:italic;font-size:14px}
+    .zone-pill{display:inline-block;background:#e2e8f0;border-radius:999px;padding:3px 8px;margin:2px;font-size:12px;color:#495057}
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1>🚛 Geotab Asset Inspection Reports</h1>
-      <p>United Civil Construction Ltd</p>
+      <h1>🚛 Geotab Asset Inspection Dashboard</h1>
+      <p>United Civil Construction Ltd Asset Inspections</p>
     </div>
 
     <div class="card">
@@ -61,28 +62,27 @@ p<!DOCTYPE html>
         <input id="username" class="form-control" placeholder="Username" value="francis@directt.co.nz" />
         <input id="password" class="form-control" type="password" placeholder="Password" value="@fr4nc1sWynn5" />
       </div>
-      <button id="authButton" class="btn btn-primary">🔒 Authenticate</button>
+      <button id="authButton" class="btn btn-primary">🔐 Authenticate</button>
       <div id="authResult"></div>
     </div>
 
     <div id="dvirSection" class="card" style="display:none;">
-      <h3 class="card-title">📋 Asset Inspection Reports</h3>
+      <h3 class="card-title">📋 Asset Inspection Logs</h3>
       <div id="infoBanner" class="alert alert-info" style="display:none;"></div>
       <div id="progressContainer" style="display:none;">
         <div class="progress-bar">
           <div id="progressBar" class="progress-fill" style="width:0%;">0%</div>
         </div>
-        <div id="progressText" class="muted" style="text-align:center;margin-top:5px;"></div>
+        <div id="progressText" class="muted" style="text-align:center;margin-top:8px;"></div>
       </div>
       <div class="form-row">
         <input id="fromDate" class="form-control" type="date" />
         <input id="toDate" class="form-control" type="date" />
-        <input id="resultsLimit" class="form-control" placeholder="Results Limit" value="150" />
+        <input id="resultsLimit" class="form-control" placeholder="Results Limit" value="5" />
       </div>
       <div>
-        <button id="getDvir" class="btn btn-success">📋 Get Asset Inspection Reports</button>
-        <button id="testGeocode" class="btn btn-warning">🧪 Test Geotab Geocoding</button>
-        <button id="downloadCsv" class="btn btn-info" disabled>📊 Download Excel Report</button>
+        <button id="getDvir" class="btn btn-success">📋 Get Asset Inspection Sheets</button>
+        <button id="downloadCsv" class="btn btn-info" disabled>📊 Download Excel</button>
         <button id="downloadReport" class="btn btn-warning" disabled>📄 Download Report</button>
         <button id="logout" class="btn btn-danger">🚪 Logout</button>
       </div>
@@ -167,7 +167,7 @@ function extractLocation(loc){
   return {latitude:null, longitude:null};
 }
 
-// Use Geotab's GetAddresses method - WORKING SOLUTION
+// Use Geotab's GetAddresses method
 async function getGeotabAddresses(coordinates) {
   if (!coordinates.length) return [];
   
@@ -249,7 +249,7 @@ function renderTable(rows){
   const resultDiv = document.getElementById('dvirResult');
   let html = `<table class="dvir-table"><thead><tr>
     <th>Date/Time</th><th>Driver</th><th>Vehicle</th><th>Status</th><th>Driver Inspected</th>
-    <th>Defects</th><th>Location (Address)</th><th>Odometer</th><th>Engine Hours</th><th>Driver Remarks</th>
+    <th>Defects</th><th>Location</th><th>Odometer</th><th>Engine Hours</th><th>Driver Remarks</th>
   </tr></thead><tbody>`;
   
   let addressCount = 0;
@@ -266,13 +266,12 @@ function renderTable(rows){
     
     let locationDisplay = '<em class="muted">No location</em>';
     if (r.latitude && r.longitude) {
-      const coords = `${Number(r.latitude).toFixed(6)}, ${Number(r.longitude).toFixed(6)}`;
-      
       // Check for resolved address
       if (r.resolvedAddress && r.resolvedAddress.trim() && r.resolvedAddress.length > 8) {
-        locationDisplay = `<div class="real-address">📍 ${r.resolvedAddress}</div><small class="muted">${coords}</small>`;
+        locationDisplay = `<div class="real-address">📍 ${r.resolvedAddress}</div>`;
         addressCount++;
       } else {
+        const coords = `${Number(r.latitude).toFixed(6)}, ${Number(r.longitude).toFixed(6)}`;
         locationDisplay = `<span class="coord-only">${coords}</span>`;
         coordCount++;
       }
@@ -319,25 +318,6 @@ document.getElementById('authButton').onclick = async function(){
   }
 };
 
-document.getElementById('testGeocode').onclick = async function(){
-  // Test with Auckland Sky Tower
-  const testLat = -36.8485;
-  const testLon = 174.7633;
-  
-  try {
-    const addresses = await getGeotabAddresses([{lat: testLat, lon: testLon, idx: 0}]);
-    const result = addresses[0];
-    
-    if (result && result.formattedAddress && result.formattedAddress.trim()) {
-      showMessage('infoBanner', `✅ GEOTAB TEST SUCCESS: ${result.formattedAddress}`, 'success');
-    } else {
-      showMessage('infoBanner', `⚠️ TEST PARTIAL: ${JSON.stringify(result)}`, 'warning');
-    }
-  } catch (error) {
-    showMessage('infoBanner', `❌ TEST FAILED: ${error.message}`, 'error');
-  }
-};
-
 document.getElementById('getDvir').onclick = async function(){
   if(!credentials && !window.geotab && !window.api){ showMessage('infoBanner','Not authenticated','error'); return; }
   
@@ -358,7 +338,7 @@ document.getElementById('getDvir').onclick = async function(){
     });
     
     if(!dvirLogs || dvirLogs.length===0){ 
-      showMessage('infoBanner','No Asset Inspection logs for the selected range','warning'); 
+      showMessage('infoBanner','No DVIR logs for the selected range','warning'); 
       document.getElementById('dvirResult').innerHTML=''; 
       return; 
     }
@@ -374,8 +354,8 @@ document.getElementById('getDvir').onclick = async function(){
     Array.from(driverIds).forEach(id=>{ const r=lookup[idx++]; driverNames[id]=(r && r[0] && (r[0].name || `${r[0].firstName||''} ${r[0].lastName||''}`.trim())) || `Driver ${id}`; });
     Array.from(deviceIds).forEach(id=>{ const r=lookup[idx++]; deviceNames[id]=(r && r[0] && r[0].name) || `Device ${id}`; });
 
-    // Map Asset Inspection data
-    mappedAssetInspectionData = dvirLogs.map(l=>{
+    // Map DVIR data
+    mappedDvirData = dvirLogs.map(l=>{
       const driverId = extractId(l.driver);
       const deviceId = extractId(l.device);
       const loc = extractLocation(l.location);
@@ -394,26 +374,26 @@ document.getElementById('getDvir').onclick = async function(){
         engineHours:l.engineHours || 0,
         latitude:loc.latitude,
         longitude:loc.longitude,
-        resolvedAddress:'', // Will hold Geotab formatted address
-        zones:[], // Will hold Geotab zones
+        resolvedAddress:'',
+        zones:[],
         defects:l.defects || ''
       };
     });
 
     // Show initial table
-    renderTable(mappedAssetInspectionData);
+    renderTable(mappedDvirData);
 
     // Process locations with Geotab geocoding
-    const locationsToResolve = mappedAssetInspectionData.filter(r => r.latitude != null && r.longitude != null);
+    const locationsToResolve = mappedDvirData.filter(r => r.latitude != null && r.longitude != null);
 
     if (locationsToResolve.length > 0) {
       showMessage('infoBanner', `🌍 Resolving ${locationsToResolve.length} addresses using Geotab GetAddresses...`, 'info');
       
       // Resolve addresses using Geotab
-      await resolveAllAddresses(mappedAssetInspectionData);
+      await resolveAllAddresses(mappedDvirData);
       
       // Final status
-      const successCount = mappedAssetInspectionData.filter(r => r.resolvedAddress && r.resolvedAddress.trim()).length;
+      const successCount = mappedDvirData.filter(r => r.resolvedAddress && r.resolvedAddress.trim()).length;
       const failCount = locationsToResolve.length - successCount;
       
       if (successCount > 0) {
@@ -422,7 +402,7 @@ document.getElementById('getDvir').onclick = async function(){
         showMessage('infoBanner', '❌ No addresses could be resolved using Geotab GetAddresses', 'error');
       }
     } else {
-      showMessage('infoBanner', '✅ Asset Inspection loaded! No locations to resolve.', 'success');
+      showMessage('infoBanner', '✅ DVIR loaded! No locations to resolve.', 'success');
     }
     
     document.getElementById('downloadCsv').disabled = false;
@@ -434,10 +414,10 @@ document.getElementById('getDvir').onclick = async function(){
 };
 
 document.getElementById('downloadCsv').onclick = function(){
-  if(!mappedAssetInspectionData || mappedAssetInspectionData.length===0){ showMessage('infoBanner','No Asset Inspection data to export','warning'); return; }
+  if(!mappedDvirData || mappedDvirData.length===0){ showMessage('infoBanner','No DVIR data to export','warning'); return; }
   const headers = ['DateTime','Driver_Name','Vehicle_Name','Safe_To_Operate','Driver_Inspected','Has_Defects','Defect_Count','Address','Zones','Latitude','Longitude','Odometer_km','Engine_Hours','Driver_Remarks'];
   let csv = headers.map(h=>`"${h}"`).join(',') + '\n';
-  mappedAssetInspectionData.forEach(r=>{
+  mappedDvirData.forEach(r=>{
     let hasDefects='NO', defectCount='0';
     if (r.defects && r.defects !== '[]' && r.defects !== '') {
       try{ const d = JSON.parse(r.defects); if(Array.isArray(d)&&d.length>0){ hasDefects='YES'; defectCount=String(d.length); } }
@@ -456,7 +436,7 @@ document.getElementById('downloadCsv').onclick = function(){
     csv += row + '\n';
   });
   const ts = new Date().toISOString().slice(0,19).replace(/[:.]/g,'-');
-  const filename = `Geotab_Asset_Inspection_With_Addresses_${ts}.csv`;
+  const filename = `Geotab_DVIR_With_Addresses_${ts}.csv`;
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   const a = document.createElement('a');
   const url = URL.createObjectURL(blob);
@@ -466,28 +446,28 @@ document.getElementById('downloadCsv').onclick = function(){
 };
 
 document.getElementById('downloadReport').onclick = function(){
-  if(!mappedAssetInspectionData || mappedAssetInspectionData.length===0){ showMessage('infoBanner','No Asset Inspection data to report','warning'); return; }
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Asset Inspection Report (Working Addresses)</title>
+  if(!mappedDvirData || mappedDvirData.length===0){ showMessage('infoBanner','No DVIR data to report','warning'); return; }
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>DVIR Report (Working Addresses)</title>
   <style>
-    body{font-family:Arial,Helvetica,sans-serif;margin:20px;color:#333}
-    h1{margin:0 0 6px 0} .muted{color:#666}
-    table{width:100%;border-collapse:collapse;margin-top:16px}
-    th,td{border:1px solid #e2e8f0;padding:8px;font-size:12px;text-align:left;vertical-align:top}
-    th{background:#2c5aa0;color:#fff}
+    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;margin:25px;color:#333;font-size:16px;line-height:1.5}
+    h1{margin:0 0 8px 0;font-size:2.2em;color:#2d3748} .muted{color:#666;font-size:15px}
+    table{width:100%;border-collapse:collapse;margin-top:20px}
+    th,td{border:1px solid #e2e8f0;padding:12px;font-size:15px;text-align:left;vertical-align:top}
+    th{background:#2c5aa0;color:#fff;font-weight:600}
     tr:nth-child(even){background:#f7fafc}
-    .badge{padding:2px 6px;border-radius:3px;font-weight:700;font-size:10px;display:inline-block}
+    .badge{padding:4px 8px;border-radius:4px;font-weight:700;font-size:13px;display:inline-block}
     .safe{background:#c6f6d5;color:#22543d}
     .unsafe{background:#fed7d7;color:#742a2a}
     .unknown{background:#e2e8f0;color:#4a5568}
-    .real-address{background:#d4edda;color:#155724;padding:4px 6px;border-radius:4px;font-weight:500}
-    .coord-only{color:#666;font-style:italic}
+    .real-address{background:#d4edda;color:#155724;padding:6px 8px;border-radius:5px;font-weight:500}
+    .coord-only{color:#666;font-style:italic;font-size:14px}
   </style></head><body>
-  <h1>Driver Vehicle Asset Inspection Report</h1>
+  <h1>Driver Vehicle Inspection Report</h1>
   <div class="muted">Generated: ${new Date().toLocaleString()} | Addresses resolved using Geotab GetAddresses API</div>
   <table><thead><tr>
-    <th>Date/Time</th><th>Driver</th><th>Vehicle</th><th>Status</th><th>Defects</th><th>Location (Address)</th><th>Odometer</th><th>Engine Hours</th><th>Remarks</th>
+    <th>Date/Time</th><th>Driver</th><th>Vehicle</th><th>Status</th><th>Defects</th><th>Location</th><th>Odometer</th><th>Engine Hours</th><th>Remarks</th>
   </tr></thead><tbody>
-  ${mappedAssetInspectionData.map(r=>{
+  ${mappedDvirData.map(r=>{
     let defects='None';
     if (r.defects && r.defects !== '[]' && r.defects !== '') {
       try{ const d = JSON.parse(r.defects); if(Array.isArray(d)&&d.length>0) defects = `⚠️ ${d.length}`; }
@@ -497,11 +477,11 @@ document.getElementById('downloadReport').onclick = function(){
     
     let loc = 'No location';
     if (r.latitude != null && r.longitude != null) {
-      const coords = `${Number(r.latitude).toFixed(6)}, ${Number(r.longitude).toFixed(6)}`;
       if (r.resolvedAddress && r.resolvedAddress.trim()) {
-        const zones = r.zones && r.zones.length ? `<div style="margin-top:2px;font-size:10px;color:#666;">${r.zones.join(' | ')}</div>` : '';
-        loc = `<div class="real-address">📍 ${r.resolvedAddress}</div><div class="muted">${coords}</div>${zones}`;
+        const zones = r.zones && r.zones.length ? `<div style="margin-top:3px;font-size:12px;color:#666;">${r.zones.join(' | ')}</div>` : '';
+        loc = `<div class="real-address">📍 ${r.resolvedAddress}</div>${zones}`;
       } else {
+        const coords = `${Number(r.latitude).toFixed(6)}, ${Number(r.longitude).toFixed(6)}`;
         loc = `<span class="coord-only">${coords}</span>`;
       }
     }
@@ -521,7 +501,7 @@ document.getElementById('downloadReport').onclick = function(){
   </tbody></table>
   </body></html>`;
   const ts = new Date().toISOString().slice(0,19).replace(/[:.]/g,'-');
-  const filename = `Asset_Inspection_Report_Geotab_Addresses_${ts}.html`;
+  const filename = `DVIR_Report_Geotab_Addresses_${ts}.html`;
   const blob = new Blob([html], {type:'text/html;charset=utf-8;'});
   const a = document.createElement('a');
   const url = URL.createObjectURL(blob);
@@ -531,7 +511,7 @@ document.getElementById('downloadReport').onclick = function(){
 };
 
 document.getElementById('logout').onclick = function(){
-  credentials = null; serverUsed = null; mappedAssetInspectionData = [];
+  credentials = null; serverUsed = null; mappedDvirData = [];
   document.getElementById('dvirSection').style.display = 'none';
   document.getElementById('authResult').innerHTML = '';
   document.getElementById('dvirResult').innerHTML = '';
