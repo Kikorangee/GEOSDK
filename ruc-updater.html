@@ -235,7 +235,7 @@
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                 <button onclick="loadHardcodedData()" class="btn btn-success" id="hardcodedBtn">
-                    ⚡ Load Hardcoded Data (79 Records)
+                    ⚡ Load 'RUC paid to' Data (79 Records)
                 </button>
                 <button onclick="refreshData()" class="btn btn-primary" id="refreshBtn">
                     🔄 Refresh All Data
@@ -247,13 +247,13 @@
             </div>
             
             <div class="file-upload" onclick="document.getElementById('csvFile').click()">
-                <p>📁 Click to select your own RUC file</p>
+                <p>📁 Click to select updated 'RUC paid to' file</p>
                 <p><small>Supports: CSV, Excel (.xlsx, .xls)</small></p>
                 <input type="file" id="csvFile" accept=".csv,.xlsx,.xls" style="display: none;" onchange="loadDataFile(event)">
             </div>
             
             <div style="margin: 15px 0; padding: 15px; background: #e3f2fd; border-radius: 8px;">
-                <h4>📊 Hardcoded Data Info:</h4>
+                <h4>📊 'RUC paid to' Info:</h4>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
                     <div style="background: white; padding: 10px; border-radius: 5px; text-align: center;">
                         <strong style="color: #1976d2;">79</strong><br>
@@ -447,7 +447,7 @@
                         document.getElementById('authSection').style.display = 'none';
                         
                         // Set dummy credentials for compatibility
-                        credentials = { internal: true };
+                        credentials = { internal: false };
                         
                         // Show success message
                         showStatus('csvStatus', 
