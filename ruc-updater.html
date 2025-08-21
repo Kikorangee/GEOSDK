@@ -1528,3 +1528,199 @@
                     } else {
                         distanceCell.style.background = '#fff3cd'; // Yellow for CSV
                         distanceCell.style.border = '2px solid #d69e2e';
+                        distanceCell.style.color = '#2d3748';
+                        distanceCell.title = 'CSV Data';
+                    }
+                    distanceCell.style.fontWeight = 'bold';
+                }
+                
+                console.log(`Recalculated row ${rowIndex}: Fleet ${row.fleetNumber}, Distance: ${newDistance}`);
+                
+            } catch (error) {
+                console.error(`Error recalculating row ${rowIndex}:`, error);
+            }
+        }
+
+        // Reset to original values
+        function resetToOriginal() {
+            if (!confirm('Are you sure you want to reset all values to original? This will undo all manual edits.')) {
+                return;
+            }
+
+            csvData.forEach((row, index) => {
+                if (row.originalHuboPaidTo) {
+                    row.huboPaidTo = row.originalHuboPaidTo;
+                    row.huboOdoReading = row.originalHuboOdoReading;
+                    
+                    // Update display
+                    const huboPaidCell = document.getElementById(`huboPaidTo_${index}`);
+                    const huboReadingCell = document.getElementById(`huboOdoReading_${index}`);
+                    
+                    if (huboPaidCell) {
+                        huboPaidCell.textContent = row.huboPaidTo;
+                        huboPaidCell.style.background = '';
+                        huboPaidCell.style.border = '';
+                        huboPaidCell.style.fontWeight = '';
+                    }
+                    
+                    if (huboReadingCell) {
+                        huboReadingCell.textContent = row.huboOdoReading;
+                        huboReadingCell.style.background = '';
+                        huboReadingCell.style.border = '';
+                        huboReadingCell.style.fontWeight = '';
+                    }
+                }
+            });
+
+            recalculateAll();
+            showStatus('updateStatus', '✅ All values reset to original data', 'success');
+        }
+
+        // Check for RUC licenses due soon (MODIFIED to include negative distances)
+        function checkRUCDue() {
+            const threshold = parseInt(document.getElementById('alertThreshold').value) || 200;
+            
+            if (!csvData || csvData.length === 0) {
+                showStatus('emailStatus', '⚠️ No data available. Please complete the update process first.', 'error');
+                return;
+            }
+
+            // Find vehicles with RUC due soon OR overdue (negative distances)
+            const dueVehicles = [];
+            csvData.forEach((row, index) => {
+                const distanceRemaining = row.calculatedDistance !== null ? row.calculatedDistance : 
+                    (row.distanceRemaining && row.distanceRemaining !== '' ? parseInt(row.distanceRemaining) : null);
+                
+                if (distanceRemaining !== null && typeof distanceRemaining === 'number') {
+                    // Include vehicles that are overdue (negative) OR within threshold
+                    if (distanceRemaining < 0 || distanceRemaining <= threshold) {
+                        dueVehicles.push({
+                            ...row,
+                            distanceRemaining: distanceRemaining,
+                            urgency: distanceRemaining < 0 ? 'OVERDUE' : 
+                                    distanceRemaining <= 50 ? 'URGENT' : 
+                                    distanceRemaining <= 200 ? 'DUE SOON' : 'WARNING'
+                        });
+                    }
+                }
+            });
+
+            // Sort by urgency (overdue first, then lowest distance)
+            dueVehicles.sort((a, b) => {
+                // Overdue (negative) vehicles first
+                if (a.distanceRemaining < 0 && b.distanceRemaining >= 0) return -1;
+                if (b.distanceRemaining < 0 && a.distanceRemaining >= 0) return 1;
+                // Then sort by distance (lowest first)
+                return a.distanceRemaining - b.distanceRemaining;
+            });
+
+            if (dueVehicles.length === 0) {
+                showStatus('emailStatus', `✅ Great news! No vehicles have RUC due within ${threshold}km and none are overdue`, 'success');
+                document.getElementById('dueVehiclesList').innerHTML = '';
+                return;
+            }
+
+            const overdueCount = dueVehicles.filter(v => v.distanceRemaining < 0).length;
+            const dueCount = dueVehicles.filter(v => v.distanceRemaining >= 0).length;
+
+            // Display due vehicles
+            let statusMessage = `⚠️ Found ${dueVehicles.length} vehicles requiring attention`;
+            if (overdueCount > 0) {
+                statusMessage += ` (${overdueCount} OVERDUE, ${dueCount} due within ${threshold}km)`;
+            } else {
+                statusMessage += ` (${dueCount} due within ${threshold}km)`;
+            }
+
+            showStatus('emailStatus', statusMessage, 'error');
+            displayDueVehicles(dueVehicles);
+        }
+
+        // Display due vehicles in a table (MODIFIED to highlight overdue)
+        function displayDueVehicles(dueVehicles) {
+            let html = `
+                <div style="background: #fed7d7; padding: 15px; border-radius: 8px; margin-top: 15px;">
+                    <h4 style="color: #c53030;">🚨 Vehicles Requiring RUC Renewal (${dueVehicles.length})</h4>
+                    <table style="width: 100%; margin-top: 10px;">
+                        <thead>
+                            <tr style="background: #c53030; color: white;">
+                                <th>Fleet #</th>
+                                <th>Driver</th>
+                                <th>Distance Remaining</th>
+                                <th>Urgency</th>
+                                <th>Email Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            dueVehicles.forEach((vehicle, index) => {
+                const urgencyColor = vehicle.urgency === 'OVERDUE' ? '#741b47' :
+                                   vehicle.urgency === 'URGENT' ? '#c53030' : 
+                                   vehicle.urgency === 'DUE SOON' ? '#d69e2e' : '#38a169';
+                
+                const distanceDisplay = vehicle.distanceRemaining < 0 ? 
+                    `${vehicle.distanceRemaining}km (OVERDUE)` : 
+                    `${vehicle.distanceRemaining}km`;
+                
+                html += `
+                    <tr style="background: white;">
+                        <td><strong>${vehicle.fleetNumber}</strong></td>
+                        <td>${vehicle.driverName || 'No Driver'}<br><small>${vehicle.driverEmail || 'No email'}</small></td>
+                        <td style="color: ${urgencyColor}; font-weight: bold;">${distanceDisplay}</td>
+                        <td style="color: ${urgencyColor}; font-weight: bold;">${vehicle.urgency}</td>
+                        <td id="email-status-${index}">📤 Pending</td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table></div>`;
+            document.getElementById('dueVehiclesList').innerHTML = html;
+        }
+
+        // Send RUC emails (placeholder function)
+        function sendRUCEmails() {
+            showStatus('emailStatus', 'ℹ️ Email functionality is a placeholder. In a real implementation, this would send notifications to drivers and administrators.', 'info');
+        }
+
+        // Download updated CSV with driver information and manual override tracking (MODIFIED to include negative distances)
+        function downloadUpdatedCSV() {
+            let csvContent = ', ROAD USER (RUC) ,,, ,,\n';
+            csvContent += 'Fleet #, Hubo Paid To , Hubo/Odo Reading ,distance remaining,Driver,Driver Email,RUC Admin\n';
+
+            let manualEditCount = 0;
+            let negativeDistanceCount = 0;
+            
+            csvData.forEach(row => {
+                // Check if values were manually edited
+                if (row.originalHuboPaidTo && 
+                    (row.huboPaidTo !== row.originalHuboPaidTo || row.huboOdoReading !== row.originalHuboOdoReading)) {
+                    manualEditCount++;
+                }
+                
+                const distanceRemaining = row.calculatedDistance !== null ? row.calculatedDistance : row.distanceRemaining;
+                
+                // Count negative distances
+                if (typeof distanceRemaining === 'number' && distanceRemaining < 0) {
+                    negativeDistanceCount++;
+                }
+                
+                csvContent += `${row.fleetNumber},"${row.huboPaidTo}","${row.huboOdoReading}","${distanceRemaining}","${row.driverName || ''}","${row.driverEmail || ''}","${row.rucAdminEmail || ''}"\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `updated_ruc_data_with_emails_${new Date().toISOString().slice(0,10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            const editInfo = manualEditCount > 0 ? ` (${manualEditCount} manual edits included)` : '';
+            const negativeInfo = negativeDistanceCount > 0 ? ` - ${negativeDistanceCount} vehicles with negative distances (overdue RUC)` : '';
+            showStatus('updateStatus', `✅ Updated CSV file with driver emails downloaded successfully!${editInfo}${negativeInfo}`, 'success');
+        }
+    </script>
+</body>
+</html>
