@@ -133,6 +133,20 @@
             background: #f8f9fa;
             font-weight: bold;
         }
+        th[onclick] {
+            background: #2d3748;
+            color: white;
+            transition: background-color 0.2s ease;
+        }
+        th[onclick]:hover {
+            background: #4a5568;
+            transform: translateY(-1px);
+        }
+        th[onclick] span {
+            font-size: 12px;
+            margin-left: 5px;
+            opacity: 0.7;
+        }
         .updated {
             background: #d4edda !important;
         }
@@ -321,16 +335,21 @@
                 <h4 style="color: #92400e; margin-top: 0;">⚠️ Critical Alert Settings</h4>
                 <div style="display: grid; grid-template-columns: auto 1fr auto; gap: 15px; align-items: center; margin-bottom: 15px;">
                     <label style="font-weight: bold; color: #92400e;">Alert Threshold (km):</label>
-                    <input type="number" id="alertThreshold" value="2000" style="width: 120px; padding: 8px; font-size: 16px; font-weight: bold; border: 2px solid #f59e0b; border-radius: 5px;">
+                    <input type="number" id="alertThreshold" value="2000" min="100" max="10000" step="100" style="width: 120px; padding: 8px; font-size: 16px; font-weight: bold; border: 2px solid #f59e0b; border-radius: 5px;" onchange="updateThresholdInfo()">
                     <button onclick="checkRUCDue()" class="btn btn-success" id="checkRUCBtn" style="padding: 10px 20px; font-size: 16px;">🚨 CHECK URGENT VEHICLES</button>
                 </div>
                 <div style="background: #fef3c7; padding: 10px; border-radius: 5px; font-size: 14px;">
-                    <strong>Alert Rules:</strong>
+                    <strong>Alert Rules (Automatically adjust with threshold):</strong>
                     <ul style="margin: 5px 0; padding-left: 20px;">
                         <li><strong>OVERDUE (Negative km):</strong> Immediate action required</li>
-                        <li><strong>Under 500 km:</strong> Critical - renew within days</li>
-                        <li><strong>Under 2000 km:</strong> Urgent - plan renewal soon</li>
+                        <li><strong>CRITICAL (≤10% of threshold):</strong> Critical - renew within days</li>
+                        <li><strong>URGENT (≤25% of threshold):</strong> Urgent - plan renewal soon</li>
+                        <li><strong>HIGH (≤50% of threshold):</strong> Plan renewal</li>
+                        <li><strong>MONITOR (≤threshold):</strong> Within alert range</li>
                     </ul>
+                    <div id="thresholdInfo" style="margin-top: 8px; padding: 5px; background: white; border-radius: 3px; font-size: 13px;">
+                        💡 <strong>Current thresholds:</strong> Critical ≤200km | Urgent ≤500km | High ≤1,000km | Monitor ≤2,000km
+                    </div>
                 </div>
             </div>
 
@@ -1337,9 +1356,18 @@
             document.getElementById('tableContainer').innerHTML = html;
         }
 
-        // Generate table rows (separated for reuse in sorting)
+        // Generate table rows (separated for reuse in sorting) - FIXED to use dynamic thresholds
         function generateTableRows() {
             let html = '';
+            const threshold = parseInt(document.getElementById('alertThreshold').value) || 2000;
+            
+            // Dynamic urgency thresholds
+            const urgencyThresholds = {
+                critical: Math.min(200, threshold * 0.1),
+                urgent: Math.min(500, threshold * 0.25),
+                high: Math.min(1000, threshold * 0.5),
+                medium: threshold
+            };
             
             csvData.forEach((row, index) => {
                 const statusClass = row.calculatedDistance !== null && typeof row.calculatedDistance === 'number' ? 'updated' : '';
@@ -1358,28 +1386,28 @@
                 const isNegative = typeof distanceValue === 'number' && distanceValue < 0;
                 const distanceClass = isNegative ? 'negative-distance' : '';
 
-                // Determine urgency level for sorting
+                // Determine urgency level for sorting using DYNAMIC thresholds
                 let urgencyLevel, urgencyText, urgencyOrder;
                 if (typeof distanceValue === 'number') {
                     if (distanceValue < 0) {
                         urgencyLevel = 'OVERDUE';
                         urgencyText = '🔴 OVERDUE';
                         urgencyOrder = 1;
-                    } else if (distanceValue <= 200) {
+                    } else if (distanceValue <= urgencyThresholds.critical) {
                         urgencyLevel = 'CRITICAL';
                         urgencyText = '🟠 CRITICAL';
                         urgencyOrder = 2;
-                    } else if (distanceValue <= 500) {
+                    } else if (distanceValue <= urgencyThresholds.urgent) {
                         urgencyLevel = 'URGENT';
                         urgencyText = '🟡 URGENT';
                         urgencyOrder = 3;
-                    } else if (distanceValue <= 1000) {
+                    } else if (distanceValue <= urgencyThresholds.high) {
                         urgencyLevel = 'HIGH';
                         urgencyText = '🔵 HIGH';
                         urgencyOrder = 4;
-                    } else if (distanceValue <= 2000) {
-                        urgencyLevel = 'MEDIUM';
-                        urgencyText = '⚪ MEDIUM';
+                    } else if (distanceValue <= urgencyThresholds.medium) {
+                        urgencyLevel = 'MONITOR';
+                        urgencyText = '⚪ MONITOR';
                         urgencyOrder = 5;
                     } else {
                         urgencyLevel = 'LOW';
@@ -1760,7 +1788,7 @@
             showStatus('updateStatus', '✅ All values reset to original data', 'success');
         }
 
-        // Check for RUC licenses due soon (MODIFIED to prioritize urgent vehicles at top)
+        // Check for RUC licenses due soon (FIXED to use dynamic threshold throughout)
         function checkRUCDue() {
             const threshold = parseInt(document.getElementById('alertThreshold').value) || 2000;
             
@@ -1768,6 +1796,14 @@
                 showStatus('emailStatus', '⚠️ No data available. Please complete the update process first.', 'error');
                 return;
             }
+
+            // Dynamic urgency thresholds based on alert threshold
+            const urgencyThresholds = {
+                critical: Math.min(200, threshold * 0.1),        // 10% of threshold or 200km max
+                urgent: Math.min(500, threshold * 0.25),         // 25% of threshold or 500km max  
+                high: Math.min(1000, threshold * 0.5),           // 50% of threshold or 1000km max
+                medium: threshold                                 // Up to the full threshold
+            };
 
             // Find vehicles with RUC due soon OR overdue (negative distances)
             const dueVehicles = [];
@@ -1778,19 +1814,34 @@
                 if (distanceRemaining !== null && typeof distanceRemaining === 'number') {
                     // Include vehicles that are overdue (negative) OR within threshold
                     if (distanceRemaining < 0 || distanceRemaining <= threshold) {
+                        let urgency, urgencyOrder;
+                        
+                        if (distanceRemaining < 0) {
+                            urgency = 'OVERDUE';
+                            urgencyOrder = 1;
+                        } else if (distanceRemaining <= urgencyThresholds.critical) {
+                            urgency = 'CRITICAL';
+                            urgencyOrder = 2;
+                        } else if (distanceRemaining <= urgencyThresholds.urgent) {
+                            urgency = 'URGENT';
+                            urgencyOrder = 3;
+                        } else if (distanceRemaining <= urgencyThresholds.high) {
+                            urgency = 'HIGH';
+                            urgencyOrder = 4;
+                        } else if (distanceRemaining <= urgencyThresholds.medium) {
+                            urgency = 'MONITOR';
+                            urgencyOrder = 5;
+                        } else {
+                            urgency = 'LOW';
+                            urgencyOrder = 6;
+                        }
+
                         dueVehicles.push({
                             ...row,
                             distanceRemaining: distanceRemaining,
-                            urgency: distanceRemaining < 0 ? 'OVERDUE' : 
-                                    distanceRemaining <= 200 ? 'CRITICAL' :
-                                    distanceRemaining <= 500 ? 'URGENT' : 
-                                    distanceRemaining <= 1000 ? 'HIGH' :
-                                    distanceRemaining <= 2000 ? 'MEDIUM' : 'LOW',
-                            urgencyOrder: distanceRemaining < 0 ? 1 :
-                                         distanceRemaining <= 200 ? 2 :
-                                         distanceRemaining <= 500 ? 3 :
-                                         distanceRemaining <= 1000 ? 4 :
-                                         distanceRemaining <= 2000 ? 5 : 6
+                            urgency: urgency,
+                            urgencyOrder: urgencyOrder,
+                            thresholds: urgencyThresholds // Store thresholds for display
                         });
                     }
                 }
@@ -1814,24 +1865,23 @@
             }
 
             const overdueCount = dueVehicles.filter(v => v.distanceRemaining < 0).length;
-            const criticalCount = dueVehicles.filter(v => v.distanceRemaining >= 0 && v.distanceRemaining <= 200).length;
-            const urgentCount = dueVehicles.filter(v => v.distanceRemaining > 200 && v.distanceRemaining <= 500).length;
-            const dueCount = dueVehicles.filter(v => v.distanceRemaining > 500).length;
+            const criticalCount = dueVehicles.filter(v => v.distanceRemaining >= 0 && v.distanceRemaining <= urgencyThresholds.critical).length;
+            const urgentCount = dueVehicles.filter(v => v.distanceRemaining > urgencyThresholds.critical && v.distanceRemaining <= urgencyThresholds.urgent).length;
 
             // Display status message
-            let statusMessage = `🚨 FOUND ${dueVehicles.length} VEHICLES REQUIRING ATTENTION`;
+            let statusMessage = `🚨 FOUND ${dueVehicles.length} VEHICLES REQUIRING ATTENTION (${threshold.toLocaleString()}km threshold)`;
             if (overdueCount > 0 || criticalCount > 0) {
                 statusMessage += ` - ${overdueCount + criticalCount} NEED IMMEDIATE ACTION!`;
             }
 
             showStatus('emailStatus', statusMessage, 'error');
-            displayDueVehicles(dueVehicles);
+            displayDueVehicles(dueVehicles, urgencyThresholds);
             
             // Show send email button if there are due vehicles
             document.getElementById('sendEmailBtn').style.display = dueVehicles.length > 0 ? 'block' : 'none';
         }
 
-        // Show urgent summary report
+        // Show urgent summary report (FIXED to use dynamic threshold)
         function showUrgentSummary() {
             if (!csvData || csvData.length === 0) {
                 showStatus('emailStatus', '⚠️ No data available. Please complete the update process first.', 'error');
@@ -1847,16 +1897,25 @@
                 return { ...row, distanceRemaining };
             }).filter(v => v.distanceRemaining !== null && typeof v.distanceRemaining === 'number');
 
-            // Count by urgency levels
+            // Dynamic urgency thresholds based on alert threshold
+            const urgencyThresholds = {
+                critical: Math.min(200, threshold * 0.1),        // 10% of threshold or 200km max
+                urgent: Math.min(500, threshold * 0.25),         // 25% of threshold or 500km max  
+                high: Math.min(1000, threshold * 0.5),           // 50% of threshold or 1000km max
+                medium: threshold                                 // Up to the full threshold
+            };
+
+            // Count by urgency levels using dynamic thresholds
             const overdue = allVehicles.filter(v => v.distanceRemaining < 0);
-            const critical = allVehicles.filter(v => v.distanceRemaining >= 0 && v.distanceRemaining <= 200);
-            const urgent = allVehicles.filter(v => v.distanceRemaining > 200 && v.distanceRemaining <= 500);
-            const high = allVehicles.filter(v => v.distanceRemaining > 500 && v.distanceRemaining <= 1000);
-            const medium = allVehicles.filter(v => v.distanceRemaining > 1000 && v.distanceRemaining <= 2000);
+            const critical = allVehicles.filter(v => v.distanceRemaining >= 0 && v.distanceRemaining <= urgencyThresholds.critical);
+            const urgent = allVehicles.filter(v => v.distanceRemaining > urgencyThresholds.critical && v.distanceRemaining <= urgencyThresholds.urgent);
+            const high = allVehicles.filter(v => v.distanceRemaining > urgencyThresholds.urgent && v.distanceRemaining <= urgencyThresholds.high);
+            const medium = allVehicles.filter(v => v.distanceRemaining > urgencyThresholds.high && v.distanceRemaining <= urgencyThresholds.medium);
 
             let summaryHtml = `
                 <div style="background: #fee2e2; border: 2px solid #dc2626; border-radius: 10px; padding: 20px; margin: 20px 0;">
-                    <h3 style="color: #991b1b; margin-top: 0;">🚨 URGENT RUC LICENSE RENEWAL SUMMARY</h3>
+                    <h3 style="color: #991b1b; margin-top: 0;">🚨 RUC LICENSE RENEWAL SUMMARY</h3>
+                    <p style="color: #7f1d1d; font-weight: bold; margin-bottom: 20px;">📊 Alert Threshold: ${threshold.toLocaleString()}km | Categories adjust automatically</p>
                     
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
                         <div style="background: #7f1d1d; color: white; padding: 15px; border-radius: 8px; text-align: center;">
@@ -1866,35 +1925,48 @@
                         </div>
                         <div style="background: #dc2626; color: white; padding: 15px; border-radius: 8px; text-align: center;">
                             <div style="font-size: 2em; font-weight: bold;">${critical.length}</div>
-                            <div>CRITICAL (≤200km)</div>
+                            <div>CRITICAL (≤${urgencyThresholds.critical.toLocaleString()}km)</div>
                             <small>Renew This Week</small>
                         </div>
                         <div style="background: #ea580c; color: white; padding: 15px; border-radius: 8px; text-align: center;">
                             <div style="font-size: 2em; font-weight: bold;">${urgent.length}</div>
-                            <div>URGENT (≤500km)</div>
+                            <div>URGENT (≤${urgencyThresholds.urgent.toLocaleString()}km)</div>
                             <small>Renew Soon</small>
                         </div>
                         <div style="background: #d97706; color: white; padding: 15px; border-radius: 8px; text-align: center;">
                             <div style="font-size: 2em; font-weight: bold;">${high.length}</div>
-                            <div>HIGH (≤1000km)</div>
+                            <div>HIGH (≤${urgencyThresholds.high.toLocaleString()}km)</div>
                             <small>Plan Renewal</small>
                         </div>
                         <div style="background: #7c2d12; color: white; padding: 15px; border-radius: 8px; text-align: center;">
                             <div style="font-size: 2em; font-weight: bold;">${medium.length}</div>
-                            <div>MEDIUM (≤2000km)</div>
-                            <small>Monitor</small>
+                            <div>MONITOR (≤${urgencyThresholds.medium.toLocaleString()}km)</div>
+                            <small>Within Threshold</small>
                         </div>
                     </div>
 
                     <div style="background: white; padding: 15px; border-radius: 8px; border-left: 5px solid #dc2626;">
-                        <h4 style="color: #dc2626; margin-top: 0;">📋 ACTION REQUIRED:</h4>
-                        <ul style="color: #7f1d1d; font-weight: bold;">
-                            ${overdue.length > 0 ? `<li>🔴 ${overdue.length} vehicles are OVERDUE - Stop operations until RUC renewed</li>` : ''}
-                            ${critical.length > 0 ? `<li>🟠 ${critical.length} vehicles need RUC renewal THIS WEEK</li>` : ''}
-                            ${urgent.length > 0 ? `<li>🟡 ${urgent.length} vehicles need RUC renewal SOON</li>` : ''}
+                        <h4 style="color: #dc2626; margin-top: 0;">📋 Dynamic Thresholds (Based on ${threshold.toLocaleString()}km alert):</h4>
+                        <ul style="color: #7f1d1d; font-size: 14px;">
+                            <li><strong>🔴 OVERDUE:</strong> Any negative distance - immediate action</li>
+                            <li><strong>🟠 CRITICAL:</strong> 0 to ${urgencyThresholds.critical.toLocaleString()}km - renew this week</li>
+                            <li><strong>🟡 URGENT:</strong> ${urgencyThresholds.critical.toLocaleString()}km to ${urgencyThresholds.urgent.toLocaleString()}km - renew soon</li>
+                            <li><strong>🔵 HIGH:</strong> ${urgencyThresholds.urgent.toLocaleString()}km to ${urgencyThresholds.high.toLocaleString()}km - plan renewal</li>
+                            <li><strong>⚪ MONITOR:</strong> ${urgencyThresholds.high.toLocaleString()}km to ${urgencyThresholds.medium.toLocaleString()}km - within alert threshold</li>
                         </ul>
-                        <button onclick="checkRUCDue(); scrollToVehicleList();" class="btn" style="background: #dc2626; color: white; margin-top: 10px;">
-                            📋 VIEW DETAILED LIST
+                        
+                        ${overdue.length > 0 || critical.length > 0 ? `
+                        <div style="background: #fee2e2; padding: 10px; border-radius: 5px; margin-top: 15px;">
+                            <h5 style="color: #dc2626; margin: 0;">⚠️ IMMEDIATE ACTION REQUIRED:</h5>
+                            <ul style="color: #7f1d1d; margin: 5px 0; font-weight: bold;">
+                                ${overdue.length > 0 ? `<li>🔴 ${overdue.length} vehicles are OVERDUE - Stop operations until RUC renewed</li>` : ''}
+                                ${critical.length > 0 ? `<li>🟠 ${critical.length} vehicles need RUC renewal THIS WEEK</li>` : ''}
+                            </ul>
+                        </div>
+                        ` : ''}
+                        
+                        <button onclick="checkRUCDue(); scrollToVehicleList();" class="btn" style="background: #dc2626; color: white; margin-top: 15px;">
+                            📋 VIEW DETAILED VEHICLE LIST
                         </button>
                     </div>
                 </div>
@@ -1914,12 +1986,20 @@
             }, 100);
         }
 
-        // Display due vehicles in a table (MODIFIED to show most urgent first with clear hierarchy)
-        function displayDueVehicles(dueVehicles) {
+        // Display due vehicles in a table (FIXED to show dynamic threshold information)
+        function displayDueVehicles(dueVehicles, urgencyThresholds) {
+            const threshold = parseInt(document.getElementById('alertThreshold').value) || 2000;
+            
             let html = `
                 <div style="background: linear-gradient(135deg, #fee2e2, #fecaca); border: 3px solid #dc2626; border-radius: 15px; padding: 20px; margin-top: 15px;">
                     <h4 style="color: #7f1d1d; margin-top: 0; font-size: 1.5em;">🚨 VEHICLES REQUIRING RUC LICENSE RENEWAL (${dueVehicles.length})</h4>
-                    <p style="color: #991b1b; font-weight: bold; margin-bottom: 20px;">⚡ SORTED BY URGENCY - MOST CRITICAL FIRST ⚡</p>
+                    <p style="color: #991b1b; font-weight: bold; margin-bottom: 10px;">⚡ SORTED BY URGENCY - MOST CRITICAL FIRST ⚡</p>
+                    <p style="color: #7f1d1d; font-size: 14px; margin-bottom: 20px;">
+                        📊 <strong>Alert Threshold:</strong> ${threshold.toLocaleString()}km | 
+                        <strong>Critical:</strong> ≤${urgencyThresholds.critical.toLocaleString()}km | 
+                        <strong>Urgent:</strong> ≤${urgencyThresholds.urgent.toLocaleString()}km | 
+                        <strong>High:</strong> ≤${urgencyThresholds.high.toLocaleString()}km
+                    </p>
                     
                     <div style="overflow-x: auto;">
                         <table style="width: 100%; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
@@ -1943,22 +2023,22 @@
                     urgencyStyle = 'background: #7f1d1d; color: white;';
                     urgencyText = '🔴 OVERDUE';
                     actionText = 'STOP OPERATIONS';
-                } else if (vehicle.distanceRemaining <= 200) {
+                } else if (vehicle.urgency === 'CRITICAL') {
                     urgencyStyle = 'background: #dc2626; color: white;';
                     urgencyText = '🟠 CRITICAL';
                     actionText = 'RENEW THIS WEEK';
-                } else if (vehicle.distanceRemaining <= 500) {
+                } else if (vehicle.urgency === 'URGENT') {
                     urgencyStyle = 'background: #ea580c; color: white;';
                     urgencyText = '🟡 URGENT';
                     actionText = 'RENEW SOON';
-                } else if (vehicle.distanceRemaining <= 1000) {
+                } else if (vehicle.urgency === 'HIGH') {
                     urgencyStyle = 'background: #d97706; color: white;';
                     urgencyText = '🔵 HIGH';
                     actionText = 'PLAN RENEWAL';
                 } else {
                     urgencyStyle = 'background: #7c2d12; color: white;';
-                    urgencyText = '⚪ MEDIUM';
-                    actionText = 'MONITOR';
+                    urgencyText = '⚪ MONITOR';
+                    actionText = 'WITHIN THRESHOLD';
                 }
                 
                 const distanceDisplay = vehicle.distanceRemaining < 0 ? 
@@ -1986,13 +2066,19 @@
                     </div>
                     
                     <div style="background: white; padding: 15px; border-radius: 8px; margin-top: 20px; border-left: 5px solid #dc2626;">
-                        <h5 style="color: #dc2626; margin-top: 0;">📋 Next Steps:</h5>
-                        <ol style="color: #7f1d1d;">
-                            <li><strong>OVERDUE vehicles:</strong> Must stop operations immediately until RUC renewed</li>
-                            <li><strong>CRITICAL vehicles:</strong> Schedule RUC renewal within 7 days</li>
-                            <li><strong>URGENT vehicles:</strong> Plan RUC renewal within 2-3 weeks</li>
-                            <li><strong>Contact drivers:</strong> Use email addresses provided for quick notification</li>
-                        </ol>
+                        <h5 style="color: #dc2626; margin-top: 0;">📋 Dynamic Urgency Levels (Based on ${threshold.toLocaleString()}km threshold):</h5>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; font-size: 13px;">
+                            <div>🔴 <strong>OVERDUE:</strong> Any negative distance</div>
+                            <div>🟠 <strong>CRITICAL:</strong> 0 to ${urgencyThresholds.critical.toLocaleString()}km</div>
+                            <div>🟡 <strong>URGENT:</strong> ${urgencyThresholds.critical.toLocaleString()}km to ${urgencyThresholds.urgent.toLocaleString()}km</div>
+                            <div>🔵 <strong>HIGH:</strong> ${urgencyThresholds.urgent.toLocaleString()}km to ${urgencyThresholds.high.toLocaleString()}km</div>
+                            <div>⚪ <strong>MONITOR:</strong> ${urgencyThresholds.high.toLocaleString()}km to ${urgencyThresholds.medium.toLocaleString()}km</div>
+                        </div>
+                        
+                        <div style="margin-top: 15px; color: #7f1d1d;">
+                            <strong>💡 Threshold Logic:</strong> Categories automatically adjust when you change the alert threshold above.
+                            Higher thresholds create broader monitoring ranges.
+                        </div>
                     </div>
                 </div>
             `;
