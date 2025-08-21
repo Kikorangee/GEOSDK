@@ -136,6 +136,11 @@
         .updated {
             background: #d4edda !important;
         }
+        .negative-distance {
+            background: #f8d7da !important;
+            color: #721c24 !important;
+            font-weight: bold !important;
+        }
         .editable-value {
             transition: all 0.2s ease;
         }
@@ -211,8 +216,8 @@
         <div class="geotab-banner" id="geotabBanner">
             <span>✅</span>
             <div>
-                <strong>Calculates Distance Remaining</strong><br>
-                <small>Alerts when < 2000 km</small>
+                <strong>Calculates Distance Remaining (Including Negative)</strong><br>
+                <small>Shows negative km when odometer exceeds RUC paid to</small>
             </div>
         </div>
 
@@ -224,7 +229,7 @@
                 <input type="text" id="database" class="form-control" placeholder="Database" value="uccnz">
                 <input type="text" id="username" class="form-control" placeholder="Username" value="francis@directt.co.nz">
                 <input type="password" id="password" class="form-control" placeholder="Password" value="@fr4nc1sWynn5">
-                <button onclick="authenticateGeotab()" id="authBtn" class="btn btn-primary">🔒 Connect to Geotab</button>
+                <button onclick="authenticateGeotab()" id="authBtn" class="btn btn-primary">🔐 Connect to Geotab</button>
             </div>
             <div id="authStatus"></div>
         </div>
@@ -235,7 +240,7 @@
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                 <button onclick="loadHardcodedData()" class="btn btn-success" id="hardcodedBtn">
-                    ⚡ Load 'RUC paid to' Data (79 Records)
+                    ⚡ Load Hardcoded Data (79 Records)
                 </button>
                 <button onclick="refreshData()" class="btn btn-primary" id="refreshBtn">
                     🔄 Refresh All Data
@@ -247,13 +252,13 @@
             </div>
             
             <div class="file-upload" onclick="document.getElementById('csvFile').click()">
-                <p>📁 Click to select updated 'RUC paid to' file</p>
+                <p>📁 Click to select your own RUC file</p>
                 <p><small>Supports: CSV, Excel (.xlsx, .xls)</small></p>
                 <input type="file" id="csvFile" accept=".csv,.xlsx,.xls" style="display: none;" onchange="loadDataFile(event)">
             </div>
             
             <div style="margin: 15px 0; padding: 15px; background: #e3f2fd; border-radius: 8px;">
-                <h4>📊 'RUC paid to' Info:</h4>
+                <h4>📊 Hardcoded Data Info:</h4>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
                     <div style="background: white; padding: 10px; border-radius: 5px; text-align: center;">
                         <strong style="color: #1976d2;">79</strong><br>
@@ -292,6 +297,11 @@
         <!-- Step 3: Update Distances -->
         <div class="card" id="updateSection" style="display: none;">
             <h3>⚡ Step 3: Update Distances with Real Odometer Data</h3>
+            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                <h4>ℹ️ Important Note:</h4>
+                <p><strong>Negative distances:</strong> When odometer exceeds RUC paid to, the system will show negative km (indicating RUC overdue)</p>
+                <p><strong>Mapping:</strong> Device mapping is optional - you can proceed even with unmapped vehicles</p>
+            </div>
             <button onclick="updateDistancesFromGeotab()" id="updateBtn" class="btn btn-success">🔄 Update All Distances</button>
             <div id="updateStatus"></div>
             <div id="progressContainer" style="display: none;">
@@ -305,12 +315,15 @@
         <!-- Step 4: Email Notifications -->
         <div class="card" id="emailSection" style="display: none;">
             <h3>📧 Step 4: Email Notifications for RUC Due Soon</h3>
-            <p>Send automatic email alerts when RUC licenses are due within 200km</p>
+            <p>Send automatic email alerts when RUC licenses are due within threshold km (including overdue/negative distances)</p>
             
             <div style="margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px;">
                 <div style="margin-bottom: 15px;">
                     <label>⚠️ Alert Threshold (km):</label>
                     <input type="number" id="alertThreshold" value="200" style="width: 100px; margin-left: 10px; padding: 5px;">
+                    <small style="display: block; margin-top: 5px; color: #666;">
+                        Note: Negative distances (overdue RUC) will always be included in alerts
+                    </small>
                 </div>
                 <button onclick="checkRUCDue()" class="btn btn-success" id="checkRUCBtn">🔍 Check RUC Due Soon</button>
                 <button onclick="sendRUCEmails()" class="btn" style="background: #f56565; color: white; display: none;" id="sendEmailBtn">📧 Send Email Alerts</button>
@@ -447,7 +460,7 @@
                         document.getElementById('authSection').style.display = 'none';
                         
                         // Set dummy credentials for compatibility
-                        credentials = { internal: false };
+                        credentials = { internal: true };
                         
                         // Show success message
                         showStatus('csvStatus', 
@@ -1028,12 +1041,19 @@
             }
         }
 
-        // Create device mapping interface
+        // Create device mapping interface with automatic next step
         function createDeviceMapping() {
             let html = `
                 <div class="device-mapping">
-                    <h4>🔗 Map Fleet Numbers to Geotab Devices</h4>
-                    <p>Match each fleet number from your CSV to the corresponding Geotab device:</p>
+                    <h4>🔗 Map Fleet Numbers to Geotab Devices (Optional)</h4>
+                    <p>Match each fleet number from your CSV to the corresponding Geotab device. Mapping is optional - you can proceed even with unmapped vehicles.</p>
+                    
+                    <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                        <h5>ℹ️ Mapping Information:</h5>
+                        <p>• <strong>Mapped vehicles:</strong> Will get live odometer readings from Geotab</p>
+                        <p>• <strong>Unmapped vehicles:</strong> Will use CSV odometer readings for calculations</p>
+                        <p>• <strong>Negative distances:</strong> When current odometer exceeds RUC paid to, negative km will be shown</p>
+                    </div>
             `;
 
             csvData.forEach((row, index) => {
@@ -1041,7 +1061,7 @@
                     <div class="mapping-row">
                         <span style="min-width: 100px;"><strong>Fleet ${row.fleetNumber}:</strong></span>
                         <select id="device_${index}" onchange="updateMapping(${index}, this.value)">
-                            <option value="">Select Geotab Device...</option>
+                            <option value="">Select Geotab Device (Optional)...</option>
                 `;
 
                 geotabDevices.forEach(device => {
@@ -1057,7 +1077,10 @@
             });
 
             html += `
-                    <button onclick="validateMapping()" class="btn btn-primary" style="margin-top: 15px;">✅ Validate Mapping</button>
+                    <div style="margin-top: 20px;">
+                        <button onclick="validateMapping()" class="btn btn-primary" style="margin-right: 10px;">✅ Review Mapping (Optional)</button>
+                        <button onclick="proceedToUpdate()" class="btn btn-success">⚡ Proceed to Update</button>
+                    </div>
                 </div>
             `;
 
@@ -1073,6 +1096,9 @@
                     row.geotabDeviceId = matchingDevice.id;
                 }
             });
+
+            // Automatically show the update section
+            document.getElementById('updateSection').style.display = 'block';
         }
 
         // Update device mapping
@@ -1086,21 +1112,38 @@
             }
         }
 
-        // Validate mapping
+        // Optional validate mapping (no longer mandatory)
         function validateMapping() {
             const mapped = Object.keys(deviceMapping).length;
             const total = csvData.length;
 
             if (mapped === 0) {
-                showStatus('deviceStatus', 'Please map at least one device', 'error');
-                return;
+                showStatus('deviceStatus', 'ℹ️ No devices mapped - all vehicles will use CSV odometer readings', 'info');
+            } else {
+                showStatus('deviceStatus', `✅ Mapped ${mapped} of ${total} fleet vehicles to Geotab devices`, 'success');
+            }
+        }
+
+        // Proceed to update step without mandatory validation
+        function proceedToUpdate() {
+            const mapped = Object.keys(deviceMapping).length;
+            const total = csvData.length;
+
+            if (mapped === 0) {
+                showStatus('deviceStatus', 
+                    `ℹ️ No devices mapped - all ${total} vehicles will use CSV odometer readings for distance calculation`, 
+                    'info');
+            } else {
+                showStatus('deviceStatus', 
+                    `✅ Ready to update! ${mapped} vehicles mapped to Geotab, ${total - mapped} will use CSV readings`, 
+                    'success');
             }
 
-            showStatus('deviceStatus', `✅ Mapped ${mapped} of ${total} fleet vehicles`, 'success');
+            // Make sure update section is visible
             document.getElementById('updateSection').style.display = 'block';
         }
 
-        // Update distances with real odometer data (removed currentOdometer references)
+        // Update distances with real odometer data (MODIFIED to allow negative distances)
         async function updateDistancesFromGeotab() {
             if (!isGeotabAddIn && !credentials) {
                 showStatus('updateStatus', 'Please authenticate first', 'error');
@@ -1108,66 +1151,89 @@
             }
 
             const mappedDevices = csvData.filter(row => row.geotabDeviceId);
-            if (mappedDevices.length === 0) {
-                showStatus('updateStatus', 'No devices mapped. Please map devices first.', 'error');
-                return;
-            }
+            const unmappedDevices = csvData.filter(row => !row.geotabDeviceId);
 
             document.getElementById('updateBtn').disabled = true;
-            showStatus('updateStatus', 'Fetching real odometer readings from Geotab...', 'info');
+            showStatus('updateStatus', `Fetching real odometer readings from Geotab (${mappedDevices.length} mapped, ${unmappedDevices.length} using CSV)...`, 'info');
 
             try {
-                // Build API calls for ExecuteMultiCall
-                const calls = [];
-                const now = new Date().toISOString();
+                if (mappedDevices.length > 0) {
+                    // Build API calls for ExecuteMultiCall
+                    const calls = [];
+                    const now = new Date().toISOString();
 
-                mappedDevices.forEach(row => {
-                    calls.push({
-                        method: 'Get',
-                        params: {
-                            typeName: 'StatusData',
-                            search: {
-                                deviceSearch: { id: row.geotabDeviceId },
-                                diagnosticSearch: { id: 'DiagnosticOdometerAdjustmentId' },
-                                fromDate: now,
-                                toDate: now
-                            },
-                            resultsLimit: 1
+                    mappedDevices.forEach(row => {
+                        calls.push({
+                            method: 'Get',
+                            params: {
+                                typeName: 'StatusData',
+                                search: {
+                                    deviceSearch: { id: row.geotabDeviceId },
+                                    diagnosticSearch: { id: 'DiagnosticOdometerAdjustmentId' },
+                                    fromDate: now,
+                                    toDate: now
+                                },
+                                resultsLimit: 1
+                            }
+                        });
+                    });
+
+                    showProgress(25, 'Executing odometer API calls...');
+
+                    // Execute all calls at once
+                    const results = await callGeotabAPI('ExecuteMultiCall', { calls: calls });
+
+                    showProgress(50, 'Converting meters to kilometers and calculating distances...');
+
+                    // Process results for mapped devices
+                    let successCount = 0;
+                    mappedDevices.forEach((row, index) => {
+                        const odometerData = results[index];
+                        if (odometerData && odometerData.length > 0 && odometerData[0].data !== undefined) {
+                            // Geotab odometer is in METERS - convert to kilometers
+                            const odometerMeters = odometerData[0].data;
+                            const odometerKilometers = Math.round(odometerMeters / 1000); // Round to nearest km
+                            
+                            // Update huboOdoReading with current Geotab odometer reading
+                            row.huboOdoReading = odometerKilometers.toString();
+                            
+                            // Calculate distance remaining: Hubo Paid To - Hubo/Odo Reading (ALLOW NEGATIVE)
+                            const huboPaidKm = parseInt(row.huboPaidTo.replace(/,/g, '')) || 0;
+                            row.calculatedDistance = huboPaidKm - odometerKilometers; // REMOVED Math.max(0, ...)
+                            successCount++;
+                        } else {
+                            row.calculatedDistance = 'Unable to calculate';
                         }
                     });
-                });
 
-                showProgress(25, 'Executing odometer API calls...');
+                    showProgress(75, 'Processing unmapped vehicles with CSV data...');
+                }
 
-                // Execute all calls at once
-                const results = await callGeotabAPI('ExecuteMultiCall', { calls: calls });
-
-                showProgress(75, 'Converting meters to kilometers and calculating distances...');
-
-                // Process results (removed currentOdometer, update huboOdoReading directly)
-                let successCount = 0;
-                mappedDevices.forEach((row, index) => {
-                    const odometerData = results[index];
-                    if (odometerData && odometerData.length > 0 && odometerData[0].data !== undefined) {
-                        // Geotab odometer is in METERS - convert to kilometers
-                        const odometerMeters = odometerData[0].data;
-                        const odometerKilometers = Math.round(odometerMeters / 1000); // Round to nearest km
-                        
-                        // Update huboOdoReading with current Geotab odometer reading
-                        row.huboOdoReading = odometerKilometers.toString();
-                        
-                        // Calculate distance remaining: Hubo Paid To - Hubo/Odo Reading (in km)
+                // Process unmapped devices using CSV readings
+                let csvProcessedCount = 0;
+                unmappedDevices.forEach(row => {
+                    if (row.huboOdoReading && row.huboOdoReading.trim() !== '') {
                         const huboPaidKm = parseInt(row.huboPaidTo.replace(/,/g, '')) || 0;
-                        row.calculatedDistance = Math.max(0, huboPaidKm - odometerKilometers);
-                        successCount++;
+                        const huboOdoKm = parseInt(row.huboOdoReading.replace(/,/g, '')) || 0;
+                        
+                        // Calculate distance remaining (ALLOW NEGATIVE)
+                        row.calculatedDistance = huboPaidKm - huboOdoKm; // REMOVED Math.max(0, ...)
+                        csvProcessedCount++;
                     } else {
-                        row.calculatedDistance = 'Unable to calculate';
+                        row.calculatedDistance = 'No odometer reading';
                     }
                 });
 
                 hideProgress();
+                
+                const mappedCount = mappedDevices.length;
+                const successCount = mappedDevices.filter(row => typeof row.calculatedDistance === 'number').length;
+                
                 showStatus('updateStatus', 
-                    `✅ Successfully updated ${successCount} of ${mappedDevices.length} vehicles!<br>
+                    `✅ Distance calculation complete!<br>
+                    • <strong>Geotab mapped:</strong> ${successCount} of ${mappedCount} updated<br>
+                    • <strong>CSV readings:</strong> ${csvProcessedCount} processed<br>
+                    • <strong>Note:</strong> Negative distances indicate RUC overdue<br>
                     <small>Geotab odometer readings converted from meters to kilometers for accurate RUC calculation.</small>`, 
                     'success');
 
@@ -1182,12 +1248,13 @@
             }
         }
 
-        // Display updated data with simple button-based editing (removed currentOdometer column)
+        // Display updated data with negative distance highlighting
         function displayUpdatedData() {
             let html = `
                 <h4>📊 Updated RUC Data</h4>
                 <p><strong>Note:</strong> Geotab odometer readings converted from meters to kilometers for RUC calculation</p>
                 <p><strong>✏️ Manual Override:</strong> Click the "Edit" buttons to modify values</p>
+                <p><strong>🚨 Negative distances:</strong> Highlighted in red - indicates RUC overdue</p>
                 
                 <div style="margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px;">
                     <button onclick="recalculateAll()" class="btn btn-success" id="recalcAllBtn">🔄 Recalculate All</button>
@@ -1213,13 +1280,18 @@
                 const statusClass = row.calculatedDistance !== null && typeof row.calculatedDistance === 'number' ? 'updated' : '';
                 const status = row.geotabDeviceId ? 
                     (typeof row.calculatedDistance === 'number' ? '✅ Updated' : '⚠️ No data') : 
-                    '⏸️ Not mapped';
+                    '⏸️ CSV data';
 
                 // Store original values if not already stored
                 if (!row.originalHuboPaidTo) {
                     row.originalHuboPaidTo = row.huboPaidTo;
                     row.originalHuboOdoReading = row.huboOdoReading;
                 }
+
+                // Determine if distance is negative and apply styling
+                const distanceValue = row.calculatedDistance !== null ? row.calculatedDistance : row.distanceRemaining;
+                const isNegative = typeof distanceValue === 'number' && distanceValue < 0;
+                const distanceClass = isNegative ? 'negative-distance' : '';
 
                 html += `
                     <tr class="${statusClass}">
@@ -1238,7 +1310,7 @@
                                 ✏️ Edit
                             </button>
                         </td>
-                        <td id="distance_${index}">${row.calculatedDistance !== null ? row.calculatedDistance : row.distanceRemaining}</td>
+                        <td id="distance_${index}" class="${distanceClass}">${distanceValue}${isNegative ? ' (OVERDUE)' : ''}</td>
                         <td>${status}</td>
                     </tr>
                 `;
@@ -1286,7 +1358,7 @@
             }
         }
 
-        // Recalculate all distances (simplified without currentOdometer logic)
+        // Recalculate all distances (MODIFIED to allow negative distances)
         function recalculateAll() {
             console.log('🔄 recalculateAll() called');
             
@@ -1326,14 +1398,14 @@
                         if (wasHuboManuallyEdited) {
                             // PRIORITY 1: Use manually edited huboOdoReading
                             const huboReading = parseInt(currentHuboReading) || 0;
-                            newDistance = Math.max(0, huboPaidKm - huboReading);
+                            newDistance = huboPaidKm - huboReading; // REMOVED Math.max(0, ...)
                             dataSource = `Manual Edit (${huboReading} km)`;
                             manualEditCount++;
                             console.log(`Row ${index}: Using MANUAL EDIT ${huboReading}, distance = ${newDistance}`);
                         } else {
                             // PRIORITY 2: Use current CSV reading
                             const huboReading = parseInt(currentHuboReading) || 0;
-                            newDistance = Math.max(0, huboPaidKm - huboReading);
+                            newDistance = huboPaidKm - huboReading; // REMOVED Math.max(0, ...)
                             dataSource = `CSV Reading (${huboReading} km)`;
                             csvFallbackCount++;
                             console.log(`Row ${index}: Using CSV reading ${huboReading}, distance = ${newDistance}`);
@@ -1346,19 +1418,24 @@
                         // Update the distance cell in the table
                         const distanceCell = document.getElementById(`distance_${index}`);
                         if (distanceCell) {
-                            distanceCell.textContent = newDistance;
+                            // Add OVERDUE indicator for negative distances
+                            const displayText = newDistance < 0 ? `${newDistance} (OVERDUE)` : newDistance.toString();
+                            distanceCell.textContent = displayText;
                             
-                            // Color-code based on data source
-                            if (wasHuboManuallyEdited) {
+                            // Color-code based on data source and negative values
+                            if (newDistance < 0) {
+                                distanceCell.className = 'negative-distance'; // Red for negative/overdue
+                            } else if (wasHuboManuallyEdited) {
                                 distanceCell.style.background = '#e2f8f5'; // Teal for manual edits
                                 distanceCell.style.border = '2px solid #48bb78';
-                                distanceCell.title = `Manual Edit: ${dataSource}`;
+                                distanceCell.style.color = '#2d3748';
                             } else {
                                 distanceCell.style.background = '#fff3cd'; // Yellow for CSV data
                                 distanceCell.style.border = '2px solid #d69e2e';
-                                distanceCell.title = `CSV Data: ${dataSource}`;
+                                distanceCell.style.color = '#2d3748';
                             }
                             
+                            distanceCell.title = `${dataSource}${newDistance < 0 ? ' - RUC OVERDUE!' : ''}`;
                             distanceCell.style.fontWeight = 'bold';
                             console.log(`Updated cell distance_${index} with value ${newDistance} from ${dataSource}`);
                         } else {
@@ -1375,16 +1452,19 @@
                     }
                 });
                 
+                const negativeCount = csvData.filter(row => typeof row.calculatedDistance === 'number' && row.calculatedDistance < 0).length;
+                
                 const message = `✅ Recalculation complete! 
                     <br>• Total rows: ${csvData.length}
                     <br>• Values changed: ${updatedCount}
                     <br>• <span style="color: #48bb78;">Manual edits: ${manualEditCount}</span>
                     <br>• <span style="color: #d69e2e;">CSV data: ${csvFallbackCount}</span>
+                    ${negativeCount > 0 ? `<br>• <span style="color: #721c24;">⚠️ Overdue RUC: ${negativeCount}</span>` : ''}
                     ${errorCount > 0 ? `<br>• Errors: ${errorCount}` : ''}
                     <br><small>💡 Hover over distance values to see data source</small>`;
                 
-                showStatus('updateStatus', message, 'success');
-                console.log(`Recalculation complete: ${updatedCount} changed, ${manualEditCount} manual, ${csvFallbackCount} CSV, ${errorCount} errors`);
+                showStatus('updateStatus', message, negativeCount > 0 ? 'error' : 'success');
+                console.log(`Recalculation complete: ${updatedCount} changed, ${manualEditCount} manual, ${csvFallbackCount} CSV, ${errorCount} errors, ${negativeCount} negative`);
                 
             } catch (error) {
                 console.error('Error in recalculateAll:', error);
@@ -1392,7 +1472,7 @@
             }
         }
 
-        // Recalculate distance for a specific row (simplified without currentOdometer logic)
+        // Recalculate distance for a specific row (MODIFIED to allow negative distances)
         function recalculateRow(rowIndex) {
             try {
                 if (rowIndex >= csvData.length || rowIndex < 0) {
@@ -1416,180 +1496,11 @@
                 if (wasHuboManuallyEdited) {
                     // Use manually edited huboOdoReading
                     const huboReading = parseInt(currentHuboReading) || 0;
-                    newDistance = Math.max(0, huboPaidKm - huboReading);
+                    newDistance = huboPaidKm - huboReading; // REMOVED Math.max(0, ...)
                     console.log(`Row ${rowIndex}: Using MANUAL EDIT ${huboReading}`);
                 } else {
                     // Use current CSV reading
                     const huboReading = parseInt(currentHuboReading) || 0;
-                    newDistance = Math.max(0, huboPaidKm - huboReading);
+                    newDistance = huboPaidKm - huboReading; // REMOVED Math.max(0, ...)
                     console.log(`Row ${rowIndex}: Using CSV ${huboReading}`);
                 }
-                
-                row.calculatedDistance = newDistance;
-                
-                // Update the distance cell with appropriate color
-                const distanceCell = document.getElementById(`distance_${rowIndex}`);
-                if (distanceCell) {
-                    distanceCell.textContent = newDistance;
-                    
-                    if (wasHuboManuallyEdited) {
-                        distanceCell.style.background = '#e2f8f5'; // Teal for manual
-                        distanceCell.style.border = '2px solid #48bb78';
-                    } else {
-                        distanceCell.style.background = '#fff3cd'; // Yellow for CSV
-                        distanceCell.style.border = '2px solid #d69e2e';
-                    }
-                    distanceCell.style.fontWeight = 'bold';
-                }
-                
-                console.log(`Recalculated row ${rowIndex}: Fleet ${row.fleetNumber}, Distance: ${newDistance}`);
-                
-            } catch (error) {
-                console.error(`Error recalculating row ${rowIndex}:`, error);
-            }
-        }
-
-        // Reset to original values
-        function resetToOriginal() {
-            if (!confirm('Are you sure you want to reset all values to original? This will undo all manual edits.')) {
-                return;
-            }
-
-            csvData.forEach((row, index) => {
-                if (row.originalHuboPaidTo) {
-                    row.huboPaidTo = row.originalHuboPaidTo;
-                    row.huboOdoReading = row.originalHuboOdoReading;
-                    
-                    // Update display
-                    const huboPaidCell = document.getElementById(`huboPaidTo_${index}`);
-                    const huboReadingCell = document.getElementById(`huboOdoReading_${index}`);
-                    
-                    if (huboPaidCell) {
-                        huboPaidCell.textContent = row.huboPaidTo;
-                        huboPaidCell.style.background = '';
-                        huboPaidCell.style.border = '';
-                        huboPaidCell.style.fontWeight = '';
-                    }
-                    
-                    if (huboReadingCell) {
-                        huboReadingCell.textContent = row.huboOdoReading;
-                        huboReadingCell.style.background = '';
-                        huboReadingCell.style.border = '';
-                        huboReadingCell.style.fontWeight = '';
-                    }
-                }
-            });
-
-            recalculateAll();
-            showStatus('updateStatus', '✅ All values reset to original data', 'success');
-        }
-
-        // Check for RUC licenses due soon
-        function checkRUCDue() {
-            const threshold = parseInt(document.getElementById('alertThreshold').value) || 200;
-            
-            if (!csvData || csvData.length === 0) {
-                showStatus('emailStatus', '⚠️ No data available. Please complete the update process first.', 'error');
-                return;
-            }
-
-            // Find vehicles with RUC due soon
-            const dueVehicles = [];
-            csvData.forEach((row, index) => {
-                const distanceRemaining = row.calculatedDistance !== null ? row.calculatedDistance : 
-                    (row.distanceRemaining && row.distanceRemaining !== '' ? parseInt(row.distanceRemaining) : null);
-                
-                if (distanceRemaining !== null && typeof distanceRemaining === 'number' && distanceRemaining <= threshold) {
-                    dueVehicles.push({
-                        ...row,
-                        distanceRemaining: distanceRemaining,
-                        urgency: distanceRemaining <= 50 ? 'URGENT' : distanceRemaining <= 200 ? 'DUE SOON' : 'WARNING'
-                    });
-                }
-            });
-
-            // Sort by urgency (lowest distance first)
-            dueVehicles.sort((a, b) => a.distanceRemaining - b.distanceRemaining);
-
-            if (dueVehicles.length === 0) {
-                showStatus('emailStatus', `✅ Great news! No vehicles have RUC due within ${threshold}km`, 'success');
-                document.getElementById('dueVehiclesList').innerHTML = '';
-                return;
-            }
-
-            // Display due vehicles
-            showStatus('emailStatus', `⚠️ Found ${dueVehicles.length} vehicles with RUC due within ${threshold}km`, 'error');
-            displayDueVehicles(dueVehicles);
-        }
-
-        // Display due vehicles in a table
-        function displayDueVehicles(dueVehicles) {
-            let html = `
-                <div style="background: #fed7d7; padding: 15px; border-radius: 8px; margin-top: 15px;">
-                    <h4 style="color: #c53030;">🚨 Vehicles Requiring RUC Renewal (${dueVehicles.length})</h4>
-                    <table style="width: 100%; margin-top: 10px;">
-                        <thead>
-                            <tr style="background: #c53030; color: white;">
-                                <th>Fleet #</th>
-                                <th>Driver</th>
-                                <th>Distance Remaining</th>
-                                <th>Urgency</th>
-                                <th>Email Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
-
-            dueVehicles.forEach((vehicle, index) => {
-                const urgencyColor = vehicle.urgency === 'URGENT' ? '#c53030' : 
-                                   vehicle.urgency === 'DUE SOON' ? '#d69e2e' : '#38a169';
-                
-                html += `
-                    <tr style="background: white;">
-                        <td><strong>${vehicle.fleetNumber}</strong></td>
-                        <td>${vehicle.driverName || 'No Driver'}<br><small>${vehicle.driverEmail || 'No email'}</small></td>
-                        <td><strong>${vehicle.distanceRemaining}km</strong></td>
-                        <td style="color: ${urgencyColor}; font-weight: bold;">${vehicle.urgency}</td>
-                        <td id="email-status-${index}">📤 Pending</td>
-                    </tr>
-                `;
-            });
-
-            html += `</tbody></table></div>`;
-            document.getElementById('dueVehiclesList').innerHTML = html;
-        }
-
-        // Download updated CSV with driver information and manual override tracking (removed currentOdometer)
-        function downloadUpdatedCSV() {
-            let csvContent = ', ROAD USER (RUC) ,,, ,,\n';
-            csvContent += 'Fleet #, Hubo Paid To , Hubo/Odo Reading ,distance remaining,Driver,Driver Email,RUC Admin\n';
-
-            let manualEditCount = 0;
-            
-            csvData.forEach(row => {
-                // Check if values were manually edited
-                if (row.originalHuboPaidTo && 
-                    (row.huboPaidTo !== row.originalHuboPaidTo || row.huboOdoReading !== row.originalHuboOdoReading)) {
-                    manualEditCount++;
-                }
-                
-                const distanceRemaining = row.calculatedDistance !== null ? row.calculatedDistance : row.distanceRemaining;
-                csvContent += `${row.fleetNumber},"${row.huboPaidTo}","${row.huboOdoReading}","${distanceRemaining}","${row.driverName || ''}","${row.driverEmail || ''}","${row.rucAdminEmail || ''}"\n`;
-            });
-
-            const blob = new Blob([csvContent], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `updated_ruc_data_with_emails_${new Date().toISOString().slice(0,10)}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-
-            const editInfo = manualEditCount > 0 ? ` (${manualEditCount} manual edits included)` : '';
-            showStatus('updateStatus', `✅ Updated CSV file with driver emails downloaded successfully!${editInfo}`, 'success');
-        }
-    </script>
-</body>
-</html>
