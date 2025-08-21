@@ -208,8 +208,8 @@
 <body>
     <div class="container">
         <div class="card header">
-            <h1><img src="https://raw.githubusercontent.com/Kikorangee/GEOSDK/master/black.png" class="logo">RUC Distance Updater</h1>
-            <p>Update RUC PAID TO KM'S with current odometer readings - including negative distances for overdue RUC</p>
+            <h1><img src="https://raw.githubusercontent.com/Kikorangee/GEOSDK/master/black.png" class="logo">RUC Reminder Dashboard</h1>
+            <p>United Civil Construction Ltd </p>
         </div>
 
         <!-- Geotab Add-In Banner -->
@@ -240,7 +240,7 @@
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                 <button onclick="loadHardcodedData()" class="btn btn-success" id="hardcodedBtn">
-                    ⚡ Load Hardcoded Data (79 Records)
+                    ⚡ Load existing Fleet Data (79 Records)
                 </button>
                 <button onclick="refreshData()" class="btn btn-primary" id="refreshBtn">
                     🔄 Refresh All Data
@@ -252,7 +252,7 @@
             </div>
             
             <div class="file-upload" onclick="document.getElementById('csvFile').click()">
-                <p>📁 Click to select your own RUC file</p>
+                <p>📁 Click to select new RUC file</p>
                 <p><small>Supports: CSV, Excel (.xlsx, .xls)</small></p>
                 <input type="file" id="csvFile" accept=".csv,.xlsx,.xls" style="display: none;" onchange="loadDataFile(event)">
             </div>
@@ -288,7 +288,7 @@
 
         <!-- Step 2: Get Devices and Map -->
         <div class="card" id="deviceSection" style="display: none;">
-            <h3>🚗 Step 2: Get Fleet Devices and Map to RUC Records</h3>
+            <h3>🚗 Step 2: Integrate Live Odometer Records</h3>
             <button onclick="getGeotabDevices()" id="devicesBtn" class="btn btn-success">📡 Get All Fleet Devices</button>
             <div id="deviceStatus"></div>
             <div id="deviceMapping"></div>
@@ -296,7 +296,7 @@
 
         <!-- Step 3: Update Distances -->
         <div class="card" id="updateSection" style="display: none;">
-            <h3>⚡ Step 3: Update Distances with Real Odometer Data</h3>
+            <h3>⚡ Step 3: Update Odometer Readings</h3>
             <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                 <h4>ℹ️ Important Note:</h4>
                 <p><strong>Negative distances:</strong> When odometer exceeds RUC paid to, the system will show negative km (indicating RUC overdue)</p>
