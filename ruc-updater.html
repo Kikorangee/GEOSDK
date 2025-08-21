@@ -1268,38 +1268,83 @@
             }
         }
 
-        // Display updated data with negative distance highlighting
+        // Global variable to track sorting
+        let currentSort = { column: null, direction: 'asc' };
+
+        // Display updated data with negative distance highlighting AND SORTABLE COLUMNS
         function displayUpdatedData() {
             let html = `
                 <h4>📊 Updated RUC Data</h4>
                 <p><strong>Note:</strong> Geotab odometer readings converted from meters to kilometers for RUC calculation</p>
                 <p><strong>✏️ Manual Override:</strong> Click the "Edit" buttons to modify values</p>
                 <p><strong>🚨 Negative distances:</strong> Highlighted in red - indicates RUC overdue</p>
+                <p><strong>🔄 Sortable:</strong> Click column headers to sort data</p>
                 
                 <div style="margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px;">
                     <button onclick="recalculateAll()" class="btn btn-success" id="recalcAllBtn">🔄 Recalculate All</button>
                     <button onclick="resetToOriginal()" class="btn" style="background: #f56565; color: white;" id="resetBtn">↩️ Reset to Original</button>
+                    <button onclick="sortByUrgency()" class="btn btn-primary" style="margin-left: 10px;">🚨 Sort by Urgency</button>
                 </div>
                 
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Fleet #</th>
-                            <th>Hubo Paid To (km)</th>
-                            <th>Edit</th>
-                            <th>Hubo/Odo Reading (km)</th>
-                            <th>Edit</th>
-                            <th>Distance Remaining (km)</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+                <div style="overflow-x: auto;">
+                    <table id="dataTable" style="width: 100%; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        <thead>
+                            <tr style="background: #2d3748; color: white;">
+                                <th onclick="sortTable('fleetNumber')" style="cursor: pointer; padding: 15px; user-select: none;" title="Click to sort">
+                                    Fleet # <span id="sort-fleetNumber">⚭</span>
+                                </th>
+                                <th onclick="sortTable('huboPaidTo')" style="cursor: pointer; padding: 15px; user-select: none;" title="Click to sort">
+                                    Hubo Paid To (km) <span id="sort-huboPaidTo">⚭</span>
+                                </th>
+                                <th style="padding: 15px;">Edit</th>
+                                <th onclick="sortTable('huboOdoReading')" style="cursor: pointer; padding: 15px; user-select: none;" title="Click to sort">
+                                    Hubo/Odo Reading (km) <span id="sort-huboOdoReading">⚭</span>
+                                </th>
+                                <th style="padding: 15px;">Edit</th>
+                                <th onclick="sortTable('distanceRemaining')" style="cursor: pointer; padding: 15px; user-select: none;" title="Click to sort">
+                                    Distance Remaining (km) <span id="sort-distanceRemaining">⚭</span>
+                                </th>
+                                <th onclick="sortTable('urgency')" style="cursor: pointer; padding: 15px; user-select: none;" title="Click to sort">
+                                    Urgency Level <span id="sort-urgency">⚭</span>
+                                </th>
+                                <th onclick="sortTable('status')" style="cursor: pointer; padding: 15px; user-select: none;" title="Click to sort">
+                                    Status <span id="sort-status">⚭</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataTableBody">
             `;
 
+            // Add data to table body
+            html += generateTableRows();
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 8px;">
+                    <h5 style="color: #1976d2; margin-top: 0;">💡 Sorting Tips:</h5>
+                    <ul style="color: #1565c0; margin: 0;">
+                        <li><strong>📊 Distance Remaining:</strong> Sort to see most/least urgent vehicles</li>
+                        <li><strong>🚨 Urgency Level:</strong> Groups overdue vehicles at top/bottom</li>
+                        <li><strong>🚗 Fleet #:</strong> Organize by vehicle number</li>
+                        <li><strong>🔄 Multiple clicks:</strong> Toggles between ascending/descending order</li>
+                    </ul>
+                </div>
+            `;
+
+            document.getElementById('tableContainer').innerHTML = html;
+        }
+
+        // Generate table rows (separated for reuse in sorting)
+        function generateTableRows() {
+            let html = '';
+            
             csvData.forEach((row, index) => {
                 const statusClass = row.calculatedDistance !== null && typeof row.calculatedDistance === 'number' ? 'updated' : '';
                 const status = row.geotabDeviceId ? 
-                    (typeof row.calculatedDistance === 'number' ? '✅ Updated' : '⚠️ No data') : 
+                    (typeof row.calculatedDistance === 'number' ? '✅ Geotab' : '⚠️ No data') : 
                     '⏸️ CSV data';
 
                 // Store original values if not already stored
@@ -1313,31 +1358,150 @@
                 const isNegative = typeof distanceValue === 'number' && distanceValue < 0;
                 const distanceClass = isNegative ? 'negative-distance' : '';
 
+                // Determine urgency level for sorting
+                let urgencyLevel, urgencyText, urgencyOrder;
+                if (typeof distanceValue === 'number') {
+                    if (distanceValue < 0) {
+                        urgencyLevel = 'OVERDUE';
+                        urgencyText = '🔴 OVERDUE';
+                        urgencyOrder = 1;
+                    } else if (distanceValue <= 200) {
+                        urgencyLevel = 'CRITICAL';
+                        urgencyText = '🟠 CRITICAL';
+                        urgencyOrder = 2;
+                    } else if (distanceValue <= 500) {
+                        urgencyLevel = 'URGENT';
+                        urgencyText = '🟡 URGENT';
+                        urgencyOrder = 3;
+                    } else if (distanceValue <= 1000) {
+                        urgencyLevel = 'HIGH';
+                        urgencyText = '🔵 HIGH';
+                        urgencyOrder = 4;
+                    } else if (distanceValue <= 2000) {
+                        urgencyLevel = 'MEDIUM';
+                        urgencyText = '⚪ MEDIUM';
+                        urgencyOrder = 5;
+                    } else {
+                        urgencyLevel = 'LOW';
+                        urgencyText = '🟢 LOW';
+                        urgencyOrder = 6;
+                    }
+                } else {
+                    urgencyLevel = 'UNKNOWN';
+                    urgencyText = '❓ UNKNOWN';
+                    urgencyOrder = 7;
+                }
+
+                // Store urgency data on row for sorting
+                row.urgencyLevel = urgencyLevel;
+                row.urgencyOrder = urgencyOrder;
+
                 html += `
-                    <tr class="${statusClass}">
-                        <td>${row.fleetNumber}</td>
+                    <tr class="${statusClass}" data-index="${index}">
+                        <td style="padding: 12px; font-weight: bold; font-size: 16px;">${row.fleetNumber}</td>
                         <td id="huboPaidTo_${index}" style="padding: 8px; min-width: 100px;">${row.huboPaidTo}</td>
-                        <td>
+                        <td style="padding: 8px;">
                             <button onclick="editField(${index}, 'huboPaidTo')" class="btn" 
                                     style="background: #667eea; color: white; padding: 4px 8px; font-size: 12px;">
                                 ✏️ Edit
                             </button>
                         </td>
                         <td id="huboOdoReading_${index}" style="padding: 8px; min-width: 100px;">${row.huboOdoReading}</td>
-                        <td>
+                        <td style="padding: 8px;">
                             <button onclick="editField(${index}, 'huboOdoReading')" class="btn" 
                                     style="background: #667eea; color: white; padding: 4px 8px; font-size: 12px;">
                                 ✏️ Edit
                             </button>
                         </td>
-                        <td id="distance_${index}" class="${distanceClass}">${distanceValue}${isNegative ? ' (OVERDUE)' : ''}</td>
-                        <td>${status}</td>
+                        <td id="distance_${index}" class="${distanceClass}" style="padding: 12px; font-weight: bold; font-size: 16px;">
+                            ${distanceValue}${isNegative ? ' (OVERDUE)' : ''}
+                        </td>
+                        <td style="padding: 12px; font-weight: bold;">${urgencyText}</td>
+                        <td style="padding: 12px;">${status}</td>
                     </tr>
                 `;
             });
 
-            html += '</tbody></table>';
-            document.getElementById('tableContainer').innerHTML = html;
+            return html;
+        }
+
+        // Sort table by column
+        function sortTable(column) {
+            // Clear all sort indicators first
+            document.querySelectorAll('[id^="sort-"]').forEach(el => {
+                el.textContent = '⚭';
+            });
+
+            // Determine sort direction
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'asc';
+            }
+
+            // Update sort indicator
+            const indicator = document.getElementById(`sort-${column}`);
+            if (indicator) {
+                indicator.textContent = currentSort.direction === 'asc' ? '↑' : '↓';
+                indicator.style.color = '#4ade80';
+            }
+
+            // Sort the data
+            csvData.sort((a, b) => {
+                let aVal, bVal;
+
+                switch (column) {
+                    case 'fleetNumber':
+                        aVal = parseInt(a.fleetNumber) || 0;
+                        bVal = parseInt(b.fleetNumber) || 0;
+                        break;
+                    case 'huboPaidTo':
+                        aVal = parseInt(a.huboPaidTo.replace(/[,\s]/g, '')) || 0;
+                        bVal = parseInt(b.huboPaidTo.replace(/[,\s]/g, '')) || 0;
+                        break;
+                    case 'huboOdoReading':
+                        aVal = parseInt(a.huboOdoReading.replace(/[,\s]/g, '')) || 0;
+                        bVal = parseInt(b.huboOdoReading.replace(/[,\s]/g, '')) || 0;
+                        break;
+                    case 'distanceRemaining':
+                        aVal = typeof a.calculatedDistance === 'number' ? a.calculatedDistance : 
+                               (a.distanceRemaining !== '' ? parseInt(a.distanceRemaining) || 0 : 999999);
+                        bVal = typeof b.calculatedDistance === 'number' ? b.calculatedDistance : 
+                               (b.distanceRemaining !== '' ? parseInt(b.distanceRemaining) || 0 : 999999);
+                        break;
+                    case 'urgency':
+                        aVal = a.urgencyOrder || 7;
+                        bVal = b.urgencyOrder || 7;
+                        break;
+                    case 'status':
+                        aVal = a.geotabDeviceId ? (typeof a.calculatedDistance === 'number' ? 1 : 2) : 3;
+                        bVal = b.geotabDeviceId ? (typeof b.calculatedDistance === 'number' ? 1 : 2) : 3;
+                        break;
+                    default:
+                        return 0;
+                }
+
+                if (currentSort.direction === 'asc') {
+                    return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+                } else {
+                    return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+                }
+            });
+
+            // Refresh table body
+            document.getElementById('dataTableBody').innerHTML = generateTableRows();
+            
+            // Show sorting feedback
+            showStatus('updateStatus', 
+                `✅ Table sorted by ${column} (${currentSort.direction === 'asc' ? 'ascending' : 'descending'})`, 
+                'success');
+        }
+
+        // Quick sort by urgency (most urgent first)
+        function sortByUrgency() {
+            currentSort = { column: 'urgency', direction: 'asc' };
+            sortTable('urgency');
         }
 
         // Simple edit field function using prompt
