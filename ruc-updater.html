@@ -208,8 +208,8 @@
 <body>
     <div class="container">
         <div class="card header">
-            <h1><img src="https://raw.githubusercontent.com/Kikorangee/GEOSDK/master/black.png" class="logo">RUC Reminder Dashboard</h1>
-            <p>United Civil Construction Ltd </p>
+            <h1><img src="https://raw.githubusercontent.com/Kikorangee/GEOSDK/master/black.png" class="logo">RUC Distance Updater</h1>
+            <p>Update RUC PAID TO KM'S with current odometer readings - including negative distances for overdue RUC</p>
         </div>
 
         <!-- Geotab Add-In Banner -->
@@ -240,7 +240,7 @@
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                 <button onclick="loadHardcodedData()" class="btn btn-success" id="hardcodedBtn">
-                    ⚡ Load existing Fleet Data (79 Records)
+                    ⚡ Load Hardcoded Data (79 Records)
                 </button>
                 <button onclick="refreshData()" class="btn btn-primary" id="refreshBtn">
                     🔄 Refresh All Data
@@ -252,7 +252,7 @@
             </div>
             
             <div class="file-upload" onclick="document.getElementById('csvFile').click()">
-                <p>📁 Click to select new RUC file</p>
+                <p>📁 Click to select your own RUC file</p>
                 <p><small>Supports: CSV, Excel (.xlsx, .xls)</small></p>
                 <input type="file" id="csvFile" accept=".csv,.xlsx,.xls" style="display: none;" onchange="loadDataFile(event)">
             </div>
@@ -288,7 +288,7 @@
 
         <!-- Step 2: Get Devices and Map -->
         <div class="card" id="deviceSection" style="display: none;">
-            <h3>🚗 Step 2: Integrate Live Odometer Records</h3>
+            <h3>🚗 Step 2: Get Fleet Devices and Map to RUC Records</h3>
             <button onclick="getGeotabDevices()" id="devicesBtn" class="btn btn-success">📡 Get All Fleet Devices</button>
             <div id="deviceStatus"></div>
             <div id="deviceMapping"></div>
@@ -296,7 +296,7 @@
 
         <!-- Step 3: Update Distances -->
         <div class="card" id="updateSection" style="display: none;">
-            <h3>⚡ Step 3: Update Odometer Readings</h3>
+            <h3>⚡ Step 3: Update Distances with Real Odometer Data</h3>
             <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                 <h4>ℹ️ Important Note:</h4>
                 <p><strong>Negative distances:</strong> When odometer exceeds RUC paid to, the system will show negative km (indicating RUC overdue)</p>
@@ -354,7 +354,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script>
-        // HARDCODED RUC DATA FROM 23.CSV SPREADSHEET + 22.CSV ADDITIONAL VEHICLES
+        // HARDCODED RUC DATA WITH CORRECTED HUBO PAID TO VALUES
         const hardcodedRUCData = [
           { fleetNumber: "545", huboPaidTo: "22,319", huboOdoReading: "15,476", distanceRemaining: "", driverName: "Akash Nada", driverEmail: "akash.nada@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
           { fleetNumber: "544", huboPaidTo: "46,009", huboOdoReading: "33,670", distanceRemaining: "", driverName: "Alex Fitch", driverEmail: "alex.fitch@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
@@ -368,47 +368,47 @@
           { fleetNumber: "540", huboPaidTo: "46,011", huboOdoReading: "40,044", distanceRemaining: "", driverName: "Cam Wood", driverEmail: "cameron.wood@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
           { fleetNumber: "509", huboPaidTo: "131,000", huboOdoReading: "123,120", distanceRemaining: "", driverName: "Carlos Manuel", driverEmail: "carlos.manuel@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
           { fleetNumber: "615", huboPaidTo: "74,200", huboOdoReading: "68,142", distanceRemaining: "", driverName: "Channel Infrastructure", driverEmail: "casey.wallace", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "502", huboPaidTo: "121,010", huboOdoReading: "113,632", distanceRemaining: "", driverName: "Chris Holden", driverEmail: "chris.holden@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "518", huboPaidTo: "112,000", huboOdoReading: "103,693", distanceRemaining: "", driverName: "Clinton Livesey", driverEmail: "clinton.livesey@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "543", huboPaidTo: "36,018", huboOdoReading: "27,659", distanceRemaining: "", driverName: "Coby Edwards", driverEmail: "coby.edwards", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "549", huboPaidTo: "36,010", huboOdoReading: "28,011", distanceRemaining: "", driverName: "Cole Connelly", driverEmail: "cole.connelly@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "535", huboPaidTo: "36,012", huboOdoReading: "27,651", distanceRemaining: "", driverName: "Damien Nathan", driverEmail: "damien.nathan@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "519", huboPaidTo: "76,001", huboOdoReading: "67,642", distanceRemaining: "", driverName: "Darcy", driverEmail: "darcy.ruedi", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "533", huboPaidTo: "46,010", huboOdoReading: "37,729", distanceRemaining: "", driverName: "Darren Gurnick", driverEmail: "darren.gurnick@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "503", huboPaidTo: "251,010", huboOdoReading: "243,155", distanceRemaining: "", driverName: "David Carr", driverEmail: "david.carr@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "532", huboPaidTo: "36,010", huboOdoReading: "27,722", distanceRemaining: "", driverName: "David Craig", driverEmail: "david.craig@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "501", huboPaidTo: "156,010", huboOdoReading: "147,636", distanceRemaining: "", driverName: "Duane Phillips", driverEmail: "duane.phillips@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "551", huboPaidTo: "16,010", huboOdoReading: "7,738", distanceRemaining: "", driverName: "Dylan Wichman", driverEmail: "dylan.wichman@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "514", huboPaidTo: "136,012", huboOdoReading: "127,740", distanceRemaining: "", driverName: "Elliott Phillips", driverEmail: "elliott.phillips@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "505", huboPaidTo: "206,010", huboOdoReading: "197,697", distanceRemaining: "", driverName: "Evan Wilson", driverEmail: "evan.wilson@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "547", huboPaidTo: "26,010", huboOdoReading: "17,746", distanceRemaining: "", driverName: "Finn Craig", driverEmail: "finn.craig@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "523", huboPaidTo: "121,001", huboOdoReading: "112,751", distanceRemaining: "", driverName: "Gareth Atkinson", driverEmail: "gareth.atkinson@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "524", huboPaidTo: "126,001", huboOdoReading: "117,767", distanceRemaining: "", driverName: "Hayden Faulkner", driverEmail: "hayden.faulkner@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "502", huboPaidTo: "220,000", huboOdoReading: "113,632", distanceRemaining: "", driverName: "Chris Holden", driverEmail: "chris.holden@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "518", huboPaidTo: "108,000", huboOdoReading: "103,693", distanceRemaining: "", driverName: "Clinton Livesey", driverEmail: "clinton.livesey@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "543", huboPaidTo: "26,009", huboOdoReading: "27,659", distanceRemaining: "", driverName: "Coby Edwards", driverEmail: "coby.edwards", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "549", huboPaidTo: "11,010", huboOdoReading: "28,011", distanceRemaining: "", driverName: "Cole Connelly", driverEmail: "cole.connelly@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "535", huboPaidTo: "54,618", huboOdoReading: "27,651", distanceRemaining: "", driverName: "Damien Nathan", driverEmail: "damien.nathan@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "519", huboPaidTo: "143,000", huboOdoReading: "67,642", distanceRemaining: "", driverName: "Darcy", driverEmail: "darcy.ruedi", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "533", huboPaidTo: "25,306", huboOdoReading: "37,729", distanceRemaining: "", driverName: "Darren Gurnick", driverEmail: "darren.gurnick@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "503", huboPaidTo: "225,000", huboOdoReading: "243,155", distanceRemaining: "", driverName: "David Carr", driverEmail: "david.carr@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "532", huboPaidTo: "43,037", huboOdoReading: "27,722", distanceRemaining: "", driverName: "David Craig", driverEmail: "david.craig@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "501", huboPaidTo: "188,002", huboOdoReading: "147,636", distanceRemaining: "", driverName: "Duane Phillips", driverEmail: "duane.phillips@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "551", huboPaidTo: "6,010", huboOdoReading: "7,738", distanceRemaining: "", driverName: "Dylan Wichman", driverEmail: "dylan.wichman@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "514", huboPaidTo: "150,000", huboOdoReading: "127,740", distanceRemaining: "", driverName: "Elliott Phillips", driverEmail: "elliott.phillips@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "505", huboPaidTo: "222,000", huboOdoReading: "197,697", distanceRemaining: "", driverName: "Evan Wilson", driverEmail: "evan.wilson@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "547", huboPaidTo: "13,000", huboOdoReading: "17,746", distanceRemaining: "", driverName: "Finn Craig", driverEmail: "finn.craig@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "523", huboPaidTo: "86,000", huboOdoReading: "112,751", distanceRemaining: "", driverName: "Gareth Atkinson", driverEmail: "gareth.atkinson@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "524", huboPaidTo: "91,006", huboOdoReading: "117,767", distanceRemaining: "", driverName: "Hayden Faulkner", driverEmail: "hayden.faulkner@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
           { fleetNumber: "516", huboPaidTo: "111,000", huboOdoReading: "102,769", distanceRemaining: "", driverName: "Jake Edwards", driverEmail: "jake.edwards@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "521", huboPaidTo: "101,000", huboOdoReading: "92,788", distanceRemaining: "", driverName: "Jamie Hinge", driverEmail: "jamie.hinge@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "538", huboPaidTo: "36,012", huboOdoReading: "27,801", distanceRemaining: "", driverName: "Jason Wilson", driverEmail: "jason.wilson@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "546", huboPaidTo: "36,010", huboOdoReading: "27,807", distanceRemaining: "", driverName: "Jaxon Craig", driverEmail: "jaxon.craig@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "525", huboPaidTo: "171,001", huboOdoReading: "162,829", distanceRemaining: "", driverName: "Jeremy Hinge", driverEmail: "jeremy.hinge@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "541", huboPaidTo: "36,010", huboOdoReading: "27,844", distanceRemaining: "", driverName: "Joe Nathan", driverEmail: "joe.nathan@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "508", huboPaidTo: "191,010", huboOdoReading: "182,850", distanceRemaining: "", driverName: "John Puru", driverEmail: "john.puru@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "530", huboPaidTo: "76,011", huboOdoReading: "67,876", distanceRemaining: "", driverName: "Josh Faulkner", driverEmail: "josh.faulkner@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "517", huboPaidTo: "136,001", huboOdoReading: "127,907", distanceRemaining: "", driverName: "Josh Holden", driverEmail: "josh.holden@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "511", huboPaidTo: "196,010", huboOdoReading: "187,913", distanceRemaining: "", driverName: "Josh Phillips", driverEmail: "josh.phillips@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "515", huboPaidTo: "171,000", huboOdoReading: "162,919", distanceRemaining: "", driverName: "Josh Wichman", driverEmail: "josh.wichman@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "520", huboPaidTo: "156,001", huboOdoReading: "147,925", distanceRemaining: "", driverName: "Kurt Atkinson", driverEmail: "kurt.atkinson@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "521", huboPaidTo: "153,000", huboOdoReading: "92,788", distanceRemaining: "", driverName: "Jamie Hinge", driverEmail: "jamie.hinge@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "538", huboPaidTo: "56,000", huboOdoReading: "27,801", distanceRemaining: "", driverName: "Jason Wilson", driverEmail: "jason.wilson@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "546", huboPaidTo: "23,000", huboOdoReading: "27,807", distanceRemaining: "", driverName: "Jaxon Craig", driverEmail: "jaxon.craig@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "525", huboPaidTo: "141,009", huboOdoReading: "162,829", distanceRemaining: "", driverName: "Jeremy Hinge", driverEmail: "jeremy.hinge@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "541", huboPaidTo: "69,420", huboOdoReading: "27,844", distanceRemaining: "", driverName: "Joe Nathan", driverEmail: "joe.nathan@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "508", huboPaidTo: "305,050", huboOdoReading: "182,850", distanceRemaining: "", driverName: "John Puru", driverEmail: "john.puru@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "530", huboPaidTo: "144,000", huboOdoReading: "67,876", distanceRemaining: "", driverName: "Josh Faulkner", driverEmail: "josh.faulkner@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "517", huboPaidTo: "93,000", huboOdoReading: "127,907", distanceRemaining: "", driverName: "Josh Holden", driverEmail: "josh.holden@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "511", huboPaidTo: "206,000", huboOdoReading: "187,913", distanceRemaining: "", driverName: "Josh Phillips", driverEmail: "josh.phillips@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "515", huboPaidTo: "136,000", huboOdoReading: "162,919", distanceRemaining: "", driverName: "Josh Wichman", driverEmail: "josh.wichman@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "520", huboPaidTo: "126,000", huboOdoReading: "147,925", distanceRemaining: "", driverName: "Kurt Atkinson", driverEmail: "kurt.atkinson@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
           { fleetNumber: "542", huboPaidTo: "36,010", huboOdoReading: "27,931", distanceRemaining: "", driverName: "Lachlan Craig", driverEmail: "lachlan.craig@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
           { fleetNumber: "506", huboPaidTo: "201,010", huboOdoReading: "192,937", distanceRemaining: "", driverName: "Leyton Hinge", driverEmail: "leyton.hinge@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "510", huboPaidTo: "231,010", huboOdoReading: "222,962", distanceRemaining: "", driverName: "Luke Ruedi", driverEmail: "luke.ruedi@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "531", huboPaidTo: "76,010", huboOdoReading: "67,975", distanceRemaining: "", driverName: "Mason Craig", driverEmail: "mason.craig@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "526", huboPaidTo: "141,001", huboOdoReading: "132,981", distanceRemaining: "", driverName: "Mathew Hinge", driverEmail: "mathew.hinge@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "548", huboPaidTo: "26,010", huboOdoReading: "17,987", distanceRemaining: "", driverName: "Matt Davidson", driverEmail: "matt.davidson@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "527", huboPaidTo: "106,000", huboOdoReading: "97,993", distanceRemaining: "", driverName: "Max Wichman", driverEmail: "max.wichman@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "510", huboPaidTo: "136,000", huboOdoReading: "222,962", distanceRemaining: "", driverName: "Luke Ruedi", driverEmail: "luke.ruedi@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "531", huboPaidTo: "317,002", huboOdoReading: "67,975", distanceRemaining: "", driverName: "Mason Craig", driverEmail: "mason.craig@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "526", huboPaidTo: "86,010", huboOdoReading: "132,981", distanceRemaining: "", driverName: "Mathew Hinge", driverEmail: "mathew.hinge@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "548", huboPaidTo: "18,900", huboOdoReading: "17,987", distanceRemaining: "", driverName: "Matt Davidson", driverEmail: "matt.davidson@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "527", huboPaidTo: "101,000", huboOdoReading: "97,993", distanceRemaining: "", driverName: "Max Wichman", driverEmail: "max.wichman@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
           { fleetNumber: "504", huboPaidTo: "256,010", huboOdoReading: "248,006", distanceRemaining: "", driverName: "Mike Carr", driverEmail: "mike.carr@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "539", huboPaidTo: "36,011", huboOdoReading: "28,012", distanceRemaining: "", driverName: "Oscar Craig", driverEmail: "oscar.craig@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "536", huboPaidTo: "36,011", huboOdoReading: "28,018", distanceRemaining: "", driverName: "Ryan Nathan", driverEmail: "ryan.nathan@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "539", huboPaidTo: "41,000", huboOdoReading: "28,012", distanceRemaining: "", driverName: "Oscar Craig", driverEmail: "oscar.craig@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "536", huboPaidTo: "75,350", huboOdoReading: "28,018", distanceRemaining: "", driverName: "Ryan Nathan", driverEmail: "ryan.nathan@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
           { fleetNumber: "489", huboPaidTo: "245,020", huboOdoReading: "242,124", distanceRemaining: "", driverName: "simon.craig", driverEmail: "simon.craig", rucAdminEmail: "francis@directt.co.nz" },
           { fleetNumber: "490", huboPaidTo: "230,012", huboOdoReading: "226,466", distanceRemaining: "", driverName: "simon.natham", driverEmail: "simon.natham", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "491", huboPaidTo: "220,001", huboOdoReading: "216,807", distanceRemaining: "", driverName: "Simon Phillips", driverEmail: "simon.phillips@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "491", huboPaidTo: "220,000", huboOdoReading: "216,807", distanceRemaining: "", driverName: "Simon Phillips", driverEmail: "simon.phillips@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
           { fleetNumber: "487", huboPaidTo: "200,001", huboOdoReading: "196,001", distanceRemaining: "", driverName: "Simone", driverEmail: "simon.craig", rucAdminEmail: "francis@directt.co.nz" },
           { fleetNumber: "488", huboPaidTo: "205,000", huboOdoReading: "193,116", distanceRemaining: "", driverName: "steve.carracher", driverEmail: "steve.carracher", rucAdminEmail: "francis@directt.co.nz" },
           { fleetNumber: "486", huboPaidTo: "290,001", huboOdoReading: "278,525", distanceRemaining: "", driverName: "Takerei Nathan", driverEmail: "takerei.nathan@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
@@ -425,7 +425,7 @@
           { fleetNumber: "445", huboPaidTo: "344,012", huboOdoReading: "339,229", distanceRemaining: "", driverName: "zac.johnstone", driverEmail: "zac.johnstone", rucAdminEmail: "francis@directt.co.nz" },
           { fleetNumber: "448", huboPaidTo: "268,000", huboOdoReading: "261,683", distanceRemaining: "", driverName: "zain.kader", driverEmail: "zain.kader@unitedcivil.co.nz", rucAdminEmail: "francis@directt.co.nz" },
           
-          // Additional vehicles from 22.CSV
+          // Additional vehicles from the corrected data
           { fleetNumber: "601", huboPaidTo: "347,700", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
           { fleetNumber: "602", huboPaidTo: "69,400", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
           { fleetNumber: "603", huboPaidTo: "16,900", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
@@ -438,7 +438,16 @@
           { fleetNumber: "613", huboPaidTo: "71,300", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
           { fleetNumber: "615", huboPaidTo: "74,200", huboOdoReading: "", distanceRemaining: "", driverName: "Nick Stewart", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
           { fleetNumber: "616", huboPaidTo: "10,003", huboOdoReading: "", distanceRemaining: "", driverName: "Heta Te Nana", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
-          { fleetNumber: "3414", huboPaidTo: "19,000", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" }
+          { fleetNumber: "3414", huboPaidTo: "19,000", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
+          
+          // Missing fleet numbers from the corrected data that weren't in original
+          { fleetNumber: "492", huboPaidTo: "205,002", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "493", huboPaidTo: "235,000", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "494", huboPaidTo: "332,010", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "495", huboPaidTo: "254,010", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "496", huboPaidTo: "306,766", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "499", huboPaidTo: "215,000", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" },
+          { fleetNumber: "529", huboPaidTo: "142,700", huboOdoReading: "", distanceRemaining: "", driverName: "", driverEmail: "", rucAdminEmail: "francis@directt.co.nz" }
         ];
 
         let credentials = null;
