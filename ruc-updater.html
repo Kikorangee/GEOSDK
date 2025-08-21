@@ -209,8 +209,8 @@
     <div class="container">
         <div class="card header">
             <h1><img src="https://raw.githubusercontent.com/Kikorangee/GEOSDK/master/black.png" class="logo">RUC Distance Updater</h1>
-            <p>Update RUC PAID TO KM'S with current odometer readings</p>
-           
+            <p>Update RUC PAID TO KM'S with current odometer readings - including negative distances for overdue RUC</p>
+        </div>
 
         <!-- Geotab Add-In Banner -->
         <div class="geotab-banner" id="geotabBanner">
@@ -693,7 +693,7 @@
             // Clear any existing data
             csvData = [];
             
-            // Load hardcoded data with proper structure (removed currentOdometer)
+            // Load hardcoded data with proper structure
             hardcodedRUCData.forEach(record => {
                 csvData.push({
                     fleetNumber: parseInt(record.fleetNumber) || record.fleetNumber,
@@ -793,7 +793,7 @@
             }
         }
 
-        // Load CSV file (existing functionality enhanced)
+        // Load CSV file
         function loadCSVFile(file) {
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -1425,17 +1425,19 @@
                             // Color-code based on data source and negative values
                             if (newDistance < 0) {
                                 distanceCell.className = 'negative-distance'; // Red for negative/overdue
+                                distanceCell.title = `RUC OVERDUE by ${Math.abs(newDistance)} km!`;
                             } else if (wasHuboManuallyEdited) {
                                 distanceCell.style.background = '#e2f8f5'; // Teal for manual edits
                                 distanceCell.style.border = '2px solid #48bb78';
                                 distanceCell.style.color = '#2d3748';
+                                distanceCell.title = 'Manual Edit';
                             } else {
                                 distanceCell.style.background = '#fff3cd'; // Yellow for CSV data
                                 distanceCell.style.border = '2px solid #d69e2e';
                                 distanceCell.style.color = '#2d3748';
+                                distanceCell.title = 'CSV Data';
                             }
                             
-                            distanceCell.title = `${dataSource}${newDistance < 0 ? ' - RUC OVERDUE!' : ''}`;
                             distanceCell.style.fontWeight = 'bold';
                             console.log(`Updated cell distance_${index} with value ${newDistance} from ${dataSource}`);
                         } else {
@@ -1504,3 +1506,25 @@
                     newDistance = huboPaidKm - huboReading; // REMOVED Math.max(0, ...)
                     console.log(`Row ${rowIndex}: Using CSV ${huboReading}`);
                 }
+                
+                row.calculatedDistance = newDistance;
+                
+                // Update the distance cell with appropriate color
+                const distanceCell = document.getElementById(`distance_${rowIndex}`);
+                if (distanceCell) {
+                    // Add OVERDUE indicator for negative distances
+                    const displayText = newDistance < 0 ? `${newDistance} (OVERDUE)` : newDistance.toString();
+                    distanceCell.textContent = displayText;
+                    
+                    // Color-code based on negative values and data source
+                    if (newDistance < 0) {
+                        distanceCell.className = 'negative-distance'; // Red for negative/overdue
+                        distanceCell.title = `RUC OVERDUE by ${Math.abs(newDistance)} km!`;
+                    } else if (wasHuboManuallyEdited) {
+                        distanceCell.style.background = '#e2f8f5'; // Teal for manual
+                        distanceCell.style.border = '2px solid #48bb78';
+                        distanceCell.style.color = '#2d3748';
+                        distanceCell.title = 'Manual Edit';
+                    } else {
+                        distanceCell.style.background = '#fff3cd'; // Yellow for CSV
+                        distanceCell.style.border = '2px solid #d69e2e';
