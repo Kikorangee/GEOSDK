@@ -314,22 +314,33 @@
 
         <!-- Step 4: Email Notifications -->
         <div class="card" id="emailSection" style="display: none;">
-            <h3>📧 Step 4: Email Notifications for RUC Due Soon</h3>
-            <p>Send automatic email alerts when RUC licenses are due within threshold km (including overdue/negative distances)</p>
+            <h3>📧 Step 4: RUC License Renewal Alerts</h3>
+            <p><strong>🚨 URGENT MONITORING:</strong> Vehicles requiring immediate RUC license attention</p>
             
-            <div style="margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                <div style="margin-bottom: 15px;">
-                    <label>⚠️ Alert Threshold (km):</label>
-                    <input type="number" id="alertThreshold" value="200" style="width: 100px; margin-left: 10px; padding: 5px;">
-                    <small style="display: block; margin-top: 5px; color: #666;">
-                        Note: Negative distances (overdue RUC) will always be included in alerts
-                    </small>
+            <div style="margin: 15px 0; padding: 20px; background: #fff3cd; border-radius: 8px; border-left: 5px solid #f59e0b;">
+                <h4 style="color: #92400e; margin-top: 0;">⚠️ Critical Alert Settings</h4>
+                <div style="display: grid; grid-template-columns: auto 1fr auto; gap: 15px; align-items: center; margin-bottom: 15px;">
+                    <label style="font-weight: bold; color: #92400e;">Alert Threshold (km):</label>
+                    <input type="number" id="alertThreshold" value="2000" style="width: 120px; padding: 8px; font-size: 16px; font-weight: bold; border: 2px solid #f59e0b; border-radius: 5px;">
+                    <button onclick="checkRUCDue()" class="btn btn-success" id="checkRUCBtn" style="padding: 10px 20px; font-size: 16px;">🚨 CHECK URGENT VEHICLES</button>
                 </div>
-                <button onclick="checkRUCDue()" class="btn btn-success" id="checkRUCBtn">🔍 Check RUC Due Soon</button>
-                <button onclick="sendRUCEmails()" class="btn" style="background: #f56565; color: white; display: none;" id="sendEmailBtn">📧 Send Email Alerts</button>
+                <div style="background: #fef3c7; padding: 10px; border-radius: 5px; font-size: 14px;">
+                    <strong>Alert Rules:</strong>
+                    <ul style="margin: 5px 0; padding-left: 20px;">
+                        <li><strong>OVERDUE (Negative km):</strong> Immediate action required</li>
+                        <li><strong>Under 500 km:</strong> Critical - renew within days</li>
+                        <li><strong>Under 2000 km:</strong> Urgent - plan renewal soon</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr auto; gap: 15px; margin-bottom: 20px;">
+                <button onclick="showUrgentSummary()" class="btn" style="background: #dc2626; color: white; padding: 15px; font-size: 16px;">📋 URGENT SUMMARY REPORT</button>
+                <button onclick="sendRUCEmails()" class="btn" style="background: #f59e0b; color: white; padding: 15px; display: none;" id="sendEmailBtn">📧 SEND ALERTS</button>
             </div>
             
             <div id="emailStatus"></div>
+            <div id="urgentSummary" style="display: none;"></div>
             <div id="dueVehiclesList"></div>
         </div>
 
@@ -1576,9 +1587,9 @@
             showStatus('updateStatus', '✅ All values reset to original data', 'success');
         }
 
-        // Check for RUC licenses due soon (MODIFIED to include negative distances)
+        // Check for RUC licenses due soon (MODIFIED to prioritize urgent vehicles at top)
         function checkRUCDue() {
-            const threshold = parseInt(document.getElementById('alertThreshold').value) || 200;
+            const threshold = parseInt(document.getElementById('alertThreshold').value) || 2000;
             
             if (!csvData || csvData.length === 0) {
                 showStatus('emailStatus', '⚠️ No data available. Please complete the update process first.', 'error');
@@ -1598,82 +1609,221 @@
                             ...row,
                             distanceRemaining: distanceRemaining,
                             urgency: distanceRemaining < 0 ? 'OVERDUE' : 
-                                    distanceRemaining <= 50 ? 'URGENT' : 
-                                    distanceRemaining <= 200 ? 'DUE SOON' : 'WARNING'
+                                    distanceRemaining <= 200 ? 'CRITICAL' :
+                                    distanceRemaining <= 500 ? 'URGENT' : 
+                                    distanceRemaining <= 1000 ? 'HIGH' :
+                                    distanceRemaining <= 2000 ? 'MEDIUM' : 'LOW',
+                            urgencyOrder: distanceRemaining < 0 ? 1 :
+                                         distanceRemaining <= 200 ? 2 :
+                                         distanceRemaining <= 500 ? 3 :
+                                         distanceRemaining <= 1000 ? 4 :
+                                         distanceRemaining <= 2000 ? 5 : 6
                         });
                     }
                 }
             });
 
-            // Sort by urgency (overdue first, then lowest distance)
+            // Sort by urgency (most urgent first, then by distance remaining)
             dueVehicles.sort((a, b) => {
-                // Overdue (negative) vehicles first
-                if (a.distanceRemaining < 0 && b.distanceRemaining >= 0) return -1;
-                if (b.distanceRemaining < 0 && a.distanceRemaining >= 0) return 1;
-                // Then sort by distance (lowest first)
+                // First sort by urgency order (1 = most urgent)
+                if (a.urgencyOrder !== b.urgencyOrder) {
+                    return a.urgencyOrder - b.urgencyOrder;
+                }
+                // Then sort by distance (lowest/most negative first)
                 return a.distanceRemaining - b.distanceRemaining;
             });
 
             if (dueVehicles.length === 0) {
-                showStatus('emailStatus', `✅ Great news! No vehicles have RUC due within ${threshold}km and none are overdue`, 'success');
+                showStatus('emailStatus', `✅ Excellent! No vehicles have RUC due within ${threshold.toLocaleString()}km and none are overdue`, 'success');
                 document.getElementById('dueVehiclesList').innerHTML = '';
+                document.getElementById('urgentSummary').style.display = 'none';
                 return;
             }
 
             const overdueCount = dueVehicles.filter(v => v.distanceRemaining < 0).length;
-            const dueCount = dueVehicles.filter(v => v.distanceRemaining >= 0).length;
+            const criticalCount = dueVehicles.filter(v => v.distanceRemaining >= 0 && v.distanceRemaining <= 200).length;
+            const urgentCount = dueVehicles.filter(v => v.distanceRemaining > 200 && v.distanceRemaining <= 500).length;
+            const dueCount = dueVehicles.filter(v => v.distanceRemaining > 500).length;
 
-            // Display due vehicles
-            let statusMessage = `⚠️ Found ${dueVehicles.length} vehicles requiring attention`;
-            if (overdueCount > 0) {
-                statusMessage += ` (${overdueCount} OVERDUE, ${dueCount} due within ${threshold}km)`;
-            } else {
-                statusMessage += ` (${dueCount} due within ${threshold}km)`;
+            // Display status message
+            let statusMessage = `🚨 FOUND ${dueVehicles.length} VEHICLES REQUIRING ATTENTION`;
+            if (overdueCount > 0 || criticalCount > 0) {
+                statusMessage += ` - ${overdueCount + criticalCount} NEED IMMEDIATE ACTION!`;
             }
 
             showStatus('emailStatus', statusMessage, 'error');
             displayDueVehicles(dueVehicles);
+            
+            // Show send email button if there are due vehicles
+            document.getElementById('sendEmailBtn').style.display = dueVehicles.length > 0 ? 'block' : 'none';
         }
 
-        // Display due vehicles in a table (MODIFIED to highlight overdue)
+        // Show urgent summary report
+        function showUrgentSummary() {
+            if (!csvData || csvData.length === 0) {
+                showStatus('emailStatus', '⚠️ No data available. Please complete the update process first.', 'error');
+                return;
+            }
+
+            const threshold = parseInt(document.getElementById('alertThreshold').value) || 2000;
+            
+            // Get all vehicles needing attention
+            const allVehicles = csvData.map(row => {
+                const distanceRemaining = row.calculatedDistance !== null ? row.calculatedDistance : 
+                    (row.distanceRemaining && row.distanceRemaining !== '' ? parseInt(row.distanceRemaining) : null);
+                return { ...row, distanceRemaining };
+            }).filter(v => v.distanceRemaining !== null && typeof v.distanceRemaining === 'number');
+
+            // Count by urgency levels
+            const overdue = allVehicles.filter(v => v.distanceRemaining < 0);
+            const critical = allVehicles.filter(v => v.distanceRemaining >= 0 && v.distanceRemaining <= 200);
+            const urgent = allVehicles.filter(v => v.distanceRemaining > 200 && v.distanceRemaining <= 500);
+            const high = allVehicles.filter(v => v.distanceRemaining > 500 && v.distanceRemaining <= 1000);
+            const medium = allVehicles.filter(v => v.distanceRemaining > 1000 && v.distanceRemaining <= 2000);
+
+            let summaryHtml = `
+                <div style="background: #fee2e2; border: 2px solid #dc2626; border-radius: 10px; padding: 20px; margin: 20px 0;">
+                    <h3 style="color: #991b1b; margin-top: 0;">🚨 URGENT RUC LICENSE RENEWAL SUMMARY</h3>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                        <div style="background: #7f1d1d; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 2em; font-weight: bold;">${overdue.length}</div>
+                            <div>OVERDUE (Negative km)</div>
+                            <small>Immediate Action Required</small>
+                        </div>
+                        <div style="background: #dc2626; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 2em; font-weight: bold;">${critical.length}</div>
+                            <div>CRITICAL (≤200km)</div>
+                            <small>Renew This Week</small>
+                        </div>
+                        <div style="background: #ea580c; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 2em; font-weight: bold;">${urgent.length}</div>
+                            <div>URGENT (≤500km)</div>
+                            <small>Renew Soon</small>
+                        </div>
+                        <div style="background: #d97706; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 2em; font-weight: bold;">${high.length}</div>
+                            <div>HIGH (≤1000km)</div>
+                            <small>Plan Renewal</small>
+                        </div>
+                        <div style="background: #7c2d12; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 2em; font-weight: bold;">${medium.length}</div>
+                            <div>MEDIUM (≤2000km)</div>
+                            <small>Monitor</small>
+                        </div>
+                    </div>
+
+                    <div style="background: white; padding: 15px; border-radius: 8px; border-left: 5px solid #dc2626;">
+                        <h4 style="color: #dc2626; margin-top: 0;">📋 ACTION REQUIRED:</h4>
+                        <ul style="color: #7f1d1d; font-weight: bold;">
+                            ${overdue.length > 0 ? `<li>🔴 ${overdue.length} vehicles are OVERDUE - Stop operations until RUC renewed</li>` : ''}
+                            ${critical.length > 0 ? `<li>🟠 ${critical.length} vehicles need RUC renewal THIS WEEK</li>` : ''}
+                            ${urgent.length > 0 ? `<li>🟡 ${urgent.length} vehicles need RUC renewal SOON</li>` : ''}
+                        </ul>
+                        <button onclick="checkRUCDue(); scrollToVehicleList();" class="btn" style="background: #dc2626; color: white; margin-top: 10px;">
+                            📋 VIEW DETAILED LIST
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('urgentSummary').innerHTML = summaryHtml;
+            document.getElementById('urgentSummary').style.display = 'block';
+        }
+
+        // Scroll to vehicle list
+        function scrollToVehicleList() {
+            setTimeout(() => {
+                const vehicleList = document.getElementById('dueVehiclesList');
+                if (vehicleList) {
+                    vehicleList.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 100);
+        }
+
+        // Display due vehicles in a table (MODIFIED to show most urgent first with clear hierarchy)
         function displayDueVehicles(dueVehicles) {
             let html = `
-                <div style="background: #fed7d7; padding: 15px; border-radius: 8px; margin-top: 15px;">
-                    <h4 style="color: #c53030;">🚨 Vehicles Requiring RUC Renewal (${dueVehicles.length})</h4>
-                    <table style="width: 100%; margin-top: 10px;">
-                        <thead>
-                            <tr style="background: #c53030; color: white;">
-                                <th>Fleet #</th>
-                                <th>Driver</th>
-                                <th>Distance Remaining</th>
-                                <th>Urgency</th>
-                                <th>Email Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
+                <div style="background: linear-gradient(135deg, #fee2e2, #fecaca); border: 3px solid #dc2626; border-radius: 15px; padding: 20px; margin-top: 15px;">
+                    <h4 style="color: #7f1d1d; margin-top: 0; font-size: 1.5em;">🚨 VEHICLES REQUIRING RUC LICENSE RENEWAL (${dueVehicles.length})</h4>
+                    <p style="color: #991b1b; font-weight: bold; margin-bottom: 20px;">⚡ SORTED BY URGENCY - MOST CRITICAL FIRST ⚡</p>
+                    
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                            <thead>
+                                <tr style="background: #7f1d1d; color: white; font-size: 14px;">
+                                    <th style="padding: 15px;">🚨 URGENCY</th>
+                                    <th style="padding: 15px;">Fleet #</th>
+                                    <th style="padding: 15px;">Driver</th>
+                                    <th style="padding: 15px;">Distance Remaining</th>
+                                    <th style="padding: 15px;">Action Required</th>
+                                    <th style="padding: 15px;">Email Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
             `;
 
             dueVehicles.forEach((vehicle, index) => {
-                const urgencyColor = vehicle.urgency === 'OVERDUE' ? '#741b47' :
-                                   vehicle.urgency === 'URGENT' ? '#c53030' : 
-                                   vehicle.urgency === 'DUE SOON' ? '#d69e2e' : '#38a169';
+                let urgencyStyle, urgencyText, actionText;
+                
+                if (vehicle.distanceRemaining < 0) {
+                    urgencyStyle = 'background: #7f1d1d; color: white;';
+                    urgencyText = '🔴 OVERDUE';
+                    actionText = 'STOP OPERATIONS';
+                } else if (vehicle.distanceRemaining <= 200) {
+                    urgencyStyle = 'background: #dc2626; color: white;';
+                    urgencyText = '🟠 CRITICAL';
+                    actionText = 'RENEW THIS WEEK';
+                } else if (vehicle.distanceRemaining <= 500) {
+                    urgencyStyle = 'background: #ea580c; color: white;';
+                    urgencyText = '🟡 URGENT';
+                    actionText = 'RENEW SOON';
+                } else if (vehicle.distanceRemaining <= 1000) {
+                    urgencyStyle = 'background: #d97706; color: white;';
+                    urgencyText = '🔵 HIGH';
+                    actionText = 'PLAN RENEWAL';
+                } else {
+                    urgencyStyle = 'background: #7c2d12; color: white;';
+                    urgencyText = '⚪ MEDIUM';
+                    actionText = 'MONITOR';
+                }
                 
                 const distanceDisplay = vehicle.distanceRemaining < 0 ? 
-                    `${vehicle.distanceRemaining}km (OVERDUE)` : 
-                    `${vehicle.distanceRemaining}km`;
+                    `${vehicle.distanceRemaining}km (OVERDUE!)` : 
+                    `${vehicle.distanceRemaining.toLocaleString()}km`;
                 
                 html += `
-                    <tr style="background: white;">
-                        <td><strong>${vehicle.fleetNumber}</strong></td>
-                        <td>${vehicle.driverName || 'No Driver'}<br><small>${vehicle.driverEmail || 'No email'}</small></td>
-                        <td style="color: ${urgencyColor}; font-weight: bold;">${distanceDisplay}</td>
-                        <td style="color: ${urgencyColor}; font-weight: bold;">${vehicle.urgency}</td>
-                        <td id="email-status-${index}">📤 Pending</td>
+                    <tr style="background: white; border-bottom: 2px solid #fee2e2;">
+                        <td style="padding: 12px; ${urgencyStyle} font-weight: bold; text-align: center;">${urgencyText}</td>
+                        <td style="padding: 12px; font-weight: bold; font-size: 16px;">${vehicle.fleetNumber}</td>
+                        <td style="padding: 12px;">
+                            <strong>${vehicle.driverName || 'No Driver'}</strong><br>
+                            <small style="color: #666;">${vehicle.driverEmail || 'No email'}</small>
+                        </td>
+                        <td style="padding: 12px; font-weight: bold; font-size: 16px; ${vehicle.distanceRemaining < 0 ? 'color: #dc2626;' : ''}">${distanceDisplay}</td>
+                        <td style="padding: 12px; font-weight: bold; color: #7f1d1d;">${actionText}</td>
+                        <td style="padding: 12px;" id="email-status-${index}">📤 Pending</td>
                     </tr>
                 `;
             });
 
-            html += `</tbody></table></div>`;
+            html += `
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div style="background: white; padding: 15px; border-radius: 8px; margin-top: 20px; border-left: 5px solid #dc2626;">
+                        <h5 style="color: #dc2626; margin-top: 0;">📋 Next Steps:</h5>
+                        <ol style="color: #7f1d1d;">
+                            <li><strong>OVERDUE vehicles:</strong> Must stop operations immediately until RUC renewed</li>
+                            <li><strong>CRITICAL vehicles:</strong> Schedule RUC renewal within 7 days</li>
+                            <li><strong>URGENT vehicles:</strong> Plan RUC renewal within 2-3 weeks</li>
+                            <li><strong>Contact drivers:</strong> Use email addresses provided for quick notification</li>
+                        </ol>
+                    </div>
+                </div>
+            `;
+
             document.getElementById('dueVehiclesList').innerHTML = html;
         }
 
