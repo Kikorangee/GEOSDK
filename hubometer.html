@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hubometer Reading</title>
+  <style>
+    :root { --fg:#1b1b1b; --muted:#666; --ok:#2e7d32; --warn:#b26a00; --err:#b00020; --bd:#d0d0d0; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color:var(--fg); background:#fff; }
+    .wrap { padding: 16px; max-width: 560px; margin: 0 auto; }
+    h2 { margin: 0 0 8px 0; font-size: 20px; }
+    p.desc { margin: 0 0 12px 0; color: var(--muted); font-size: 13px; }
+    .row { display:flex; align-items: center; justify-content: space-between; gap:12px; margin: 6px 0; }
+    .k { color: var(--muted); min-width: 120px; }
+    .v { font-weight: 600; }
+    .field { display:flex; flex-direction:column; margin: 12px 0; }
+    .field label { font-size: 14px; color: var(--muted); margin-bottom: 6px; }
+    .field input { font-size: 18px; padding: 10px 12px; border: 1px solid var(--bd); border-radius: 10px; outline: none; }
+    .field input:focus { border-color: #4a8cff; box-shadow: 0 0 0 3px rgba(74,140,255,.15); }
+    .actions { display:flex; gap:12px; margin-top: 12px; }
+    button { padding: 10px 14px; border-radius: 10px; border: 1px solid #888; background: #f7f7f7; cursor: pointer; font-weight:600; }
+    button.primary { background: var(--ok); color: white; border-color: var(--ok); }
+    button.ghost { background: transparent; }
+    .status { margin-top: 12px; font-size: 13px; color: var(--muted); }
+    .status.ok { color: var(--ok); }
+    .status.warn { color: var(--warn); }
+    .status.err { color: var(--err); }
+    .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+    .small { font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h2>Hubometer Reading</h2>
+    <p class="desc">Enter the current hubometer reading (km). The last value will be recalled automatically when available.</p>
+
+    <div class="row"><span class="k">Vehicle</span><span id="vehName" class="v">—</span></div>
+    <div class="row"><span class="k">Previous</span><span id="prevVal" class="v">—</span></div>
+
+    <div class="field">
+      <label for="hubVal">Current reading (km)</label>
+      <input id="hubVal" type="number" inputmode="decimal" step="0.1" min="0" placeholder="e.g., 128960.5">
+      <div class="hint">Saved centrally to Device custom fields when permitted; otherwise saved locally on this device.</div>
+    </div>
+
+    <div class="actions">
+      <button id="saveBtn" class="primary">Save</button>
+      <button id="revertBtn" class="ghost">Revert</button>
+    </div>
+
+    <div id="status" class="status"></div>
+    <div class="small" id="tech"></div>
+  </div>
+
+  <script>
+    (function () {
+      geotab.addin = geotab.addin || {};
+      geotab.addin.hubometer = function (api, state) {
+        var vehNameEl, prevEl, inputEl, saveBtn, revertBtn, statusEl, techEl;
+        var prevValue = null, deviceId = null;
+        var FIELD_KEY = "Hubometer_Last";
+        var FIELD_UPDATED = "Hubometer_UpdatedAt";
+
+        function fmtDateTime(iso) {
+          try { var d = new Date(iso); if (!isNaN(d)) return d.toLocaleString(); } catch (e) {}
+          return iso || "";
+        }
+        function setStatus(msg, cls) { statusEl.className = "status " + (cls || ""); statusEl.textContent = msg || ""; }
+        function setTech(msg) { techEl.textContent = msg || ""; }
+
+        function getCF(customFields, name) {
+          if (!customFields || !customFields.length) return null;
+          for (var i = 0; i < customFields.length; i++) {
+            var f = customFields[i]; if (!f) continue;
+            if (f.name === name || f.key === name) {
+              return (f.value != null ? f.value : (f.stringValue != null ? f.stringValue : null));
+            }
+          }
+          return null;
+        }
+        function setCF(customFields, name, value) {
+          var arr = [];
+          if (Array.isArray(customFields)) {
+            for (var i = 0; i < customFields.length; i++) {
+              var f = customFields[i];
+              if (f && f.name !== name && f.key !== name) arr.push(f);
+            }
+          }
+          arr.push({ name: name, value: String(value) });
+          return arr;
+        }
+
+        function localKey(devId) { return "hubometer:last:" + (devId || "unknown"); }
+        function loadLocal(devId) {
+          try { var raw = localStorage.getItem(localKey(devId)); if (!raw) return null; return JSON.parse(raw); } catch (e) { return null; }
+        }
+        function saveLocal(devId, obj) { try { localStorage.setItem(localKey(devId), JSON.stringify(obj)); } catch (e) {} }
+
+        function loadPrevious() {
+          setStatus("Loading last reading...");
+          var dev = state && state.device ? state.device : null;
+          if (!dev || !dev.id) { setStatus("No vehicle selected in Drive.", "warn"); vehNameEl.textContent = "Not selected"; return; }
+          deviceId = dev.id; vehNameEl.textContent = dev.name || dev.description || dev.id;
+
+          api.call("Get", { typeName: "Device", search: { id: deviceId } }, function (res) {
+            if (!res || !res.length) { setStatus("Vehicle not found.", "err"); return; }
+            var device = res[0];
+            var last = getCF(device.customFields, FIELD_KEY);
+            var updatedAt = getCF(device.customFields, FIELD_UPDATED);
+
+            if (last != null && last !== "") {
+              prevValue = parseFloat(last);
+              inputEl.value = String(last);
+              prevEl.textContent = String(last) + (isNaN(prevValue) ? "" : " km") + (updatedAt ? (" (updated " + fmtDateTime(updatedAt) + ")") : "");
+              setStatus(""); setTech("Source: Device.customFields");
+            } else {
+              var local = loadLocal(deviceId);
+              if (local && local.value != null) {
+                prevValue = parseFloat(local.value);
+                inputEl.value = String(local.value);
+                prevEl.textContent = String(local.value) + (isNaN(prevValue) ? "" : " km") + (local.updatedAt ? (" (local, " + fmtDateTime(local.updatedAt) + ")") : "");
+                setTech("Source: Local storage");
+              } else {
+                prevEl.textContent = "— none recorded —"; setTech("");
+              }
+              setStatus("");
+            }
+          }, function () {
+            var local = loadLocal(deviceId);
+            if (local && local.value != null) {
+              prevValue = parseFloat(local.value);
+              inputEl.value = String(local.value);
+              prevEl.textContent = String(local.value) + (isNaN(prevValue) ? "" : " km") + (local.updatedAt ? (" (local, " + fmtDateTime(local.updatedAt) + ")") : "");
+              setTech("Source: Local storage (server error)"); setStatus("");
+            } else { setStatus("Could not load previous (server error).", "warn"); prevEl.textContent = "—"; setTech(""); }
+          });
+        }
+
+        function onSave() {
+          var raw = (inputEl.value || "").trim();
+          if (!raw) { setStatus("Please enter a hubometer reading.", "warn"); inputEl.focus(); return; }
+          var num = parseFloat(raw);
+          if (isNaN(num) || num < 0) { setStatus("Reading must be a non-negative number.", "warn"); inputEl.focus(); return; }
+          if (prevValue != null && !isNaN(prevValue) && num < prevValue) {
+            var cont = confirm("This reading is less than the previous value. Continue?"); if (!cont) return;
+          }
+          setStatus("Saving...");
+          var nowIso = new Date().toISOString();
+
+          api.call("Get", { typeName: "Device", search: { id: deviceId } }, function (res) {
+            if (!res || !res.length) { setStatus("Vehicle not found.", "err"); return; }
+            var device = res[0];
+            var newCF = setCF(setCF(device.customFields, FIELD_KEY, num), FIELD_UPDATED, nowIso);
+            var entity = { id: device.id, customFields: newCF };
+            api.call("Set", { typeName: "Device", entity: entity }, function () {
+              prevValue = num;
+              prevEl.textContent = String(num) + " km (updated " + fmtDateTime(nowIso) + ")";
+              setStatus("Saved to server.", "ok"); setTech("Saved to Device.customFields");
+              saveLocal(deviceId, { value: num, updatedAt: nowIso });
+            }, function () {
+              saveLocal(deviceId, { value: num, updatedAt: nowIso });
+              prevValue = num;
+              prevEl.textContent = String(num) + " km (saved locally " + fmtDateTime(nowIso) + ")";
+              setStatus("Saved locally (no server permission).", "ok"); setTech("Local storage fallback");
+            });
+          }, function () {
+            saveLocal(deviceId, { value: num, updatedAt: nowIso });
+            prevValue = num;
+            prevEl.textContent = String(num) + " km (saved locally " + fmtDateTime(nowIso) + ")";
+            setStatus("Saved locally (server unavailable).", "ok"); setTech("Local storage fallback");
+          });
+        }
+
+        function onRevert() {
+          if (prevValue != null) { inputEl.value = String(prevValue); setStatus("Reverted to previous value."); }
+          else { inputEl.value = ""; setStatus("Cleared."); }
+        }
+
+        return {
+          initialize: function (container, s, done) {
+            container.querySelector(".wrap") || (container.innerHTML = document.querySelector(".wrap").outerHTML);
+            vehNameEl = container.querySelector("#vehName");
+            prevEl = container.querySelector("#prevVal");
+            inputEl = container.querySelector("#hubVal");
+            saveBtn = container.querySelector("#saveBtn");
+            revertBtn = container.querySelector("#revertBtn");
+            statusEl = container.querySelector("#status");
+            techEl = container.querySelector("#tech");
+            saveBtn.addEventListener("click", onSave);
+            revertBtn.addEventListener("click", onRevert);
+            done();
+          },
+          focus: function () { loadPrevious(); },
+          blur: function () {}
+        };
+      };
+    })();
+  </script>
+</body>
+</html>
