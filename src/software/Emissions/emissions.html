@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>UCCL Emissions (Trips-first)</title>
+<title>UCCL Emissions (Trips-first, Hardcoded Auto-Login)</title>
 <style>
   body { font-family: Arial, sans-serif; margin: 16px; }
-  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; margin-bottom: 8px; } 
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; margin-bottom: 8px; }
   input, select { padding: 8px; font-size: 14px; width: 100%; }
   button { padding: 8px 12px; margin-right: 6px; }
   .section { border: 1px solid #ddd; padding: 12px; margin-top: 12px; }
@@ -18,11 +18,17 @@
   .progress > div { height:100%; background:#4979ff; color:#fff; font-size:11px; text-align:center; white-space:nowrap; }
   .fast-mode { background: #e8f5e8; border-left: 4px solid #4caf50; padding: 8px; margin: 8px 0; }
   .checkbox-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+
+  /* Hide manual auth fields + Logout; keep Authenticate button */
+  body > .row:nth-of-type(1),
+  body > .row:nth-of-type(2),
+  #logout {
+    display: none !important;
+  }
 </style>
 </head>
 <body>
-<h1>United Civil Construction - Emissions Reporting</h1>
-
+<h1>United Construction Ltd - Emissions Reporting</h1>
 
 <div class="row">
   <input id="server" placeholder="Server (e.g. my.geotab.com)" value="my.geotab.com" />
@@ -33,7 +39,7 @@
   <input id="password" type="password" placeholder="Password" />
 </div>
 <div>
-  <button id="authBtn">Login</button>
+  <button id="authBtn">Authenticate</button>
   <button id="logout">Logout</button>
 </div>
 <div id="authResult"></div>
@@ -43,7 +49,7 @@
   <div class="row">
     <input id="fromDate" type="date" />
     <input id="toDate" type="date" />
-    <select id="zoneSelect"><option value="">Select a Project Site</option></select>
+    <select id="zoneSelect"><option value="">Select a zone…</option></select>
     <input id="limit" type="number" min="1" value="100" placeholder="Max vehicles" />
   </div>
   <div>
@@ -103,16 +109,14 @@ function clearPerformanceStats() {
   apiCallCount = 0;
 }
 
-// ===== STORAGE HELPERS =====
+// ===== STORAGE HELPERS (kept but unused now that we hardcode) =====
 function saveCredentials(server, database, username, password) {
-  // Guard: only save if a rememberAuth checkbox exists and is checked
   const rememberEl = document.getElementById('rememberAuth');
   if (rememberEl && rememberEl.checked) {
     const creds = { server, database, username, password: btoa(password) };
     localStorage.setItem('geotab_creds', JSON.stringify(creds));
   }
 }
-
 function loadCredentials() {
   const saved = localStorage.getItem('geotab_creds');
   if (!saved) return null;
@@ -124,7 +128,6 @@ function loadCredentials() {
     return null;
   }
 }
-
 function clearCredentials() {
   localStorage.removeItem('geotab_creds');
 }
@@ -206,36 +209,32 @@ async function batchApiCalls(calls, maxConcurrent = 5) {
   return results;
 }
 
-// ===== AUTH SETUP =====
+// ===== HARDCODED AUTH =====
+const HARDCODED = {
+  server: "my.geotab.com",         // host only; toApiUrl() will append /apiv1
+  database: "uccnz",
+  username: "francis@directt.co.nz",
+  password: "@fr4nc1sWynn5"
+};
+
+// ===== AUTH SETUP (hardcoded + auto-login) =====
 document.getElementById('authBtn').onclick = async () => {
-  const server = $('server')?.value.trim();
-  const database = $('database')?.value.trim();
-  const username = $('username')?.value.trim();
-  const password = $('password')?.value || '';
-  
-  if (!server || !database || !username || !password) { 
-    msg('authResult', 'Please fill all authentication fields.'); 
-    return; 
-  }
-  
   try {
     clearPerformanceStats();
-    apiUrl = toApiUrl(server); 
+    apiUrl = toApiUrl(HARDCODED.server);
     msg('authResult', 'Authenticating...');
-    logPerformance('Starting authentication');
-    
+    logPerformance('Starting authentication (hardcoded)');
+
     const auth = await callGeotabAPI('Authenticate', { 
-      userName: username, 
-      password, 
-      database 
+      userName: HARDCODED.username, 
+      password: HARDCODED.password, 
+      database: HARDCODED.database
     }, false);
     
     credentials = auth.credentials; 
     if (!credentials) throw new Error('No credentials returned');
     
-    saveCredentials(server, database, username, password);
-    logPerformance('Authentication completed');
-    
+    logPerformance('Authentication completed (hardcoded)');
     msg('authResult', 'Connected. You can now run analysis.');
     $('runBtn').disabled = !$('zoneSelect').value;
     
@@ -252,27 +251,6 @@ document.getElementById('authBtn').onclick = async () => {
     $('runBtn').disabled = true;
   }
 };
-
-// Guard quick auth (button may not exist in this layout)
-(function(){
-  const quickAuthBtn = document.getElementById('quickAuthBtn');
-  if (!quickAuthBtn) return;
-  quickAuthBtn.onclick = async () => {
-    const saved = loadCredentials();
-    if (!saved) {
-      msg('authResult', 'No saved credentials found.');
-      return;
-    }
-    
-    $('server').value = saved.server;
-    $('database').value = saved.database;
-    $('username').value = saved.username;
-    $('password').value = saved.password;
-    
-    // Auto-trigger authentication
-    document.getElementById('authBtn').click();
-  };
-})();
 
 document.getElementById('logout').onclick = () => { 
   credentials = null; 
@@ -300,16 +278,11 @@ function setProgress(done, total, label) {
   $('fromDate').value = l.toISOString().split('T')[0]; 
 })();
 
-// Load saved credentials on page load
-window.onload = function() {
-  const saved = loadCredentials();
-  if (saved) {
-    $('server').value = saved.server;
-    $('database').value = saved.database;
-    $('username').value = saved.username;
-    // Don't auto-fill password for security
-  }
-};
+// Auto-login on page load
+window.addEventListener('load', () => {
+  const btn = document.getElementById('authBtn');
+  if (btn) btn.click();
+});
 
 const HARDCODED_ZONES = [
   { id: 'b140', name: 'Channel Infrastructure', lat: -35.84166865, lon: 174.4928981 },
@@ -387,7 +360,6 @@ async function fetchTripsForDeviceInChunks(deviceId, fromISO, toISO, daysPerChun
   const chunks = [];
   let chunkStart = new Date(start);
   
-  // Prepare all chunks
   while (chunkStart < end) { 
     const chunkEnd = new Date(Math.min(end.getTime(), chunkStart.getTime() + daysPerChunk * 24 * 3600 * 1000));
     chunks.push({
@@ -405,12 +377,10 @@ async function fetchTripsForDeviceInChunks(deviceId, fromISO, toISO, daysPerChun
     chunkStart = new Date(chunkEnd.getTime() + 1);
   }
   
-  // Execute all chunks in parallel (optimized by default)
   if (chunks.length > 1) {
-    const results = await batchApiCalls(chunks, 5); // Default 5 concurrent
+    const results = await batchApiCalls(chunks, 5);
     return results.filter(r => !r.error && Array.isArray(r)).flat();
   } else {
-    // Original sequential approach
     const out = [];
     for (const chunk of chunks) {
       const res = await callGeotabAPI(chunk.method, chunk.params);
@@ -443,7 +413,7 @@ async function fetchGPSForDeviceInChunks(deviceId, fromISO, toISO, hoursPerChunk
   }
   
   if (chunks.length > 1) {
-    const results = await batchApiCalls(chunks, 5); // Default 5 concurrent
+    const results = await batchApiCalls(chunks, 5);
     return results.filter(r => !r.error && Array.isArray(r)).flat();
   } else {
     const out = [];
@@ -511,7 +481,6 @@ async function getFuelUsedForDevice(deviceId, fromISO, toISO) {
   ];
   
   try {
-    // Use batch API calls by default for better performance
     const [fuelEvents, statusData] = await batchApiCalls(calls, 2);
       
     if (!fuelEvents.error && fuelEvents && fuelEvents.length) { 
@@ -625,8 +594,8 @@ document.getElementById('downloadBtn').onclick = function() {
 // ===== OPTIMIZED RUN FUNCTIONS =====
 async function processDevicesInParallel(devices, selectedZone, fromISO, toISO, skipGPS = false) {
   const results = [];
-  const batchSize = 20; // Default optimized batch size
-  const maxConcurrent = 5; // Default concurrent processing
+  const batchSize = 20;
+  const maxConcurrent = 5;
   
   logPerformance(`Processing ${devices.length} devices in batches of ${batchSize}`);
   
@@ -657,31 +626,27 @@ async function processDevice(device, selectedZone, fromISO, toISO, skipGPS = fal
   const deviceId = device.id;
   
   try {
-    // Get trips
     const trips = await fetchTripsForDeviceInChunks(deviceId, fromISO, toISO, 7, 20000);
     const totalDistanceKmFromTrips = Math.round(trips.reduce((s, t) => s + ((t.distance || 0) / 1000), 0) * 10) / 10;
     const zoneTripCount = trips.filter(t => tripTouchesZone(t, selectedZone)).length;
     
-    if (zoneTripCount === 0) return null; // No zone involvement
+    if (zoneTripCount === 0) return null;
     
     let zoneDistanceKm = 0;
     let totalDistanceKm = totalDistanceKmFromTrips;
     
     if (!skipGPS) {
-      // GPS analysis for precise in-zone distance
       const deviceGPS = await fetchGPSForDeviceInChunks(deviceId, fromISO, toISO, 24, 10000);
       const dist = computeDistancesFromGPS(deviceGPS, selectedZone);
       totalDistanceKm = totalDistanceKmFromTrips > 0 ? totalDistanceKmFromTrips : Math.round(dist.totalKm * 10) / 10;
       zoneDistanceKm = Math.round(dist.zoneKm * 10) / 10;
     } else {
-      // Estimate zone distance from trip data
       const zoneTrips = trips.filter(t => tripTouchesZone(t, selectedZone));
       zoneDistanceKm = Math.round(zoneTrips.reduce((s, t) => s + ((t.distance || 0) / 1000), 0) * 10) / 10;
     }
     
     if (zoneDistanceKm <= 0) return null;
     
-    // Get fuel data
     const fuelData = await getFuelUsedForDevice(deviceId, fromISO, toISO);
     let liters = fuelData.liters;
     let fuelSource = fuelData.source;
@@ -734,7 +699,7 @@ async function runAnalysis() {
     
     const selectedZone = HARDCODED_ZONES.find(z => z.id === selectedZoneId);
     const fm = $('fastMode');
-    const skipGPS = !!(fm && fm.checked); // Guard for missing fastMode checkbox
+    const skipGPS = !!(fm && fm.checked);
     const mode = skipGPS ? 'Fast Mode (Trip-based)' : 'Full Mode (GPS + Trips)';
     msg('banner', `Analyzing ${selectedZone.name} - ${mode}...`);
     setProgress(0, 100, 'Start');
@@ -744,17 +709,13 @@ async function runAnalysis() {
     const toISO = new Date(($('toDate').value || '') + 'T23:59:59.999Z').toISOString();
     const limit = parseInt($('limit').value) || 100;
     
-    // Get devices
     logPerformance('Fetching devices');
     const devices = await callGeotabAPI('Get', { typeName: 'Device', resultsLimit: limit });
     setProgress(20, 100, 'Got ' + devices.length + ' devices');
     logPerformance(`Retrieved ${devices.length} devices`);
     
     let results = [];
-    
-    // Always use parallel processing for better performance
     results = await processDevicesInParallel(devices, selectedZone, fromISO, toISO, skipGPS);
-    
     results.sort((a, b) => b.co2 - a.co2);
     
     setProgress(95, 100, 'Rendering...');
