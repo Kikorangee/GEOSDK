@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>UCCL Emissions Reporting</title>
 
   <style>
@@ -13,10 +13,9 @@
     .header{text-align:center}
     .header h1{color:#0f172a;font-size:2em;margin-bottom:6px}
     .muted{color:#64748b}
-    .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-    .form-control{width:100%;padding:11px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px}
-    .btn{padding:11px 18px;border:none;border-radius:10px;font-weight:600;cursor:pointer;margin:4px;
-         display:flex; align-items:center; justify-content:center; gap:6px;}
+    .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:8px}
+    .form-control,.form-select{width:100%;padding:11px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;background:#fff}
+    .btn{padding:11px 18px;border:none;border-radius:10px;font-weight:600;cursor:pointer;margin:4px;display:inline-flex;align-items:center;gap:8px}
     .btn-primary{background:#0ea5e9;color:#fff}
     .btn-blue{background:#2563eb;color:#fff}
     .btn-red{background:#ef4444;color:#fff}
@@ -26,10 +25,20 @@
     .alert-success{background:#dcfce7;color:#065f46;border-left:5px solid #22c55e}
     .alert-warning{background:#fef9c3;color:#713f12;border-left:5px solid #f59e0b}
     .alert-danger{background:#fee2e2;color:#7f1d1d;border-left:5px solid #ef4444}
-    .emoji{width:0.9em;height:0.9em;vertical-align:middle;margin-right:4px}
-    .card h3{display:flex;align-items:center;gap:6px}
+    .progress{height:18px;background:#e2e8f0;border-radius:9px;overflow:hidden;margin-top:8px}
+    .progress > div{height:100%;background:linear-gradient(90deg,#14532d,#1e40af);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;transition:width .2s ease}
+    .table{width:100%;border-collapse:collapse;margin-top:12px;background:#fff;border-radius:10px;overflow:hidden}
+    .table th{background:#0f172a;color:#fff;padding:10px;text-align:left}
+    .table td{padding:9px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;vertical-align:top}
+    tr.row-estimated{background:#fff7ed}
+    .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;border:1px solid #e2e8f0}
+    .b-act{background:#dcfce7;color:#14532d;border-color:#22c55e}
+    .b-est{background:#fde68a;color:#92400e;border-color:#f59e0b}
+    pre{white-space:pre-wrap;background:#0f172a;color:#e2e8f0;border-radius:10px;padding:12px;overflow:auto}
+    .section-title{font-weight:800;color:#0f172a}
   </style>
 
+  <!-- Chart.js loader -->
   <script>
     (function(){ 
       if(!window.Chart){ 
@@ -40,7 +49,6 @@
     })();
   </script>
 </head>
-
 <body>
   <div class="container">
     <div class="header">
@@ -48,70 +56,131 @@
       <div class="muted">Fuel consumption & carbon emissions tracking for your project sites</div>
     </div>
 
-    <div class="card">
-      <h3>
-        <img src="https://kikorangee.github.io/GEOSDK/src/software/1.png" alt="Geo Emoji" class="emoji">
-        Authentication
-      </h3>
-
-      <div class="row" style="margin-top:8px">
-        <input id="server" class="form-control" placeholder="Server" value="my.geotab.com" />
-        <input id="database" class="form-control" placeholder="Database (case-sensitive)" />
+    <!-- Authentication -->
+    <div class="card" id="authCard">
+      <h3 class="section-title">🔐 Authentication</h3>
+      <div class="row">
+        <input id="server" class="form-control" placeholder="Server" value="my.geotab.com"/>
+        <input id="database" class="form-control" placeholder="Database (case-sensitive)"/>
       </div>
-
-      <div class="row" style="margin-top:8px">
-        <input id="username" class="form-control" placeholder="Username" />
-        <input id="password" class="form-control" type="password" placeholder="Password" />
+      <div class="row">
+        <input id="username" class="form-control" placeholder="Username"/>
+        <input id="password" class="form-control" type="password" placeholder="Password"/>
       </div>
-
-      <div>
-        <button id="authBtn" class="btn btn-primary">
-          <img src="https://kikorangee.github.io/GEOSDK/src/software/1.png" alt="Geo Emoji" class="emoji">
-          Authenticate
-        </button>
-
-        <button id="testBtn" class="btn btn-blue" disabled>
-          <img src="https://kikorangee.github.io/GEOSDK/src/software/1.png" alt="Geo Emoji" class="emoji">
-          Test Get
-        </button>
-
-        <button id="logout" class="btn btn-red">
-          <img src="https://kikorangee.github.io/GEOSDK/src/software/1.png" alt="Geo Emoji" class="emoji">
-          Logout
-        </button>
+      <div style="margin-top:8px">
+        <button id="authBtn" class="btn btn-primary">🔑 Authenticate</button>
+        <button id="testBtn" class="btn btn-blue" disabled>🧪 Test Get</button>
+        <button id="logout" class="btn btn-red">🚪 Logout</button>
       </div>
-
       <div id="authResult" style="margin-top:8px"></div>
     </div>
 
+    <!-- Controls -->
     <div id="reportCard" class="card" style="display:none;">
-      <!-- Report card content goes here -->
+      <h3 class="section-title">🎯 Select Zone & Date Range</h3>
+      <div class="row">
+        <select id="zoneSelect" class="form-select">
+          <option value="">— Select a Project Zone —</option>
+        </select>
+        <input type="date" id="fromDate" class="form-control" placeholder="From date">
+        <input type="date" id="toDate" class="form-control" placeholder="To date">
+        <input type="number" id="limit" class="form-control" placeholder="Max vehicles (default 100)" min="1" max="1000">
+      </div>
+
+      <div id="selectedZoneInfo" class="alert alert-info" style="display:none;">
+        <div id="selectedZoneName" style="font-weight:800;margin-bottom:6px;"></div>
+        <div id="selectedZoneDetails" class="muted"></div>
+      </div>
+
+      <div>
+        <button id="runBtn" class="btn btn-primary" disabled>▶️ Run Analysis</button>
+      </div>
+
+      <div id="banner" style="margin-top:8px"></div>
+
+      <div class="progress">
+        <div id="progressFill" style="width:0%"><span id="progressText" style="padding-left:6px"></span></div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div id="chartsCard" class="card" style="display:none;">
+      <h3 class="section-title">📈 Zone Emissions & Activity</h3>
+      <div class="muted" id="chartsSubtitle" style="margin-bottom:8px"></div>
+      <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr))">
+        <canvas id="co2Bar" height="180"></canvas>
+        <canvas id="zonePie" height="180"></canvas>
+      </div>
+    </div>
+
+    <!-- Summary -->
+    <div id="summaryCard" class="card" style="display:none;">
+      <h3 class="section-title">🧾 Summary</h3>
+      <div id="summaryContent"></div>
+    </div>
+
+    <!-- Legend -->
+    <div id="legendCard" class="card" style="display:none;">
+      <h3 class="section-title">ℹ️ Notes</h3>
+      <div id="legendText" class="muted"></div>
+    </div>
+
+    <!-- Table -->
+    <div class="card" id="tableCard" style="display:none;">
+      <h3 class="section-title">🚛 Vehicle Breakdown</h3>
+      <div id="tableWrap"></div>
     </div>
   </div>
 
   <script>
-    /** ===== Core State ===== */
-    let credentials = null;
-    let apiUrl = null;
+    // ====== HARDCODED PROJECT ZONES (add the rest as needed) ======
+    const HARDCODED_ZONES = [
+      { id: 'b140', name: 'Channel Infrastructure', lat: -35.84166865, lon: 174.4928981, radius: 0.01 },
+      { id: 'b141', name: 'Maungaturoto Solar Farm', lat: -36.08750065, lon: 174.3546467, radius: 0.01 },
+      { id: 'b142', name: 'Port Road Site Office', lat: -35.73915967, lon: 174.3363262, radius: 0.01 },
+      { id: 'b143', name: 'Ruakaka BESS', lat: -35.8487939,  lon: 174.4769919, radius: 0.01 },
+      { id: 'b144', name: 'Donald Road', lat: -35.09854319, lon: 173.2623673, radius: 0.01 },
+      { id: 'b145', name: 'Northpower Dargaville', lat: -35.93301535, lon: 173.8798765, radius: 0.01 },
+      { id: 'b146', name: 'Kiwirail', lat: -36.3470443, lon: 174.528563, radius: 0.01 },
+      { id: 'b14A', name: 'Gillingham Road', lat: -35.67148786, lon: 174.3091425, radius: 0.01 },
+      { id: 'b14C', name: 'Rocket Lab', lat: -36.41010201, lon: 174.6504923, radius: 0.01 },
+      { id: 'b14D', name: 'Kaitaia Wastewater', lat: -35.11310439, lon: 173.2607395, radius: 0.01 },
+      { id: 'b14E', name: 'Matauri Bay', lat: -35.03425748, lon: 173.890681, radius: 0.01 }
+      // add the remaining zones here if needed
+    ];
 
-    /** ===== Utils ===== */
+    // ====== STATE ======
+    let credentials=null;
+    let apiUrl=null;
+    const EMISSION_FACTOR = 2.68;
+    let _co2BarChart=null, _zonePieChart=null;
+
+    // ====== HELPERS ======
     const $ = (id) => document.getElementById(id);
     function msg(id, text, type='info'){
       const cls = type==='success'?'alert-success':type==='warning'?'alert-warning':type==='danger'?'alert-danger':'alert-info';
       const el = $(id);
       if (el) el.innerHTML = `<div class="alert ${cls}">${text}</div>`;
     }
+    function setProgress(done,total,label=''){
+      const f=$('progressFill'), tx=$('progressText');
+      const p = total ? Math.round(done/total*100) : 0;
+      if (f){ f.style.width = p + '%'; f.textContent = p + '%'; }
+      if (tx){ tx.textContent = label || `${done}/${total}`; }
+    }
     function toApiUrl(hostOrPath){
-      const s = hostOrPath.trim();
-      if (/^https?:\/\//i.test(s)) return s.endsWith('/apiv1') ? s : s.replace(/\/+$/, '') + '/apiv1';
-      return 'https://' + s.replace(/\/+$/, '') + '/apiv1';
+      const s = (hostOrPath||'').trim();
+      if (!s) return null;
+      let base = /^https?:\/\//i.test(s) ? s : 'https://' + s;
+      base = base.replace(/\/+$/,'');
+      return base.endsWith('/apiv1') ? base : base + '/apiv1';
     }
     async function callGeotabAPI(method, params = {}){
       if (!apiUrl) throw new Error('Not authenticated');
       const p = credentials ? { ...params, credentials } : params;
-      const res = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
+      const res = await fetch(apiUrl,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ method, params: p })
       });
       const json = await res.json();
@@ -119,52 +188,347 @@
       return json.result !== undefined ? json.result : json;
     }
 
-    /** ===== Wire UI ===== */
+    function computeDeltaFromSeries(series){
+      if(!series || !series.length) return 0;
+      const vals = series.map(s => s.TotalFuelUsed ?? s.totalFuelUsed ?? s.data ?? 0);
+      const min = Math.min(...vals), max = Math.max(...vals);
+      return Math.max(0, max - min);
+    }
+
+    async function getFuelUsedForDevice(deviceId, fromISO, toISO){
+      try{
+        const events = await callGeotabAPI('Get',{
+          typeName:'FuelUsed',
+          search:{ fromDate: fromISO, toDate: toISO, deviceSearch:{ id: deviceId } },
+          resultsLimit: 10000
+        });
+        if(events?.length){
+          const liters = computeDeltaFromSeries(events);
+          if(liters>0) return { liters, source:'FuelUsed API', estimated:false };
+        }
+      }catch(e){ /* ignore */ }
+
+      try{
+        const statusData = await callGeotabAPI('Get',{
+          typeName:'StatusData',
+          search:{
+            fromDate: fromISO,
+            toDate: toISO,
+            diagnosticSearch:{ id:'DiagnosticDeviceTotalFuelId' },
+            deviceSearch:{ id: deviceId }
+          },
+          resultsLimit: 5000
+        });
+        if(statusData?.length){
+          const liters = computeDeltaFromSeries(statusData);
+          if(liters>0) return { liters, source:'StatusData API', estimated:false };
+        }
+      }catch(e){ /* ignore */ }
+
+      return { liters: 0, source: 'None', estimated: true };
+    }
+
+    function getDistanceKm(lat1, lon1, lat2, lon2){
+      const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
+      const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+      return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    }
+    function findZoneForLocation(lat, lon){
+      if (lat==null || lon==null) return null;
+      for (const zone of HARDCODED_ZONES){
+        if (getDistanceKm(lat, lon, zone.lat, zone.lon) <= 5.0) return zone; // generous 5 km
+      }
+      return null;
+    }
+
+    function renderZoneTable(results, selectedZone){
+      const wrap = $('tableWrap');
+      let html = `
+        <h4>🚛 Vehicles that visited ${selectedZone.name}</h4>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Vehicle</th>
+              <th>Zone Distance (km)</th>
+              <th>Zone Fuel (L)</th>
+              <th>Zone CO₂ (kg)</th>
+              <th>Zone Trips</th>
+              <th>Total Distance (km)</th>
+              <th>Total Fuel (L)</th>
+              <th>Data Source</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      results.forEach(r=>{
+        const rowClass = r.estimated ? 'row-estimated' : '';
+        const badge = r.estimated ? '<span class="badge b-est">Est</span>' : '<span class="badge b-act">Real</span>';
+        html += `
+          <tr class="${rowClass}">
+            <td>${r.deviceName}</td>
+            <td>${r.zoneDistanceKm}</td>
+            <td>${r.zoneLiters}</td>
+            <td>${r.co2}</td>
+            <td>${r.zoneTrips}</td>
+            <td>${r.totalDistanceKm}</td>
+            <td>${r.totalLiters}</td>
+            <td>${badge} ${r.fuelSource}</td>
+          </tr>
+        `;
+      });
+      html += '</tbody></table>';
+      wrap.innerHTML = html;
+      $('tableCard').style.display = 'block';
+    }
+
+    function renderZoneCharts(results, selectedZone){
+      if (!results?.length) return;
+
+      const top10 = results.slice(0,10);
+      $('chartsSubtitle').textContent = `${results.length} vehicles visited ${selectedZone.name}`;
+
+      const barCtx = $('co2Bar').getContext('2d');
+      if (_co2BarChart) _co2BarChart.destroy();
+      _co2BarChart = new Chart(barCtx,{
+        type:'bar',
+        data:{ labels: top10.map(r=>r.deviceName),
+               datasets:[{ label:'Zone CO₂ Emissions (kg)', data: top10.map(r=>r.co2) }] },
+        options:{ responsive:true, scales:{ y:{ beginAtZero:true } },
+          plugins:{ title:{ display:true, text:`${selectedZone.name} - Top Vehicle Emissions` } } }
+      });
+
+      const pieCtx = $('zonePie').getContext('2d');
+      if (_zonePieChart) _zonePieChart.destroy();
+      const tripRanges = {
+        '1-2 trips': results.filter(r=>r.zoneTrips>=1 && r.zoneTrips<=2).length,
+        '3-5 trips': results.filter(r=>r.zoneTrips>=3 && r.zoneTrips<=5).length,
+        '6-10 trips': results.filter(r=>r.zoneTrips>=6 && r.zoneTrips<=10).length,
+        '10+ trips': results.filter(r=>r.zoneTrips>10).length
+      };
+      _zonePieChart = new Chart(pieCtx,{
+        type:'pie',
+        data:{ labels:Object.keys(tripRanges), datasets:[{ data:Object.values(tripRanges) }] },
+        options:{ responsive:true, plugins:{ legend:{ position:'right' },
+                  title:{ display:true, text:`Trip Frequency to ${selectedZone.name}` } } }
+      });
+
+      $('chartsCard').style.display = 'block';
+    }
+
+    function renderZoneSummary(results, selectedZone){
+      const totalZoneCO2 = results.reduce((s,r)=>s+r.co2,0);
+      const totalZoneFuel = results.reduce((s,r)=>s+r.zoneLiters,0);
+      const totalZoneDistance = results.reduce((s,r)=>s+r.zoneDistanceKm,0);
+      const totalZoneTrips = results.reduce((s,r)=>s+r.zoneTrips,0);
+
+      let html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;">';
+      html += `<div>
+        <h4>🎯 ${selectedZone.name} Summary</h4>
+        <div style="margin-top:8px;">
+          <div style="padding:12px;background:#dcfce7;border-radius:8px;margin:6px 0;"><strong>Vehicles Active:</strong> ${results.length}</div>
+          <div style="padding:12px;background:#e0f2fe;border-radius:8px;margin:6px 0;"><strong>Zone Trips:</strong> ${totalZoneTrips}</div>
+          <div style="padding:12px;background:#fef3c7;border-radius:8px;margin:6px 0;"><strong>Zone Distance:</strong> ${Math.round(totalZoneDistance)} km</div>
+          <div style="padding:12px;background:#fee2e2;border-radius:8px;margin:6px 0;"><strong>Zone Fuel:</strong> ${Math.round(totalZoneFuel)} L</div>
+          <div style="padding:12px;background:#f3e8ff;border-radius:8px;margin:6px 0;"><strong>Zone CO₂:</strong> ${Math.round(totalZoneCO2)} kg</div>
+        </div>
+      </div>`;
+
+      const topVehicles = results.slice(0,5);
+      html += '<div><h4>🚛 Most Active Vehicles</h4><table class="table" style="margin-top:8px;"><thead><tr><th>Vehicle</th><th>Zone Trips</th><th>Zone CO₂ (kg)</th></tr></thead><tbody>';
+      topVehicles.forEach(v=>{
+        html += `<tr><td>${v.deviceName}</td><td>${v.zoneTrips}</td><td>${v.co2}</td></tr>`;
+      });
+      html += '</tbody></table></div></div>';
+
+      $('summaryContent').innerHTML = html;
+      $('summaryCard').style.display = 'block';
+    }
+
+    function renderLegend(){
+      $('legendText').innerHTML = `
+        <ul style="margin-left:16px;">
+          <li><strong>Project Zones:</strong> ${HARDCODED_ZONES.length} predefined locations</li>
+          <li><strong>Zone Detection:</strong> GPS points within ~5 km of zone center</li>
+          <li><strong>Fuel Data:</strong> FuelUsed → StatusData → distance estimate (25 L/100 km)</li>
+          <li><strong>CO₂:</strong> Fuel × 2.68 kg/L (diesel factor)</li>
+          <li><strong>Data Quality:</strong> <span class="badge b-act">Real</span> = API data, <span class="badge b-est">Est</span> = Estimate</li>
+        </ul>`;
+      $('legendCard').style.display = 'block';
+    }
+
+    // ====== WIRING ======
     document.addEventListener('DOMContentLoaded', () => {
-      const authBtn = $('authBtn'), testBtn = $('testBtn'), logoutBtn = $('logout');
+      // Default dates
+      const t = new Date(), l = new Date(t.getTime()-14*24*3600*1000);
+      if ($('toDate')) $('toDate').value = t.toISOString().split('T')[0];
+      if ($('fromDate')) $('fromDate').value = l.toISOString().split('T')[0];
 
-      if (authBtn){
-        authBtn.onclick = async () => {
-          const server = $('server')?.value.trim();
-          const database = $('database')?.value.trim();
-          const username = $('username')?.value.trim();
-          const password = $('password')?.value || '';
-          if (!server || !database || !username || !password){
-            msg('authResult','Fill all authentication fields','warning'); return;
-          }
-          try{
-            apiUrl = toApiUrl(server);
-            const auth = await callGeotabAPI('Authenticate', { userName: username, password, database });
-            credentials = auth.credentials;
-            if (!credentials) throw new Error('No credentials returned');
-            msg('authResult','✅ Connected successfully.','success');
-            if ($('reportCard')) $('reportCard').style.display = 'block';
-            if (testBtn) testBtn.disabled = false;
-          }catch(err){
-            msg('authResult','❌ '+err.message,'danger');
-          }
+      // Populate zones
+      const zoneSelect = $('zoneSelect');
+      if (zoneSelect){
+        for (const z of HARDCODED_ZONES){
+          const opt = document.createElement('option');
+          opt.value = z.id; opt.textContent = z.name;
+          zoneSelect.appendChild(opt);
+        }
+        zoneSelect.onchange = () => {
+          const z = HARDCODED_ZONES.find(v=>v.id===zoneSelect.value);
+          const info=$('selectedZoneInfo'), name=$('selectedZoneName'), det=$('selectedZoneDetails'), runBtn=$('runBtn');
+          if (!z){ if(info) info.style.display='none'; if(runBtn) runBtn.disabled=true; return; }
+          if (name) name.textContent = `🎯 ${z.name}`;
+          if (det) det.innerHTML = `<strong>Zone ID:</strong> ${z.id}<br/><strong>GPS:</strong> ${z.lat}, ${z.lon}<br/><strong>Detection Radius:</strong> ~5 km`;
+          if (info) info.style.display='block';
+          if (runBtn) runBtn.disabled=false;
         };
       }
 
-      if (testBtn){
-        testBtn.onclick = async () => {
-          try{
-            const devices = await callGeotabAPI('Get', { typeName:'Device', resultsLimit:5 });
-            msg('authResult','Got '+devices.length+' devices.','success');
-          }catch(err){
-            msg('authResult','❌ '+err.message,'danger');
-          }
-        };
-      }
+      // Auth
+      $('authBtn').onclick = async () => {
+        const server=$('server').value.trim();
+        const database=$('database').value.trim();
+        const username=$('username').value.trim();
+        const password=$('password').value;
 
-      if (logoutBtn){
-        logoutBtn.onclick = () => {
-          credentials = null;
-          apiUrl = null;
-          msg('authResult','Logged out.','info');
-          if (testBtn) testBtn.disabled = true;
-        };
-      }
+        if(!server||!database||!username||!password){
+          msg('authResult','Fill all authentication fields','warning'); return;
+        }
+        try{
+          apiUrl = toApiUrl(server);
+          if(!apiUrl) throw new Error('Invalid server URL');
+          const auth = await callGeotabAPI('Authenticate',{ userName:username, password, database });
+          credentials = auth.credentials;
+          if (!credentials) throw new Error('No credentials returned');
+          msg('authResult','✅ Connected successfully. Ready to analyze zones.','success');
+          $('reportCard').style.display='block';
+          $('testBtn').disabled=false;
+        }catch(e){
+          msg('authResult','❌ '+e.message,'danger');
+          $('reportCard').style.display='none';
+          $('testBtn').disabled=true;
+        }
+      };
+
+      $('testBtn').onclick = async () => {
+        try{
+          const devices = await callGeotabAPI('Get',{ typeName:'Device', resultsLimit:5 });
+          msg('authResult','🧪 API working: '+devices.length+' devices','success');
+        }catch(e){
+          msg('authResult','🧪 Test failed: '+e.message,'danger');
+        }
+      };
+
+      $('logout').onclick = () => {
+        credentials=null; apiUrl=null;
+        msg('authResult','Logged out.','info');
+        ['reportCard','chartsCard','summaryCard','legendCard','tableCard'].forEach(id=>$(id).style.display='none');
+        ['banner','tableWrap','summaryContent','legendText'].forEach(id=>$(id).innerHTML='');
+        setProgress(0,100,'');
+        if ($('testBtn')) $('testBtn').disabled=true;
+      };
+
+      // Run analysis
+      $('runBtn').onclick = async () => {
+        try{
+          const zoneId = $('zoneSelect').value;
+          if (!zoneId){ msg('banner','Please select a zone first','warning'); return; }
+          const z = HARDCODED_ZONES.find(v=>v.id===zoneId);
+          msg('banner',`Analyzing ${z.name} for fuel consumption and emissions...`,'info');
+          setProgress(5,100,'Fetching devices...');
+
+          const fromISO = new Date($('fromDate').value+'T00:00:00.000Z').toISOString();
+          const toISO   = new Date($('toDate').value+'T23:59:59.999Z').toISOString();
+          const limit   = parseInt($('limit').value)||100;
+
+          const devices = await callGeotabAPI('Get',{ typeName:'Device', resultsLimit: limit });
+          setProgress(20,100,'Fetching GPS records...');
+
+          const gpsData = await callGeotabAPI('Get',{
+            typeName:'LogRecord',
+            search:{ fromDate:fromISO, toDate:toISO },
+            resultsLimit:20000
+          });
+
+          setProgress(40,100,`Analyzing ${z.name}...`);
+          const results = [];
+          let processed=0;
+
+          for (const device of devices){
+            const deviceId = device.id;
+            const deviceGPS = gpsData.filter(r=>{
+              const rid = r.device ? (r.device.id || r.device) : null;
+              return rid === deviceId;
+            });
+
+            const zoneGPS = deviceGPS.filter(r=>{
+              const lat = r.latitude ?? r.y;
+              const lon = r.longitude ?? r.x;
+              if (lat==null || lon==null) return false;
+              const inZone = findZoneForLocation(lat, lon);
+              return inZone && inZone.id === zoneId;
+            });
+
+            if (zoneGPS.length === 0){ processed++; continue; }
+
+            // Rough distance estimates
+            const totalGPSPoints = deviceGPS.length;
+            const zoneGPSPoints  = zoneGPS.length;
+            const totalDistanceKm = totalGPSPoints * 0.5;
+            const zoneDistanceKm  = zoneGPSPoints  * 0.5;
+
+            // Fuel
+            const fuel = await getFuelUsedForDevice(deviceId, fromISO, toISO);
+            let liters = fuel.liters, fuelSource=fuel.source, estimated=fuel.estimated;
+            if (liters <= 0){
+              estimated = true;
+              liters = totalDistanceKm > 5 ? (totalDistanceKm/100)*25 : 60; // fallback
+              fuelSource = totalDistanceKm > 5 ? 'Estimated (25L/100km)' : 'Estimated (60L default)';
+            }
+
+            const zoneFuelRatio = totalDistanceKm>0 ? zoneDistanceKm/totalDistanceKm : 0.5;
+            const zoneFuel = liters * zoneFuelRatio;
+            const co2 = Math.round(zoneFuel * EMISSION_FACTOR * 100) / 100;
+
+            results.push({
+              deviceId,
+              deviceName: device.name || deviceId,
+              totalLiters: Math.round(liters*10)/10,
+              zoneLiters: Math.round(zoneFuel*10)/10,
+              co2,
+              fuelSource,
+              estimated,
+              zoneTrips: zoneGPS.length,
+              totalTrips: totalGPSPoints,
+              totalDistanceKm: Math.round(totalDistanceKm*10)/10,
+              zoneDistanceKm: Math.round(zoneDistanceKm*10)/10,
+              zoneName: z.name
+            });
+
+            processed++;
+            setProgress(40 + (processed/devices.length)*50, 100, `Processed ${processed}/${devices.length}`);
+          }
+
+          results.sort((a,b)=>b.co2-a.co2);
+          setProgress(95,100,'Rendering report...');
+
+          renderZoneTable(results, z);
+          renderZoneCharts(results, z);
+          renderZoneSummary(results, z);
+          renderLegend();
+
+          const totalCO2 = results.reduce((s,r)=>s+r.co2,0);
+          const actualCount = results.filter(r=>!r.estimated).length;
+
+          if (results.length === 0){
+            msg('banner',`⚠️ No vehicles found visiting ${z.name}. Try expanding date range.`,'warning');
+          }else{
+            msg('banner',`✅ ${z.name}: ${results.length} vehicles visited. ${actualCount} real fuel readings. Zone CO₂: ${Math.round(totalCO2)} kg`,'success');
+          }
+          setProgress(100,100,'Complete');
+        }catch(e){
+          msg('banner','Zone analysis failed: '+e.message,'danger');
+          console.error(e);
+        }
+      };
     });
   </script>
 </body>
