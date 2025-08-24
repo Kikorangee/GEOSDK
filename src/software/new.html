@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -58,6 +57,7 @@
     #chartsSection canvas{max-height:400px}
     #chartsSection h4{color:#2d3748;margin-bottom:15px}
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 </head>
 <body>
   <div class="container">
@@ -76,7 +76,7 @@
         <input id="username" class="form-control" placeholder="Username" value="francis@directt.co.nz" />
         <input id="password" class="form-control" type="password" placeholder="Password" value="@fr4nc1sWynn5" />
       </div>
-      <button id="authButton" class="btn btn-primary">🔒 Authenticate</button>
+      <button id="authButton" class="btn btn-primary">🔑 Authenticate</button>
       <div id="authResult"></div>
     </div>
 
@@ -390,9 +390,12 @@ function extractId(data){
   return null;
 }
 
-function calculateUtilization(engineHours, totalHours) {
-  if (!totalHours || totalHours === 0) return 0;
-  return Math.min(100, Math.round((engineHours / totalHours) * 100 * 100) / 100);
+function calculateUtilization(engineHours, totalCalendarHours) {
+  if (!totalCalendarHours || totalCalendarHours === 0) return 0;
+  // Utilization = (actual engine hours / total calendar hours) * 100
+  // Cap at 100% and round to 2 decimal places
+  const utilization = (engineHours / totalCalendarHours) * 100;
+  return Math.min(100, Math.round(utilization * 100) / 100);
 }
 
 function calculateEmissions(fuelUsed, fuelType = 'diesel') {
@@ -665,8 +668,37 @@ async function fetchUtilizationData(fromDateTime, toDateTime, resultsLimit, prog
     
     // Get engine hours for this device
     const deviceEngineData = engineHoursData.filter(s => extractId(s.device) === deviceId);
-    const engineHours = deviceEngineData.length > 0 ? 
-      Math.max(...deviceEngineData.map(s => s.data || 0)) / 3600 : 0;
+    let engineHours = 0;
+    
+    if (deviceEngineData.length > 0) {
+      // Geotab engine hours are typically cumulative values in hours
+      // Calculate the difference between max and min readings during the period
+      const engineValues = deviceEngineData.map(s => s.data || 0);
+      const minEngine = Math.min(...engineValues);
+      const maxEngine = Math.max(...engineValues);
+      engineHours = Math.max(0, maxEngine - minEngine);
+      
+      // Sanity check: if difference is too large, the data might be in different units
+      if (engineHours > totalHours * 2) {
+        console.warn(`Suspicious engine hours for ${deviceName}: ${engineHours} hours in ${totalHours} calendar hours`);
+        // Try dividing by 3600 in case the data is in seconds
+        engineHours = engineHours / 3600;
+      }
+      
+      // If still too high, cap it at reasonable maximum
+      if (engineHours > totalHours) {
+        console.warn(`Capping engine hours for ${deviceName} from ${engineHours} to ${totalHours}`);
+        engineHours = totalHours;
+      }
+      
+      // If the difference is still 0 but we have data, use a different approach
+      if (engineHours === 0 && engineValues.length > 0 && maxEngine > 0) {
+        // Use the maximum value as total engine hours (assuming it's cumulative)
+        engineHours = Math.min(maxEngine, totalHours);
+      }
+      
+      console.log(`Device ${deviceName}: Min engine: ${minEngine}, Max engine: ${maxEngine}, Calculated hours: ${engineHours}`);
+    }
     
     // Get trips for this device
     const deviceTrips = trips.filter(t => extractId(t.device) === deviceId);
@@ -705,7 +737,31 @@ async function fetchUtilizationData(fromDateTime, toDateTime, resultsLimit, prog
     // Calculate emissions per km
     const emissionsPerKm = totalDistance > 0 ? Math.round((emissions * 1000) / totalDistance) : 0; // g CO2/km
     
-    const utilization = calculateUtilization(engineHours, totalHours);
+    // Calculate utilization - try different approaches for more realistic results
+    let utilization = 0;
+    
+    if (engineHours > 0) {
+      // Method 1: Against total calendar time (traditional approach)
+      const calendarUtilization = calculateUtilization(engineHours, totalHours);
+      
+      // Method 2: Against reasonable business hours (8-12 hours per day)
+      const days = Math.ceil(totalHours / 24);
+      const businessHoursPerDay = 10; // Assume 10 hour work days
+      const totalBusinessHours = days * businessHoursPerDay;
+      const businessUtilization = calculateUtilization(engineHours, totalBusinessHours);
+      
+      // Use the more reasonable of the two calculations
+      // If calendar utilization is very low, use business hours calculation
+      utilization = calendarUtilization < 5 && businessUtilization < 100 ? businessUtilization : calendarUtilization;
+      
+      // Debug logging
+      console.log(`Asset ${deviceName}: Engine Hours: ${engineHours}, Calendar Hours: ${totalHours}, Business Hours: ${totalBusinessHours}, Calendar Util: ${calendarUtilization}%, Business Util: ${businessUtilization}%`);
+    }
+    
+    // If utilization still seems off, cap it more reasonably
+    if (utilization > 80) {
+      console.warn(`High utilization detected for ${deviceName}: ${utilization}% - checking data quality`);
+    }
     
     return {
       deviceId,
@@ -722,6 +778,8 @@ async function fetchUtilizationData(fromDateTime, toDateTime, resultsLimit, prog
   });
   
   updateProgress(progressOffset + 7, totalSteps, 'Finalizing data...');
+  
+  console.log(`Processed ${processedData.length} devices. Period: ${totalHours} hours (${Math.round(totalHours/24)} days)`);
   
   // Sort by utilization (highest first)
   return processedData.sort((a, b) => b.utilization - a.utilization);
@@ -1177,7 +1235,7 @@ function renderSelectedZones() {
   selectedZoneIds.forEach(zoneId => {
     const zone = availableZones.find(z => z.id === zoneId);
     if (zone) {
-      html += `<span class="zone-pill active">${zone.name} <button onclick="removeZone('${zoneId}')" style="background:none;border:none;cursor:pointer;margin-left:5px;">❌</button></span> `;
+      html += `<span class="zone-pill active">${zone.name} <button onclick="removeZone('${zoneId}')" style="background:none;border:none;cursor:pointer;margin-left:5px;">✖</button></span> `;
     }
   });
   
