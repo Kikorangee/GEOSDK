@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Geotab Utilization & Emissions – Attached API (Fast, Batched)</title>
+  <title>Geotab Utilization & Emissions – Standalone (Zones + Charts, Robust)</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#0f172a;color:#111;padding:22px}
@@ -15,7 +15,7 @@
     .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
     .form-control,.form-select{width:100%;padding:11px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px}
     .btn{padding:11px 18px;border:none;border-radius:10px;font-weight:600;cursor:pointer;margin:4px}
-    .btn-primary{background:linear-gradient(135deg,#14532d,#1e40af);color:#fff}
+    .btn-primary{background:#14532d;color:#fff}
     .btn-green{background:#16a34a;color:#fff}
     .btn-blue{background:#2563eb;color:#fff}
     .btn-red{background:#ef4444;color:#fff}
@@ -35,405 +35,315 @@
     .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;border:1px solid #e2e8f0}
     .b-act{background:#dcfce7;color:#14532d;border-color:#22c55e}
     .b-est{background:#fef3c7;color:#92400e;border-color:#f59e0b}
+    pre{white-space:pre-wrap;background:#0f172a;color:#e2e8f0;border-radius:10px;padding:12px;overflow:auto}
   </style>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js">
-let _co2BarChart = null;
-let _co2PieChart = null;
-
-function renderCharts(rows, fromISO, toISO){
-  if(!rows || !rows.length){ 
-    document.getElementById('chartsCard').style.display='none';
-    return;
-  }
-  // Sort by CO2 desc
-  const sorted = [...rows].sort((a,b)=> b.co2 - a.co2);
-  const labels = sorted.map(r=>r.deviceName);
-  const data = sorted.map(r=>r.co2);
-
-  const hi = sorted[0];
-  const lo = sorted[sorted.length-1];
-  const dateLabel = new Date(fromISO).toISOString().slice(0,10) + " → " + new Date(toISO).toISOString().slice(0,10);
-  document.getElementById('chartsSubtitle').textContent = `Highest: ${hi.deviceName} (${hi.co2} kg) • Lowest: ${lo.deviceName} (${lo.co2} kg) • Range: ${dateLabel}`;
-
-  // Colors: highlight highest (first) and lowest (last)
-  const base = Array(data.length).fill('#60a5fa');
-  if(data.length>0) base[0] = '#ef4444';
-  if(data.length>1) base[data.length-1] = '#22c55e';
-
-  const barCtx = document.getElementById('co2Bar').getContext('2d');
-  if(_co2BarChart) _co2BarChart.destroy();
-  _co2BarChart = new Chart(barCtx, {
-    type: 'bar',
-    data: { labels, datasets: [{ label: 'CO₂ (kg)', data, backgroundColor: base }] },
-    options: { responsive:true, plugins:{ legend:{ display:true } }, scales:{ y:{ beginAtZero:true } } }
-  });
-
-  // Pie (share)
-  const pieCtx = document.getElementById('co2Pie').getContext('2d');
-  if(_co2PieChart) _co2PieChart.destroy();
-  _co2PieChart = new Chart(pieCtx, {
-    type: 'doughnut',
-    data: { labels, datasets: [{ label: 'Share of CO₂', data }] },
-    options: { responsive:true, plugins:{ legend:{ display:true, position:'right' } } }
-  });
-
-  document.getElementById('chartsCard').style.display='block';
-}
-
-function renderLegend(){
-  const el = document.getElementById('legendText');
-  el.innerHTML = `
-    <ul style="margin-left:16px;">
-      <li><strong>Distance (km)</strong> = Δ of <code>DiagnosticOdometerAdjustmentId</code> between selected From → To.</li>
-      <li><strong>Fuel (L)</strong> = Δ of <code>DiagnosticDeviceTotalFuelId</code> over the same window.</li>
-      <li><strong>CO₂ (kg)</strong> = Fuel (L) × 2.68 (diesel emission factor).</li>
-      <li><strong>Actual vs Estimated</strong>:
-        <ul style="margin-left:16px;">
-          <li><span class="badge b-act">Actual</span> when fuel delta is available.</li>
-          <li><span class="badge b-est">Estimated</span> only when no fuel points exist in the window:
-            <ul style="margin-left:16px;">
-              <li>If distance exists: 25 L/100km fallback</li>
-              <li>If no distance: 15 L/hour conservative estimate (assumed limited operation)</li>
-            </ul>
-          </li>
-        </ul>
-      </li>
-      <li><strong>Window</strong> = exactly the dates you picked in the browser tool.</li>
-    </ul>
-  `;
-  document.getElementById('legendCard').style.display='block';
-}
-
-</script>
-
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 </head>
 <body>
 <div class="container">
   <div class="header">
-    <h1>🚛 Utilization & Emissions – Attached API (Fast)</h1>
-    <div class="muted">Fuel from <code>DiagnosticDeviceTotalFuelId</code> delta; distance from <code>DiagnosticOdometerAdjustmentId</code>. Batched calls, progress, cancel, timeouts.</div>
+    <h1>🚛 Utilization & Emissions – Standalone (Robust)</h1>
+    <div class="muted">Strict JSON-RPC with sanitized server path and diagnostics. Includes zones, time-basis, charts, legend.</div>
   </div>
 
   <div class="card">
     <h3>🔐 Authentication</h3>
     <div class="row" style="margin-top:8px">
       <input id="server" class="form-control" placeholder="Server" value="my.geotab.com" />
-      <input id="database" class="form-control" placeholder="Database" value="UCCNZ" />
+      <input id="database" class="form-control" placeholder="Database (case-sensitive)" />
     </div>
     <div class="row" style="margin-top:8px">
-      <input id="username" class="form-control" placeholder="Username" value="francis@directt.co.nz" />
-      <input id="password" class="form-control" type="password" placeholder="Password" value="@fr4nc1sWynn5" />
+      <input id="username" class="form-control" placeholder="Username" />
+      <input id="password" class="form-control" type="password" placeholder="Password" />
     </div>
     <div>
       <button id="authBtn" class="btn btn-primary">🔑 Authenticate</button>
-      <button id="useSession" class="btn btn-blue">🧩 Use MyGeotab Session</button>
+      <button id="testBtn" class="btn btn-amber" disabled>🧪 Test Get (Device x 1)</button>
       <button id="logout" class="btn btn-red">🚪 Logout</button>
     </div>
     <div id="authResult" style="margin-top:8px"></div>
+    <details style="margin-top:8px"><summary>Diagnostics</summary>
+      <div class="row">
+        <div><strong>Server in use:</strong> <span id="diagServer">–</span></div>
+        <div><strong>Database:</strong> <span id="diagDb">–</span></div>
+      </div>
+      <div style="margin-top:8px"><strong>Last request</strong><pre id="diagReq">–</pre></div>
+      <div style="margin-top:8px"><strong>Last response</strong><pre id="diagRes">–</pre></div>
+    </details>
   </div>
 
   <div id="reportCard" class="card" style="display:none;">
     <h3>📊 Report</h3>
     <div class="row">
-      <input id="fromDate" class="form-control" type="date" />
-      <input id="toDate" class="form-control" type="date" />
-      <input id="limit" class="form-control" placeholder="Asset limit" value="300" />
-      <input id="resultsLimit" class="form-control" placeholder="Per-device StatusData limit" value="1000" />
-      <input id="concurrency" class="form-control" placeholder="Parallel devices" value="8" />
-      <input id="timeoutSec" class="form-control" placeholder="Batch timeout (sec)" value="45" />
+      <input id="fromDate" class="form-select" type="date" />
+      <input id="toDate" class="form-select" type="date" />
+      <input id="limit" class="form-select" placeholder="Asset limit" value="300" />
+      <input id="resultsLimit" class="form-select" placeholder="Per-device StatusData limit" value="1000" />
+      <input id="concurrency" class="form-select" placeholder="Parallel devices" value="8" />
+      <input id="timeoutSec" class="form-select" placeholder="Batch timeout (sec)" value="45" />
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button id="loadZones" class="btn btn-blue">🔍 Load Zones</button>
+      <select id="zoneSelect" class="form-select" style="display:none;">
+        <option value="">Select a zone to add…</option>
+      </select>
+      <div id="selectedZones" class="muted" style="grid-column:1/-1;margin-top:6px">Zones: <em>none</em></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <select id="timeBasis" class="form-select">
+        <option value="daily">Daily</option>
+        <option value="weekly" selected>Weekly</option>
+        <option value="monthly">Monthly</option>
+      </select>
     </div>
     <div style="margin-top:10px">
       <button id="runBtn" class="btn btn-green">📊 Generate</button>
-      <button id="cancelBtn" class="btn btn-amber" disabled>⛔ Cancel</button>
     </div>
     <div id="banner" style="margin-top:10px"></div>
     <div class="progress"><div id="progressFill" style="width:0%">0%</div></div>
     <div id="progressText" class="muted" style="text-align:center;margin-top:6px;"></div>
     <div id="tableWrap" style="margin-top:10px"></div>
+  </div>
 
-    <div class="card" id="chartsCard" style="display:none; margin-top:12px;">
-      <h3>📈 Weekly CO₂ Emissions</h3>
-      <div class="muted" id="chartsSubtitle" style="margin:6px 0 10px 0;"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-        <canvas id="co2Bar"></canvas>
-        <canvas id="co2Pie"></canvas>
-      </div>
+  <div class="card" id="chartsCard" style="display:none; margin-top:12px;">
+    <h3>📈 Weekly CO₂ Emissions</h3>
+    <div class="muted" id="chartsSubtitle" style="margin:6px 0 10px 0;"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <canvas id="co2Bar"></canvas>
+      <canvas id="co2Pie"></canvas>
     </div>
+  </div>
 
-    <div class="card" id="legendCard" style="display:none; margin-top:12px;">
-      <h3>ℹ️ Methodology & Calculations</h3>
-      <div class="muted" id="legendText" style="margin-top:8px; line-height:1.5;"></div>
+  <div class="card" id="zoneAggCard" style="display:none; margin-top:12px;">
+    <h3>🗺️ Emissions by Zone</h3>
+    <div class="muted" id="zoneAggSubtitle" style="margin:6px 0 10px 0;"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <canvas id="zoneBar"></canvas>
+      <canvas id="zoneStacked"></canvas>
     </div>
+    <div id="zoneTableWrap" style="margin-top:12px"></div>
+  </div>
 
+  <div class="card" id="legendCard" style="display:none; margin-top:12px;">
+    <h3>ℹ️ Methodology & Calculations</h3>
+    <div class="muted" id="legendText" style="margin-top:8px; line-height:1.5;"></div>
   </div>
 </div>
 
 <script>
-let credentials=null, serverUsed=null;
-let cancelFlag=false;
+let credentials=null, serverUsed=null, _zones=[], _selectedZoneIds=new Set();
+let _rowsCache=[], _fromISO=null, _toISO=null;
 
-function setDefaults(){
-  const today = new Date();
-  const last = new Date(today.getTime() - 14*24*3600*1000);
-  document.getElementById('toDate').value = today.toISOString().split('T')[0];
-  document.getElementById('fromDate').value = last.toISOString().split('T')[0];
-}
+function msg(id, text, type='info'){ const cls=type==='success'?'alert-success':type==='warning'?'alert-warning':type==='danger'?'alert-danger':'alert-info'; const el=document.getElementById(id); if(el) el.innerHTML=`<div class="alert ${cls}">${text}</div>`; }
+function setDefaults(){ const t=new Date(), l=new Date(t.getTime()-14*24*3600*1000); document.getElementById('toDate').value=t.toISOString().split('T')[0]; document.getElementById('fromDate').value=l.toISOString().split('T')[0]; }
 setDefaults();
+function setProgress(done,total,label=''){ const f=document.getElementById('progressFill'),tx=document.getElementById('progressText'); const p=total?Math.round(done/total*100):0; f.style.width=p+'%'; f.textContent=p+'%'; tx.textContent=label||`${done}/${total}`; }
+function idOf(x){ if(!x) return null; if(typeof x==='object'&&x.id) return x.id; if(typeof x==='string') return x; try{ return JSON.parse(x).id||null }catch(e){ return null } }
+function sanitizeHost(path){ try{ if(!path) return null; // handles 'myXX.geotab.com' or 'https://myXX.geotab.com/apiv1'
+  let u=path; if(!/^https?:\/\//i.test(u)) u='https://'+u; const url=new URL(u); return url.host; }catch(e){ return path.split('/')[0]; } }
 
-function msg(id, text, type='info'){
-  const cls = type==='success'?'alert-success':type==='warning'?'alert-warning':type==='danger'?'alert-danger':'alert-info';
-  document.getElementById(id).innerHTML = `<div class="alert ${cls}">${text}</div>`;
-}
-function setProgress(done,total,label=''){
-  const fill = document.getElementById('progressFill');
-  const txt = document.getElementById('progressText');
-  const pct = total? Math.round(done/total*100) : 0;
-  fill.style.width = pct+'%'; fill.textContent = pct+'%';
-  txt.textContent = label || `${done}/${total}`;
-}
-function idOf(x){ if(!x) return null; if(typeof x==='object' && x.id) return x.id; if(typeof x==='string') return x; try{ return JSON.parse(x).id || null }catch(e){ return null } }
+let lastReq=null, lastRes=null;
+function diagUpdate(){ document.getElementById('diagServer').textContent = serverUsed||'–'; const db=document.getElementById('database').value||'–'; document.getElementById('diagDb').textContent=db; document.getElementById('diagReq').textContent= lastReq? JSON.stringify(lastReq, (k,v)=> k==='password'?'***':(k==='sessionId'?(typeof v==='string'?(v.slice(0,6)+'…') : v):v), 2) : '–'; document.getElementById('diagRes').textContent = lastRes? JSON.stringify(lastRes, null, 2) : '–'; }
 
 async function callGeotabAPI(method, params={}){
-  if (window.geotab && typeof window.geotab.call==='function'){
-    return new Promise((res,rej)=>window.geotab.call(method, params, res, rej));
-  }
-  if (window.api && typeof window.api.call==='function'){
-    return new Promise((res,rej)=>window.api.call(method, params, res, rej));
-  }
-  const rpc = { id:1, jsonrpc:"2.0", method, params: (credentials && method!=='Authenticate') ? { ...params, credentials } : params };
+  if(!serverUsed) throw new Error('Not authenticated');
+  const rpc={ id:1, jsonrpc:'2.0', method, params: (credentials&&method!=='Authenticate')?{...params, credentials}:{...params} };
+  lastReq = { url:`https://${serverUsed}/apiv1`, body: rpc };
   const r = await fetch(`https://${serverUsed}/apiv1`, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify(rpc) });
-  if(!r.ok) throw new Error('HTTP '+r.status);
-  const j = await r.json();
-  if(j.error){ throw new Error((j.error.data && j.error.data.exceptionMessage) || j.error.message || j.error.name); }
-  return j.result!==undefined ? j.result : j;
+  let j=null; try{ j=await r.json(); }catch(e){ throw new Error('Non-JSON response. Are you on HTTPS? Host: '+serverUsed); }
+  lastRes = j; diagUpdate();
+  if(j.error){ const em=(j.error.data&&j.error.data.exceptionMessage)||j.error.message||j.error.name; throw new Error(em); }
+  return j.result!==undefined? j.result : j;
 }
 
+// ===== Auth flow
 document.getElementById('authBtn').onclick = async function(){
-  const server = document.getElementById('server').value.trim();
-  const database = document.getElementById('database').value.trim();
-  const username = document.getElementById('username').value.trim();
-  const password = document.getElementById('password').value;
-  if(!server||!database||!username||!password){ msg('authResult','Fill all fields','warning'); return; }
+  const server=document.getElementById('server').value.trim();
+  const database=document.getElementById('database').value.trim();
+  const username=document.getElementById('username').value.trim();
+  const password=document.getElementById('password').value;
+  if(!server||!database||!username||!password){ msg('authResult','Fill server, database, username, password','warning'); return; }
   try{
-    serverUsed = server;
+    serverUsed = sanitizeHost(server);
+    diagUpdate();
     const r = await callGeotabAPI('Authenticate',{ userName:username, password, database });
-    if(r.path && r.path!=='ThisServer'){
-      serverUsed = r.path;
-      const r2 = await callGeotabAPI('Authenticate',{ userName:username, password, database });
-      credentials = r2.credentials;
-    } else {
-      credentials = r.credentials;
-    }
+    if(r.path && r.path!=='ThisServer'){ serverUsed = sanitizeHost(r.path); }
+    const r2 = (r.path && r.path!=='ThisServer') ? await callGeotabAPI('Authenticate',{ userName:username, password, database }) : r;
+    credentials = r2.credentials || (r2.result && r2.result.credentials);
+    if(!credentials) throw new Error('No credentials returned');
     msg('authResult',`✅ Authenticated on ${serverUsed} / DB: ${database}`,'success');
     document.getElementById('reportCard').style.display='block';
-  }catch(e){ msg('authResult','Auth failed: '+e.message,'danger'); }
+    document.getElementById('testBtn').disabled=false;
+    diagUpdate();
+  }catch(e){ msg('authResult','Auth failed: '+e.message,'danger'); diagUpdate(); }
 };
 
-document.getElementById('useSession').onclick = function(){
-  if (window.geotab && typeof window.geotab.call==='function'){
-    credentials = { sessionId:'', database:'' };
-    serverUsed = location.host;
-    msg('authResult','✅ Using MyGeotab session','success');
-    document.getElementById('reportCard').style.display='block';
-  } else {
-    msg('authResult','Not running inside MyGeotab. Use manual auth.','warning');
-  }
+document.getElementById('testBtn').onclick = async function(){
+  try{
+    const res = await callGeotabAPI('Get',{ typeName:'Device', resultsLimit:1 });
+    msg('authResult','🧪 Test Get OK: '+ (res && res.length ? (res[0].name||res[0].id) : 'no devices'), 'success');
+  }catch(e){ msg('authResult','🧪 Test Get failed: '+e.message,'danger'); }
 };
 
-document.getElementById('logout').onclick = function(){
-  credentials=null; serverUsed=null;
+document.getElementById('logout').onclick=function(){
+  credentials=null; serverUsed=null; _zones=[]; _selectedZoneIds.clear(); _rowsCache=[]; _fromISO=null; _toISO=null;
   document.getElementById('reportCard').style.display='none';
-  document.getElementById('authResult').innerHTML='';
-  document.getElementById('banner').innerHTML='';
-  document.getElementById('tableWrap').innerHTML='';
+  document.getElementById('authResult').innerHTML=''; document.getElementById('banner').innerHTML=''; document.getElementById('tableWrap').innerHTML='';
+  lastReq=null; lastRes=null; diagUpdate();
 };
 
-function computeDelta(odo, fuel){
-  let dist=0, liters=0, hasFuel=false;
-  if(odo && odo.length>1){ dist = (odo[odo.length-1].data - odo[0].data) / 1000; }
-  if(fuel && fuel.length>1){ liters = (fuel[fuel.length-1].data - fuel[0].data); hasFuel=true; }
-  if(liters<0) liters = 0;
-  return { distanceKm: dist>0?dist:0, liters: liters>0?liters:0, hasFuel };
-}
+// ===== Zones
+document.getElementById('loadZones').onclick = async function(){
+  if(!credentials){ msg('banner','Authenticate first.','warning'); return; }
+  try{
+    const z = await callGeotabAPI('Get',{ typeName:'Zone', resultsLimit:2000 });
+    _zones = (z||[]).filter(x=>x.name && x.name.trim());
+    const sel=document.getElementById('zoneSelect'); sel.innerHTML='<option value=\"\">Select a zone to add…</option>';
+    _zones.forEach(x=>{ const o=document.createElement('option'); o.value=x.id; o.textContent=x.name; sel.appendChild(o); });
+    sel.style.display='block';
+    msg('banner',`✅ ${_zones.length} zones loaded`,'success');
+  }catch(e){ msg('banner','Failed to load zones: '+e.message,'danger'); }
+};
+document.getElementById('zoneSelect').onchange=function(){ const id=this.value; if(!id) return; _selectedZoneIds.add(id); renderSelectedZones(); this.value=''; };
+function renderSelectedZones(){ const holder=document.getElementById('selectedZones'); if(_selectedZoneIds.size===0){ holder.innerHTML='Zones: <em>none</em>'; return; } const names=Array.from(_selectedZoneIds).map(id=> (_zones.find(z=>z.id===id)||{}).name || id); holder.innerHTML='Zones: '+names.map(n=>`<span class="badge">${n}</span>`).join(' '); }
+
+// ===== Fuel Δ logic
+const EF=2.68;
+function computeDelta(odo,fuel){ let dist=0, liters=0, hasFuel=false; if(odo&&odo.length>1){ dist=(odo[odo.length-1].data-odo[0].data)/1000; } if(fuel&&fuel.length>1){ liters=(fuel[fuel.length-1].data-fuel[0].data); hasFuel=true; } if(liters<0) liters=0; return { distanceKm: dist>0?dist:0, liters: liters>0?liters:0, hasFuel }; }
 
 async function fetchForDevices(devices, fromISO, toISO, resultsLimit=1000, concurrency=8, timeoutSec=45){
-  const rows=[];
-  let done=0, total=devices.length;
-  cancelFlag=false;
-  document.getElementById('cancelBtn').disabled=false;
-
-  const chunks=[];
-  for(let i=0;i<devices.length;i+=concurrency){
-    chunks.push(devices.slice(i, i+concurrency));
-  }
-
+  const rows=[]; let done=0,total=devices.length;
+  const chunks=[]; for(let i=0;i<devices.length;i+=concurrency){ chunks.push(devices.slice(i,i+concurrency)); }
   for(const chunk of chunks){
-    if(cancelFlag) break;
-
-    // Build multiCall batch if available
-    if (window.geotab && typeof window.geotab.multiCall==='function'){
-      const calls=[];
-      for(const d of chunk){
-        const id=d.id;
-        calls.push(["Get",{ typeName:"StatusData", search:{ fromDate:fromISO, toDate:toISO, diagnosticSearch:{ id:"DiagnosticOdometerAdjustmentId" }, deviceSearch:{ id }, }, resultsLimit }]);
-        calls.push(["Get",{ typeName:"StatusData", search:{ fromDate:fromISO, toDate:toISO, diagnosticSearch:{ id:"DiagnosticDeviceTotalFuelId" }, deviceSearch:{ id }, }, resultsLimit }]);
-      }
-      const res = await Promise.race([
-        new Promise((resolve,reject)=>window.geotab.multiCall(calls, resolve, reject)),
-        new Promise((_,reject)=>setTimeout(()=>reject(new Error('Batch timeout')), timeoutSec*1000))
+    const ps = chunk.map(async d=>{
+      const id=d.id;
+      const both = await Promise.race([
+        Promise.all([
+          callGeotabAPI('Get',{ typeName:'StatusData', search:{ fromDate:fromISO, toDate:toISO, diagnosticSearch:{ id:'DiagnosticOdometerAdjustmentId' }, deviceSearch:{ id } }, resultsLimit }),
+        callGeotabAPI('Get',{ typeName:'StatusData', search:{ fromDate:fromISO, toDate:toISO, diagnosticSearch:{ id:'DiagnosticDeviceTotalFuelId' }, deviceSearch:{ id } }, resultsLimit })
+        ]),
+        new Promise((_,rej)=>setTimeout(()=>rej(new Error('Batch timeout')), timeoutSec*1000))
       ]);
-      // Pair results for each device
-      for(let i=0;i<chunk.length;i++){
-        const d=chunk[i];
-        const odo = res[2*i] || [];
-        const fuel = res[2*i+1] || [];
-        const { distanceKm, liters, hasFuel } = computeDelta(odo, fuel);
-        const est = !hasFuel;
-        const fuelLit = est ? (distanceKm>0 ? (distanceKm/100)*25 : 8*15) : liters;
-        const co2 = Math.round(fuelLit*2.68*100)/100;
-        rows.push({ deviceName:d.name||d.id, distanceKm:Math.round(distanceKm*10)/10, liters:Math.round(fuelLit*10)/10, fuelSource: est?'Estimated':'Actual', estimated: est, co2 });
-        done++; setProgress(done,total,`Processed ${done}/${total}`);
-      }
-    } else {
-      // Standalone: parallel per-device with Promise.allSettled and timeout
-      const ps = chunk.map(async d=>{
-        const id=d.id;
-        const odoP = callGeotabAPI("Get",{ typeName:"StatusData", search:{ fromDate:fromISO, toDate:toISO, diagnosticSearch:{ id:"DiagnosticOdometerAdjustmentId" }, deviceSearch:{ id } }, resultsLimit });
-        const fuelP= callGeotabAPI("Get",{ typeName:"StatusData", search:{ fromDate:fromISO, toDate:toISO, diagnosticSearch:{ id:"DiagnosticDeviceTotalFuelId" }, deviceSearch:{ id } }, resultsLimit });
-        const res = await Promise.race([Promise.all([odoP,fuelP]), new Promise((_,reject)=>setTimeout(()=>reject(new Error('Batch timeout')), timeoutSec*1000))]);
-        const { distanceKm, liters, hasFuel } = computeDelta(res[0], res[1]);
-        const est = !hasFuel;
-        const fuelLit = est ? (distanceKm>0 ? (distanceKm/100)*25 : 8*15) : liters;
-        const co2 = Math.round(fuelLit*2.68*100)/100;
-        rows.push({ deviceName:d.name||d.id, distanceKm:Math.round(distanceKm*10)/10, liters:Math.round(fuelLit*10)/10, fuelSource: est?'Estimated':'Actual', estimated: est, co2 });
-        done++; setProgress(done,total,`Processed ${done}/${total}`);
-      });
-      await Promise.allSettled(ps);
-    }
+      const [odo, fuel] = both;
+      const { distanceKm, liters, hasFuel } = computeDelta(odo, fuel);
+      const est=!hasFuel; const fuelLit = est ? (distanceKm>0 ? (distanceKm/100)*25 : 8*15) : liters;
+      const co2 = Math.round(fuelLit*EF*100)/100;
+      rows.push({ deviceId:id, deviceName:d.name||id, distanceKm:Math.round(distanceKm*10)/10, liters:Math.round(fuelLit*10)/10, fuelSource: est?'Estimated':'Actual', estimated: est, co2 });
+      done++; setProgress(done,total,`Processed ${done}/${total}`);
+    });
+    await Promise.all(ps);
   }
-
-  document.getElementById('cancelBtn').disabled=true;
   return rows;
 }
 
-document.getElementById('cancelBtn').onclick = function(){ cancelFlag=true; msg('banner','Cancelling after current batch…','warning'); };
+// ===== Charts + legend
+let _co2BarChart=null,_co2PieChart=null;
+function renderCharts(rows, fromISO, toISO){
+  if(!rows||!rows.length){ document.getElementById('chartsCard').style.display='none'; return; }
+  const sorted=[...rows].sort((a,b)=> b.co2-a.co2); const labels=sorted.map(r=>r.deviceName); const data=sorted.map(r=>r.co2);
+  const hi=sorted[0], lo=sorted[sorted.length-1]; const dateLabel=new Date(fromISO).toISOString().slice(0,10)+' → '+new Date(toISO).toISOString().slice(0,10);
+  document.getElementById('chartsSubtitle').textContent = `Highest: ${hi.deviceName} (${hi.co2} kg) • Lowest: ${lo.deviceName} (${lo.co2} kg) • Range: ${dateLabel}`;
+  const barCtx=document.getElementById('co2Bar').getContext('2d'); if(_co2BarChart) _co2BarChart.destroy();
+  _co2BarChart = new Chart(barCtx,{ type:'bar', data:{ labels, datasets:[{ label:'CO₂ (kg)', data }] }, options:{ responsive:true, scales:{ y:{ beginAtZero:true } } } });
+  const pieCtx=document.getElementById('co2Pie').getContext('2d'); if(_co2PieChart) _co2PieChart.destroy();
+  _co2PieChart = new Chart(pieCtx,{ type:'doughnut', data:{ labels, datasets:[{ label:'Share of CO₂', data }] }, options:{ responsive:true, plugins:{ legend:{ position:'right' } } } });
+  document.getElementById('chartsCard').style.display='block';
+}
+function renderLegend(){
+  const el=document.getElementById('legendText'); el.innerHTML=`
+  <ul style="margin-left:16px;">
+    <li><strong>Distance (km)</strong> = Δ of <code>DiagnosticOdometerAdjustmentId</code> between selected dates.</li>
+    <li><strong>Fuel (L)</strong> = Δ of <code>DiagnosticDeviceTotalFuelId</code> over the same window.</li>
+    <li><strong>CO₂ (kg)</strong> = Fuel (L) × 2.68.</li>
+    <li><strong>Actual vs Estimated</strong>: <span class="badge b-act">Actual</span> when a fuel delta exists; <span class="badge b-est">Estimated</span> only when no fuel data is returned (25 L/100km fallback, or 15 L/hr if no distance).</li>
+    <li><strong>Window</strong> = exactly the dates you pick above.</li>
+  </ul>`; document.getElementById('legendCard').style.display='block';
+}
 
+// ===== Zones aggregation
+function fmtDateISO(d){ return new Date(d).toISOString().slice(0,10); }
+function startOfWeek(d){ const dt=new Date(d); const day=(dt.getUTCDay()+6)%7; dt.setUTCDate(dt.getUTCDate()-day); dt.setUTCHours(0,0,0,0); return dt; }
+function startOfMonth(d){ const dt=new Date(d); dt.setUTCDate(1); dt.setUTCHours(0,0,0,0); return dt; }
+function binKey(dateStr,basis){ const d=new Date(dateStr); if(basis==='daily') return fmtDateISO(d); if(basis==='weekly') return fmtDateISO(startOfWeek(d)); if(basis==='monthly'){ const m=startOfMonth(d); return m.getUTCFullYear()+'-'+String(m.getUTCMonth()+1).padStart(2,'0'); } return fmtDateISO(d); }
+
+async function fetchZoneStopsByZone(fromISO,toISO){
+  const res={}; const arr=Array.from(_selectedZoneIds); if(arr.length===0) return res;
+  const ps = arr.map(async zid=>{ const zs=await callGeotabAPI('Get',{ typeName:'ZoneStop', search:{ fromDate:fromISO, toDate:toISO, zoneSearch:{ id:zid } }, resultsLimit:20000 }); res[zid]=zs||[]; });
+  await Promise.all(ps); return res;
+}
+function aggregateByZone(rows, zoneStopsByZone, basis){
+  const counts={}, totalsByDevBin={}; rows.forEach(r=>{ r._id=r.deviceId||r.deviceName; });
+  for(const zid of Object.keys(zoneStopsByZone)){
+    for(const zs of zoneStopsByZone[zid]){
+      const did=idOf(zs.device); const bin=binKey(zs.arrivalDateTime||zs.departureDateTime||zs.dateTime||zs.date||_fromISO, basis);
+      const k=`${zid}|${did}|${bin}`; counts[k]=(counts[k]||0)+1; const td=`${did}|${bin}`; totalsByDevBin[td]=(totalsByDevBin[td]||0)+1;
+    }
+  }
+  const devFuelByBin={}, devCO2ByBin={};
+  rows.forEach(r=>{ const did=r._id; const bins=Object.keys(totalsByDevBin).filter(k=>k.startswith? k.startswith(did+'|') : k.indexOf(did+'|')===0).map(k=>k.split('|')[1]); if(bins.length===0) return;
+    const litPer=r.liters/bins.length, co2Per=r.co2/bins.length; bins.forEach(b=>{ const key=`${did}|${b}`; devFuelByBin[key]=(devFuelByBin[key]||0)+litPer; devCO2ByBin[key]=(devCO2ByBin[key]||0)+co2Per; });
+  });
+  const zoneAgg={}; for(const k of Object.keys(counts)){ const [zid,did,bin]=k.split('|'); const tot=totalsByDevBin[`${did}|${bin}`]||0; if(tot===0) continue;
+    const w=counts[k]/tot; const fuel=(devFuelByBin[`${did}|${bin}`]||0)*w; const co2=(devCO2ByBin[`${did}|${bin}`]||0)*w; const zb=`${zid}|${bin}`; if(!zoneAgg[zb]) zoneAgg[zb]={liters:0,co2:0}; zoneAgg[zb].liters+=fuel; zoneAgg[zb].co2+=co2; }
+  return zoneAgg;
+}
+let _zoneBarChart=null,_zoneStackedChart=null;
+function renderZoneAgg(zoneAgg,basis){
+  const card=document.getElementById('zoneAggCard'); if(_selectedZoneIds.size===0){ card.style.display='none'; return; }
+  const binsSet=new Set(); Object.keys(zoneAgg).forEach(k=>binsSet.add(k.split('|')[1])); const bins=Array.from(binsSet).sort(); const zonesArr=Array.from(_selectedZoneIds);
+  const totals=zonesArr.map(zid=>{ let sum=0; bins.forEach(b=>{ const k=`${zid}|${b}`; if(zoneAgg[k]) sum+=zoneAgg[k].co2; }); return { zid, co2: Math.round(sum*100)/100 }; }).sort((a,b)=> b.co2-a.co2);
+  const labelsBar=totals.map(x=> (_zones.find(z=>z.id===x.zid)||{}).name || x.zid); const dataBar=totals.map(x=>x.co2);
+  const bctx=document.getElementById('zoneBar').getContext('2d'); if(_zoneBarChart) _zoneBarChart.destroy();
+  _zoneBarChart=new Chart(bctx,{ type:'bar', data:{ labels:labelsBar, datasets:[{ label:'Total CO₂ (kg)', data:dataBar }] }, options:{ responsive:true, scales:{ y:{ beginAtZero:true } } }});
+  const datasets=zonesArr.map(zid=>{ const name=(_zones.find(z=>z.id===zid)||{}).name||zid; const data=bins.map(b=>{ const v=zoneAgg[`${zid}|${b}`]; return v? Math.round(v.co2*100)/100 : 0; }); return { label:name, data, stack:'co2' }; });
+  const sctx=document.getElementById('zoneStacked').getContext('2d'); if(_zoneStackedChart) _zoneStackedChart.destroy();
+  _zoneStackedChart=new Chart(sctx,{ type:'bar', data:{ labels:bins, datasets }, options:{ responsive:true, plugins:{ legend:{ position:'right' } }, scales:{ x:{ stacked:true }, y:{ stacked:true, beginAtZero:true } } }});
+  const basisTxt=basis[0].toUpperCase()+basis.slice(1); document.getElementById('zoneAggSubtitle').textContent=`Basis: ${basisTxt}. Zones: ${labelsBar.join(', ')}`; card.style.display='block';
+  const wrap=document.getElementById('zoneTableWrap'); let html='<table class="table"><thead><tr><th>Zone</th><th>Total CO₂ (kg)</th></tr></thead><tbody>';
+  totals.forEach(z=>{ const name=(_zones.find(x=>x.id===z.zid)||{}).name||z.zid; html+=`<tr><td>${name}</td><td>${z.co2}</td></tr>`; }); html+='</tbody></table>'; wrap.innerHTML=html;
+}
+
+// ===== Run
 document.getElementById('runBtn').onclick = async function(){
+  if(!credentials){ msg('banner','Authenticate first.','warning'); return; }
   try{
-    msg('banner','Running…','info');
-    setProgress(0,1,'Starting…');
-    const fromISO = new Date(document.getElementById('fromDate').value+'T00:00:00.000Z').toISOString();
-    const toISO = new Date(document.getElementById('toDate').value+'T23:59:59.999Z').toISOString();
-    const limit = parseInt(document.getElementById('limit').value)||300;
-    const resultsLimit = parseInt(document.getElementById('resultsLimit').value)||1000;
-    const concurrency = parseInt(document.getElementById('concurrency').value)||8;
-    const timeoutSec = parseInt(document.getElementById('timeoutSec').value)||45;
+    msg('banner','Running…','info'); setProgress(0,1,'Starting…');
+    const fromISO=new Date(document.getElementById('fromDate').value+'T00:00:00.000Z').toISOString();
+    const toISO=new Date(document.getElementById('toDate').value+'T23:59:59.999Z').toISOString();
+    const limit=parseInt(document.getElementById('limit').value)||300;
+    const resultsLimit=parseInt(document.getElementById('resultsLimit').value)||1000;
+    const concurrency=parseInt(document.getElementById('concurrency').value)||8;
+    const timeoutSec=parseInt(document.getElementById('timeoutSec').value)||45;
 
     const devices = await callGeotabAPI('Get',{ typeName:'Device', resultsLimit:limit });
     setProgress(0, devices.length, 'Processing devices…');
 
-    const rows = await fetchForDevices(devices, fromISO, toISO, resultsLimit, concurrency, timeoutSec);
-    rows.sort((a,b)=> b.liters-a.liters);
-    renderTable(rows);
-    renderCharts(rows, fromISO, toISO);
-    renderLegend();
-    const act = rows.filter(r=>r.fuelSource==='Actual').length;
-    const est = rows.filter(r=>r.fuelSource==='Estimated').length;
+    const rows = await (async ()=>{
+      const list = await fetchForDevices(devices, fromISO, toISO, resultsLimit, concurrency, timeoutSec);
+      return list.sort((a,b)=> b.liters-a.liters);
+    })();
+    renderTable(rows); renderCharts(rows, fromISO, toISO); renderLegend(); _rowsCache=rows; _fromISO=fromISO; _toISO=toISO;
+
+    if(_selectedZoneIds.size>0){
+      const zsByZone=await fetchZoneStopsByZone(fromISO,toISO);
+      const basis=document.getElementById('timeBasis').value||'weekly';
+      renderZoneAgg(aggregateByZone(rows,zsByZone,basis), basis);
+    }else{ document.getElementById('zoneAggCard').style.display='none'; }
+
+    const act=rows.filter(r=>r.fuelSource==='Actual').length, est=rows.filter(r=>r.fuelSource==='Estimated').length;
     msg('banner',`✅ Done — Fuel coverage: Actual ${act} | Estimated ${est}`,'success');
-  }catch(e){
-    msg('banner','Failed: '+e.message,'danger');
-  }
+  }catch(e){ msg('banner','Failed: '+e.message,'danger'); }
 };
 
 function renderTable(rows){
-  const wrap = document.getElementById('tableWrap');
-  if(!rows.length){ wrap.innerHTML = '<div class="alert alert-warning">No data</div>'; return; }
+  const wrap=document.getElementById('tableWrap'); if(!rows.length){ wrap.innerHTML='<div class="alert alert-warning">No data</div>'; return; }
   let html = `<table class="table"><thead><tr>
     <th>Asset</th><th>Distance (km)</th><th>Fuel (L)</th><th>Fuel Source</th><th>CO₂ (kg)</th>
   </tr></thead><tbody>`;
-  rows.forEach(r=>{
-    const rowCls = r.estimated ? ' class="row-estimated"' : '';
-    const badge = r.estimated ? '<span class="badge b-est">Estimated</span>' : '<span class="badge b-act">Actual</span>';
-    html += `<tr${rowCls}>
-      <td>${r.deviceName}</td>
-      <td>${r.distanceKm}</td>
-      <td>${r.liters}</td>
-      <td>${badge}</td>
-      <td>${r.co2}</td>
-    </tr>`;
-  });
-  html += '</tbody></table>';
-  wrap.innerHTML = html;
+  rows.forEach(r=>{ const rowCls=r.estimated?' class="row-estimated"':''; const badge=r.estimated?'<span class="badge b-est">Estimated</span>':'<span class="badge b-act">Actual</span>';
+    html += `<tr${rowCls}><td>${r.deviceName}</td><td>${r.distanceKm}</td><td>${r.liters}</td><td>${badge}</td><td>${r.co2}</td></tr>`; });
+  html += '</tbody></table>'; wrap.innerHTML=html;
 }
-
-let _co2BarChart = null;
-let _co2PieChart = null;
-
-function renderCharts(rows, fromISO, toISO){
-  if(!rows || !rows.length){ 
-    document.getElementById('chartsCard').style.display='none';
-    return;
-  }
-  // Sort by CO2 desc
-  const sorted = [...rows].sort((a,b)=> b.co2 - a.co2);
-  const labels = sorted.map(r=>r.deviceName);
-  const data = sorted.map(r=>r.co2);
-
-  const hi = sorted[0];
-  const lo = sorted[sorted.length-1];
-  const dateLabel = new Date(fromISO).toISOString().slice(0,10) + " → " + new Date(toISO).toISOString().slice(0,10);
-  document.getElementById('chartsSubtitle').textContent = `Highest: ${hi.deviceName} (${hi.co2} kg) • Lowest: ${lo.deviceName} (${lo.co2} kg) • Range: ${dateLabel}`;
-
-  // Colors: highlight highest (first) and lowest (last)
-  const base = Array(data.length).fill('#60a5fa');
-  if(data.length>0) base[0] = '#ef4444';
-  if(data.length>1) base[data.length-1] = '#22c55e';
-
-  const barCtx = document.getElementById('co2Bar').getContext('2d');
-  if(_co2BarChart) _co2BarChart.destroy();
-  _co2BarChart = new Chart(barCtx, {
-    type: 'bar',
-    data: { labels, datasets: [{ label: 'CO₂ (kg)', data, backgroundColor: base }] },
-    options: { responsive:true, plugins:{ legend:{ display:true } }, scales:{ y:{ beginAtZero:true } } }
-  });
-
-  // Pie (share)
-  const pieCtx = document.getElementById('co2Pie').getContext('2d');
-  if(_co2PieChart) _co2PieChart.destroy();
-  _co2PieChart = new Chart(pieCtx, {
-    type: 'doughnut',
-    data: { labels, datasets: [{ label: 'Share of CO₂', data }] },
-    options: { responsive:true, plugins:{ legend:{ display:true, position:'right' } } }
-  });
-
-  document.getElementById('chartsCard').style.display='block';
-}
-
-function renderLegend(){
-  const el = document.getElementById('legendText');
-  el.innerHTML = `
-    <ul style="margin-left:16px;">
-      <li><strong>Distance (km)</strong> = Δ of <code>DiagnosticOdometerAdjustmentId</code> between selected From → To.</li>
-      <li><strong>Fuel (L)</strong> = Δ of <code>DiagnosticDeviceTotalFuelId</code> over the same window.</li>
-      <li><strong>CO₂ (kg)</strong> = Fuel (L) × 2.68 (diesel emission factor).</li>
-      <li><strong>Actual vs Estimated</strong>:
-        <ul style="margin-left:16px;">
-          <li><span class="badge b-act">Actual</span> when fuel delta is available.</li>
-          <li><span class="badge b-est">Estimated</span> only when no fuel points exist in the window:
-            <ul style="margin-left:16px;">
-              <li>If distance exists: 25 L/100km fallback</li>
-              <li>If no distance: 15 L/hour conservative estimate (assumed limited operation)</li>
-            </ul>
-          </li>
-        </ul>
-      </li>
-      <li><strong>Window</strong> = exactly the dates you picked in the browser tool.</li>
-    </ul>
-  `;
-  document.getElementById('legendCard').style.display='block';
-}
-
 </script>
 </body>
 </html>
