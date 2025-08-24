@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MyGeotab Auth Debugger</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;background:#0f172a;color:#e5e7eb;margin:0;padding:20px}
+    .card{background:#111827;border:1px solid #374151;border-radius:12px;padding:16px;max-width:900px;margin:0 auto 16px}
+    h1{font-size:20px;margin:0 0 8px}
+    label{display:block;font-size:12px;color:#9ca3af;margin-top:8px}
+    input{width:100%;padding:10px;border-radius:8px;border:1px solid #374151;background:#0b1220;color:#e5e7eb}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    button{padding:10px 14px;border:0;border-radius:8px;background:#2563eb;color:#fff;cursor:pointer;margin-right:8px}
+    button.secondary{background:#10b981}
+    button.warn{background:#ef4444}
+    .muted{color:#9ca3af}
+    pre{background:#0b1220;border:1px solid #374151;border-radius:8px;padding:12px;overflow:auto;white-space:pre-wrap;max-height:40vh}
+    .ok{color:#10b981}
+    .bad{color:#f87171}
+    .info{color:#60a5fa}
+    .inline{display:inline-block;margin-right:12px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>MyGeotab Auth Debugger</h1>
+    <div class="muted" id="env">Detecting environment…</div>
+    <div id="authStandalone">
+      <div class="row">
+        <div>
+          <label>Server (e.g. my.geotab.com)</label>
+          <input id="server" placeholder="my.geotab.com" value="my.geotab.com">
+        </div>
+        <div>
+          <label>Database (case-sensitive)</label>
+          <input id="database" placeholder="YourDatabase">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Username</label>
+          <input id="username" placeholder="name@example.com">
+        </div>
+        <div>
+          <label>Password</label>
+          <input id="password" type="password" placeholder="••••••••">
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <button id="btnAuth">Authenticate (standalone)</button>
+        <span class="muted">Use this only outside MyGeotab</span>
+      </div>
+    </div>
+    <div style="margin-top:10px">
+      <button id="btnTest" class="secondary">Test Get(Device)</button>
+      <button id="btnWhoAmI" class="secondary">WhoAmI (Get User)</button>
+      <button id="btnReset" class="warn">Reset</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="inline"><strong>Status:</strong> <span id="status" class="info">Idle</span></div>
+    <div class="inline"><strong>Mode:</strong> <span id="mode" class="info">Detecting…</span></div>
+    <pre id="log"></pre>
+  </div>
+
+<script>
+let credentials = null;
+let apiUrl = null;
+
+function log(...args){
+  const el = document.getElementById('log');
+  const line = args.map(a => (typeof a === 'string' ? a : JSON.stringify(a, null, 2))).join(' ');
+  el.textContent += line + "\\n";
+  el.scrollTop = el.scrollHeight;
+  console.log(...args);
+}
+
+function setStatus(text, cls="info"){
+  const s = document.getElementById('status');
+  s.textContent = text;
+  s.className = cls;
+}
+
+function setMode(text){ document.getElementById('mode').textContent = text; }
+function setEnv(text){ document.getElementById('env').textContent = text; }
+
+function isEmbeddedGeotab(){
+  return !!(window.geotab && window.geotab.api && typeof window.geotab.api.call === 'function');
+}
+
+function waitForGeotab(ms=5000){
+  return new Promise((resolve,reject)=>{
+    const start = Date.now();
+    (function check(){
+      if(isEmbeddedGeotab()) return resolve(true);
+      if(Date.now()-start > ms) return resolve(false);
+      setTimeout(check,100);
+    })();
+  });
+}
+
+function toApiUrl(server){
+  const s = server.trim();
+  if(/^https?:\/\//i.test(s)) return s.endsWith('/apiv1') ? s : s.replace(/\/+$/, '') + '/apiv1';
+  return 'https://' + s.replace(/\/+$/, '') + '/apiv1';
+}
+
+// Unified API
+async function callGeotabAPI(method, params={}){
+  // Embedded path uses host session
+  if (isEmbeddedGeotab()){
+    log("Using embedded geotab.api.call", {method, params});
+    return new Promise((resolve, reject)=>{
+      try {
+        window.geotab.api.call(method, params, resolve, reject);
+      } catch (e) { reject(e); }
+    });
+  }
+
+  // Standalone path uses fetch
+  if(!apiUrl) throw new Error('Not authenticated');
+  const p = credentials ? { ...params, credentials } : params;
+  log("Using fetch JSON-RPC", {method, p, apiUrl});
+  const res = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ method, params: p })
+  });
+  const result = await res.json();
+  if(result.error) throw new Error(result.error.message || JSON.stringify(result.error));
+  return result.result !== undefined ? result.result : result;
+}
+
+// UI Hooks
+document.getElementById('btnAuth').onclick = async function(){
+  if (isEmbeddedGeotab()){
+    setStatus('Embedded: skip Authenticate. Use Test buttons.', 'bad');
+    log('Embedded environment detected. Do not use standalone Authenticate.');
+    return;
+  }
+  const server = document.getElementById('server').value.trim();
+  const database = document.getElementById('database').value.trim();
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+
+  if(!server || !database || !username || !password){
+    setStatus('Missing auth fields', 'bad'); log('Missing fields'); return;
+  }
+  try{
+    apiUrl = toApiUrl(server);
+    setStatus('Authenticating…');
+    const auth = await callGeotabAPI('Authenticate', {userName:username, password, database});
+    credentials = auth.credentials;
+    if(!credentials) throw new Error('No credentials returned');
+    setStatus('Authenticated (standalone)', 'ok');
+    log('Auth OK', credentials);
+  }catch(e){
+    setStatus('Auth failed', 'bad');
+    log('Auth error', String(e));
+  }
+};
+
+document.getElementById('btnTest').onclick = async function(){
+  try{
+    setStatus('Calling Get(Device)…');
+    const devices = await callGeotabAPI('Get', {typeName:'Device', resultsLimit:1});
+    setStatus('Get(Device) OK', 'ok');
+    log('Get(Device) result:', devices);
+  }catch(e){
+    setStatus('Get(Device) failed', 'bad');
+    log('Get(Device) error:', String(e));
+  }
+};
+
+document.getElementById('btnWhoAmI').onclick = async function(){
+  try{
+    setStatus('Calling WhoAmI (Get User)…');
+    const me = await callGeotabAPI('Get', {typeName:'User', resultsLimit:1});
+    setStatus('WhoAmI OK', 'ok');
+    log('User sample:', me && me[0]);
+  }catch(e){
+    setStatus('WhoAmI failed', 'bad');
+    log('User get error:', String(e));
+  }
+};
+
+document.getElementById('btnReset').onclick = function(){
+  credentials = null;
+  apiUrl = null;
+  document.getElementById('log').textContent = '';
+  setStatus('Idle');
+  log('State reset.');
+};
+
+(async function init(){
+  const embedded = await waitForGeotab(4000);
+  if (embedded){
+    setEnv('Environment: Embedded in MyGeotab');
+    setMode('Embedded');
+    // Hide standalone auth block
+    document.getElementById('authStandalone').style.display = 'none';
+    setStatus('Ready (host session). Click Test.', 'ok');
+    log('Embedded detected. Using host session via geotab.api.call.');
+  } else {
+    setEnv('Environment: Standalone (browser)');
+    setMode('Standalone');
+    setStatus('Enter credentials and click Authenticate.');
+    log('Standalone detected. Will use JSON-RPC /apiv1 after Authenticate.');
+  }
+})();
+</script>
+</body>
+</html>
