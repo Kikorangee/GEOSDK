@@ -3,778 +3,212 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>UCCL Emissions Reporting</title> <!-- fixed typo: Emissions -->
-
+  <title>MyGeotab Auth Debugger</title>
   <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#0f172a;color:#111;padding:22px}
-    .container{max-width:1400px;margin:0 auto}
-    .header,.card{background:rgba(255,255,255,.96);backdrop-filter:blur(6px);border-radius:14px;padding:22px;margin-bottom:22px;box-shadow:0 10px 28px rgba(0,0,0,.12)}
-    .header{text-align:center}
-    .header h1{color:#0f172a;font-size:2em;margin-bottom:6px}
-    .muted{color:#64748b}
-    .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-    .form-control,.form-select{width:100%;padding:11px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px}
-    .btn{padding:11px 18px;border:none;border-radius:10px;font-weight:600;cursor:pointer;margin:4px;
-         display:flex; align-items:center; justify-content:center; gap:6px;}
-    .btn-primary{background:#0ea5e9;color:#fff}
-    .btn-green{background:#16a34a;color:#fff}
-    .btn-blue{background:#2563eb;color:#fff}
-    .btn-red{background:#ef4444;color:#fff}
-    .btn-amber{background:#f59e0b;color:#fff}
-    .btn[disabled]{opacity:.5;cursor:not-allowed}
-    .alert{padding:12px 14px;border-radius:10px;margin:10px 0;font-weight:600}
-    .alert-info{background:#e0f2fe;color:#075985;border-left:5px solid #38bdf8}
-    .alert-success{background:#dcfce7;color:#065f46;border-left:5px solid #22c55e}
-    .alert-warning{background:#fef9c3;color:#713f12;border-left:5px solid #f59e0b}
-    .alert-danger{background:#fee2e2;color:#7f1d1d;border-left:5px solid #ef4444}
-    .progress{height:18px;background:#e2e8f0;border-radius:9px;overflow:hidden;margin-top:8px}
-    .progress > div{height:100%;background:linear-gradient(90deg,#14532d,#1e40af);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
-    .table{width:100%;border-collapse:collapse;margin-top:12px;background:#fff;border-radius:10px;overflow:hidden}
-    .table th{background:#0f172a;color:#fff;padding:10px;text-align:left}
-    .table td{padding:9px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;vertical-align:top}
-    tr.row-estimated{background:#fff7ed}
-    .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;border:1px solid #e2e8f0}
-    .b-act{background:#dcfce7;color:#14532d;border-color:#22c55e}
-    pre{white-space:pre-wrap;background:#0f172a;color:#e2e8f0;border-radius:10px;padding:12px;overflow:auto}
-
-    /* Emoji styling + heading alignment */
-    .emoji{width:0.9em;height:0.9em;vertical-align:middle;margin-right:4px}
-    .card h3{display:flex;align-items:center;gap:6px}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;background:#0f172a;color:#e5e7eb;margin:0;padding:20px}
+    .card{background:#111827;border:1px solid #374151;border-radius:12px;padding:16px;max-width:900px;margin:0 auto 16px}
+    h1{font-size:20px;margin:0 0 8px}
+    label{display:block;font-size:12px;color:#9ca3af;margin-top:8px}
+    input{width:100%;padding:10px;border-radius:8px;border:1px solid #374151;background:#0b1220;color:#e5e7eb}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    button{padding:10px 14px;border:0;border-radius:8px;background:#2563eb;color:#fff;cursor:pointer;margin-right:8px}
+    button.secondary{background:#10b981}
+    button.warn{background:#ef4444}
+    .muted{color:#9ca3af}
+    pre{background:#0b1220;border:1px solid #374151;border-radius:8px;padding:12px;overflow:auto;white-space:pre-wrap;max-height:40vh}
+    .ok{color:#10b981}
+    .bad{color:#f87171}
+    .info{color:#60a5fa}
+    .inline{display:inline-block;margin-right:12px}
   </style>
-
-  <script>
-    (function(){
-      if(!window.Chart){
-        var s=document.createElement('script');
-        s.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js';
-        document.head.appendChild(s);
-      }
-    })();
-  </script>
 </head>
-
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>Emissions Dashboard - UCCL Project Sites</h1>
-      <div class="muted">Fuel consumption & carbon emissions tracking for your project sites</div>
+  <div class="card">
+    <h1>MyGeotab Auth Debugger</h1>
+    <div class="muted" id="env">Detecting environment…</div>
+    <div id="authStandalone">
+      <div class="row">
+        <div>
+          <label>Server (e.g. my.geotab.com)</label>
+          <input id="server" placeholder="my.geotab.com" value="my.geotab.com">
+        </div>
+        <div>
+          <label>Database (case-sensitive)</label>
+          <input id="database" placeholder="YourDatabase">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Username</label>
+          <input id="username" placeholder="name@example.com">
+        </div>
+        <div>
+          <label>Password</label>
+          <input id="password" type="password" placeholder="••••••••">
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <button id="btnAuth">Authenticate (standalone)</button>
+        <span class="muted">Use this only outside MyGeotab</span>
+      </div>
     </div>
-
-    <div class="card">
-      <h3>
-        <img src="https://kikorangee.github.io/GEOSDK/src/software/1.png" alt="Geo Emoji" class="emoji">
-        Authentication
-      </h3>
-
-      <div class="row" style="margin-top:8px">
-        <input id="server" class="form-control" placeholder="Server" value="my.geotab.com" />
-        <input id="database" class="form-control" placeholder="Database (case-sensitive)" />
-      </div>
-
-      <div class="row" style="margin-top:8px">
-        <input id="username" class="form-control" placeholder="Username" />
-        <input id="password" class="form-control" type="password" placeholder="Password" />
-      </div>
-
-      <div>
-        <button id="authBtn" class="btn btn-primary">
-          <img src="https://kikorangee.github.io/GEOSDK/src/software/1.png" alt="Geo Emoji" class="emoji">
-          Authenticate
-        </button>
-
-        <button id="testBtn" class="btn btn-blue" disabled>
-          <img src="https://kikorangee.github.io/GEOSDK/src/software/1.png" alt="Geo Emoji" class="emoji">
-          Test Get
-        </button>
-
-        <button id="logout" class="btn btn-red">
-          <img src="https://kikorangee.github.io/GEOSDK/src/software/1.png" alt="Geo Emoji" class="emoji">
-          Logout
-        </button>
-      </div>
-
-      <div id="authResult" style="margin-top:8px"></div>
-    </div>
-
-    <div id="reportCard" class="card" style="display:none;">
-      <!-- rest of your report card -->
+    <div style="margin-top:10px">
+      <button id="btnTest" class="secondary">Test Get(Device)</button>
+      <button id="btnWhoAmI" class="secondary">WhoAmI (Get User)</button>
+      <button id="btnReset" class="warn">Reset</button>
     </div>
   </div>
+  <div class="card">
+    <div class="inline"><strong>Status:</strong> <span id="status" class="info">Idle</span></div>
+    <div class="inline"><strong>Mode:</strong> <span id="mode" class="info">Detecting…</span></div>
+    <pre id="log"></pre>
+  </div>
 
-  <!-- ⬇️ Keep your long zones script INSIDE the body, above </body> -->
-  <script>
-  // ====== HARDCODED PROJECT ZONES ======
-  const HARDCODED_ZONES = [
-    { id: 'b140', name: 'Channel Infrastructure', lat: -35.84166865, lon: 174.4928981, radius: 0.01 },
-    { id: 'b141', name: 'Maungaturoto Solar Farm', lat: -36.08750065, lon: 174.3546467, radius: 0.01 },
-    { id: 'b142', name: 'Port Road Site Office', lat: -35.73915967, lon: 174.3363262, radius: 0.01 },
-    { id: 'b143', name: 'Ruakaka BESS', lat: -35.8487939,  lon: 174.4769919, radius: 0.01 },
-    { id: 'b144', name: 'Donald Road', lat: -35.09854319, lon: 173.2623673, radius: 0.01 },
-    { id: 'b145', name: 'Northpower Dargaville', lat: -35.93301535, lon: 173.8798765, radius: 0.01 },
-    { id: 'b146', name: 'Kiwirail', lat: -36.3470443, lon: 174.528563, radius: 0.01 },
-    { id: 'b14A', name: 'Gillingham Road', lat: -35.67148786, lon: 174.3091425, radius: 0.01 },
-    { id: 'b14C', name: 'Rocket Lab', lat: -36.41010201, lon: 174.6504923, radius: 0.01 },
-    { id: 'b14D', name: 'Kaitaia Wastewater', lat: -35.11310439, lon: 173.2607395, radius: 0.01 },
-    { id: 'b14E', name: 'Matauri Bay', lat: -35.03425748, lon: 173.890681, radius: 0.01 },
-    // ...continue the rest of your zones here (your list was truncated at b14F)
-  ];
+<script>
+let credentials = null;
+let apiUrl = null;
 
-  // Your existing JS that uses HARDCODED_ZONES goes here...
-  </script>
-</body>
-</html>
-
-
-// ====== API & Authentication (embedded-aware) ======
-let credentials=null;
-let apiUrl=null;
-const EMISSION_FACTOR = 2.68;
-
-// Detect if running inside MyGeotab (addin or iframe with injected api)
-function isEmbeddedGeotab() {
-  try {
-    return (typeof window.geotab !== "undefined") && window.geotab && window.geotab.api && typeof window.geotab.api.call === "function";
-  } catch (e) {
-    return false;
-  }
+function log(...args){
+  const el = document.getElementById('log');
+  const line = args.map(a => (typeof a === 'string' ? a : JSON.stringify(a, null, 2))).join(' ');
+  el.textContent += line + "\\n";
+  el.scrollTop = el.scrollHeight;
+  console.log(...args);
 }
 
-function msg(id, text, type='info'){ 
-  const cls=type==='success'?'alert-success':type==='warning'?'alert-warning':type==='danger'?'alert-danger':'alert-info'; 
-  const el=document.getElementById(id); 
-  if(el) el.innerHTML=`<div class="alert ${cls}">${text}</div>`; 
+function setStatus(text, cls="info"){
+  const s = document.getElementById('status');
+  s.textContent = text;
+  s.className = cls;
 }
 
-function setDefaults(){ 
-  const t=new Date(), l=new Date(t.getTime()-14*24*3600*1000); 
-  if (document.getElementById('toDate')) {
-    document.getElementById('toDate').value=t.toISOString().split('T')[0]; 
-  }
-  if (document.getElementById('fromDate')) {
-    document.getElementById('fromDate').value=l.toISOString().split('T')[0]; 
-  }
-  
-  // Populate zone dropdown
-  const zoneSelect = document.getElementById('zoneSelect');
-  if (zoneSelect) {
-    HARDCODED_ZONES.forEach(zone => {
-      const option = document.createElement('option');
-      option.value = zone.id;
-      option.textContent = zone.name;
-      zoneSelect.appendChild(option);
-    });
-  }
+function setMode(text){ document.getElementById('mode').textContent = text; }
+function setEnv(text){ document.getElementById('env').textContent = text; }
+
+function isEmbeddedGeotab(){
+  return !!(window.geotab && window.geotab.api && typeof window.geotab.api.call === 'function');
 }
 
-// Prefer host session if available; otherwise use fetch to /apiv1
+function waitForGeotab(ms=5000){
+  return new Promise((resolve,reject)=>{
+    const start = Date.now();
+    (function check(){
+      if(isEmbeddedGeotab()) return resolve(true);
+      if(Date.now()-start > ms) return resolve(false);
+      setTimeout(check,100);
+    })();
+  });
+}
+
+function toApiUrl(server){
+  const s = server.trim();
+  if(/^https?:\/\//i.test(s)) return s.endsWith('/apiv1') ? s : s.replace(/\/+$/, '') + '/apiv1';
+  return 'https://' + s.replace(/\/+$/, '') + '/apiv1';
+}
+
+// Unified API
 async function callGeotabAPI(method, params={}){
-  // Embedded path: use injected geotab.api (no Authenticate required)
-  if (isEmbeddedGeotab()) {
-    return new Promise((resolve, reject) => {
+  // Embedded path uses host session
+  if (isEmbeddedGeotab()){
+    log("Using embedded geotab.api.call", {method, params});
+    return new Promise((resolve, reject)=>{
       try {
         window.geotab.api.call(method, params, resolve, reject);
-      } catch (err) {
-        reject(err);
-      }
+      } catch (e) { reject(e); }
     });
   }
 
-  // Standalone path: use JSON-RPC over fetch
+  // Standalone path uses fetch
   if(!apiUrl) throw new Error('Not authenticated');
   const p = credentials ? { ...params, credentials } : params;
-  const response = await fetch(apiUrl, {
+  log("Using fetch JSON-RPC", {method, p, apiUrl});
+  const res = await fetch(apiUrl, {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ method, params: p })
   });
-  const result = await response.json();
-  if(result.error) throw new Error(result.error.message || 'API Error');
+  const result = await res.json();
+  if(result.error) throw new Error(result.error.message || JSON.stringify(result.error));
   return result.result !== undefined ? result.result : result;
 }
 
-function toApiUrl(hostOrPath){ 
-  const s = hostOrPath.trim(); 
-  if(/^https?:\/\//i.test(s)) return s.endsWith('/apiv1') ? s : s.replace(/\/+$/, '') + '/apiv1';
-  return 'https://' + s.replace(/\/+$/, '') + '/apiv1'; 
-}
-
-// Init: if embedded, hide auth fields/buttons and show connected; enable test/run
-function initAuthUI() {
-  const embedded = isEmbeddedGeotab();
-  const authBtn = document.getElementById('authBtn');
-  const testBtn = document.getElementById('testBtn');
-  const logoutBtn = document.getElementById('logout');
-  const server = document.getElementById('server');
-  const database = document.getElementById('database');
-  const username = document.getElementById('username');
-  const password = document.getElementById('password');
-
-  if (embedded) {
-    // Hide fields/buttons not needed in embedded mode
-    if (server) server.parentElement.style.display = "none";
-    if (database) database.parentElement.style.display = "none";
-    if (username) username.parentElement.style.display = "none";
-    if (password) password.parentElement.style.display = "none";
-    if (authBtn) authBtn.style.display = "none";
-    if (logoutBtn) logoutBtn.style.display = "none";
-    if (testBtn) testBtn.disabled = false;
-
-    msg('authResult', '✅ Connected via MyGeotab host session. No login required.', 'success');
-    const card = document.getElementById('reportCard');
-    if (card) card.style.display='block';
-  } else {
-    // Show standalone auth UI
-    if (authBtn) authBtn.style.display = "";
-    if (testBtn) testBtn.disabled = true;
-  }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  try { setDefaults(); } catch(e) {}
-  try { initAuthUI(); } catch(e) {}
-});
-
-
-
-// ====== Authentication ======
-document.getElementById('authBtn').onclick = async function(){
-  if (isEmbeddedGeotab()) {
-    msg('authResult', 'Already connected via MyGeotab. Use the Test button.', 'info');
+// UI Hooks
+document.getElementById('btnAuth').onclick = async function(){
+  if (isEmbeddedGeotab()){
+    setStatus('Embedded: skip Authenticate. Use Test buttons.', 'bad');
+    log('Embedded environment detected. Do not use standalone Authenticate.');
     return;
   }
-  const server=document.getElementById('server').value.trim();
-  const database=document.getElementById('database').value.trim();
-  const username=document.getElementById('username').value.trim();
-  const password=document.getElementById('password').value;
-  
-  if(!server||!database||!username||!password){ 
-    msg('authResult','Fill all authentication fields','warning'); 
-    return; 
+  const server = document.getElementById('server').value.trim();
+  const database = document.getElementById('database').value.trim();
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+
+  if(!server || !database || !username || !password){
+    setStatus('Missing auth fields', 'bad'); log('Missing fields'); return;
   }
-  
   try{
     apiUrl = toApiUrl(server);
-    const auth = await callGeotabAPI('Authenticate', { 
-      userName: username, 
-      password: password, 
-      database: database 
-    });
-    
+    setStatus('Authenticating…');
+    const auth = await callGeotabAPI('Authenticate', {userName:username, password, database});
     credentials = auth.credentials;
     if(!credentials) throw new Error('No credentials returned');
-    
-    msg('authResult', `✅ Connected successfully. Ready to analyze individual zones.`, 'success');
-    document.getElementById('reportCard').style.display='block';
-    document.getElementById('testBtn').disabled=false;
-    document.getElementById('runBtn').disabled=true; // Enable after zone selection
-    
-  }catch(e){ 
-    console.error('Auth error raw:', e);
-    msg('authResult', 'Connection failed: ' + (e.message || JSON.stringify(e)), 'danger'); 
+    setStatus('Authenticated (standalone)', 'ok');
+    log('Auth OK', credentials);
+  }catch(e){
+    setStatus('Auth failed', 'bad');
+    log('Auth error', String(e));
   }
 };
 
-
-document.getElementById('testBtn').onclick = async function(){
-  try{ 
-    const devices = await callGeotabAPI('Get', { typeName:'Device', resultsLimit:1 }); 
-    msg('authResult', '🧪 API working: ' + (devices.length ? devices[0].name : 'No devices'), 'success'); 
-  }
-  catch(e){ 
-    msg('authResult', '🧪 Test failed: ' + e.message, 'danger'); 
-  }
-};
-
-document.getElementById('logout').onclick = function(){
-  credentials=null; apiUrl=null;
-  ['reportCard','chartsCard','summaryCard','legendCard'].forEach(id => 
-    document.getElementById(id).style.display='none');
-  ['authResult', 'banner', 'tableWrap'].forEach(id => 
-    document.getElementById(id).innerHTML = '');
-};
-
-// ====== Zone Detection Functions ======
-function getDistanceKm(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Earth's radius in km
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-}
-
-function findZoneForLocation(lat, lon) {
-  if (!lat || !lon) return null;
-  
-  for (const zone of HARDCODED_ZONES) {
-    const distance = getDistanceKm(lat, lon, zone.lat, zone.lon);
-    if (distance <= 5.0) { // Within 5km of zone center (more generous)
-      return zone;
-    }
-  }
-  return null;
-}
-
-function analyzeTripsForZones(trips) {
-  const zoneActivity = {};
-  const vehicleZoneActivity = {};
-  
-  trips.forEach(trip => {
-    if (!trip.startLocation || !trip.stopLocation) return;
-    
-    const deviceId = trip.device ? (trip.device.id || trip.device) : 'unknown';
-    
-    // Check start location
-    const startZone = findZoneForLocation(trip.startLocation.y, trip.startLocation.x);
-    if (startZone) {
-      if (!zoneActivity[startZone.id]) {
-        zoneActivity[startZone.id] = { 
-          zone: startZone, 
-          trips: 0, 
-          vehicles: new Set(),
-          totalDistance: 0
-        };
-      }
-      zoneActivity[startZone.id].trips++;
-      zoneActivity[startZone.id].vehicles.add(deviceId);
-      zoneActivity[startZone.id].totalDistance += (trip.distance || 0) / 1000;
-      
-      // Track per vehicle
-      if (!vehicleZoneActivity[deviceId]) vehicleZoneActivity[deviceId] = {};
-      if (!vehicleZoneActivity[deviceId][startZone.id]) {
-        vehicleZoneActivity[deviceId][startZone.id] = { trips: 0, distance: 0 };
-      }
-      vehicleZoneActivity[deviceId][startZone.id].trips++;
-      vehicleZoneActivity[deviceId][startZone.id].distance += (trip.distance || 0) / 1000;
-    }
-    
-    // Check stop location
-    const stopZone = findZoneForLocation(trip.stopLocation.y, trip.stopLocation.x);
-    if (stopZone && stopZone.id !== (startZone?.id)) {
-      if (!zoneActivity[stopZone.id]) {
-        zoneActivity[stopZone.id] = { 
-          zone: stopZone, 
-          trips: 0, 
-          vehicles: new Set(),
-          totalDistance: 0
-        };
-      }
-      zoneActivity[stopZone.id].trips++;
-      zoneActivity[stopZone.id].vehicles.add(deviceId);
-      zoneActivity[stopZone.id].totalDistance += (trip.distance || 0) / 1000;
-      
-      // Track per vehicle
-      if (!vehicleZoneActivity[deviceId]) vehicleZoneActivity[deviceId] = {};
-      if (!vehicleZoneActivity[deviceId][stopZone.id]) {
-        vehicleZoneActivity[deviceId][stopZone.id] = { trips: 0, distance: 0 };
-      }
-      vehicleZoneActivity[deviceId][stopZone.id].trips++;
-      vehicleZoneActivity[deviceId][stopZone.id].distance += (trip.distance || 0) / 1000;
-    }
-  });
-  
-  return { zoneActivity, vehicleZoneActivity };
-}
-
-// ====== Fuel Calculation (Your Working Code) ======
-function computeDeltaFromSeries(series){ 
-  if(!series || !series.length) return 0; 
-  const vals = series.map(s=> s.TotalFuelUsed ?? s.totalFuelUsed ?? s.data ?? 0); 
-  const min = Math.min(...vals), max = Math.max(...vals); 
-  return Math.max(0, max - min); 
-}
-
-async function getFuelUsedForDevice(deviceId, fromISO, toISO){
-  // Primary: FuelUsed events (your working method)
+document.getElementById('btnTest').onclick = async function(){
   try{
-    const events = await callGeotabAPI('Get',{
-      typeName:'FuelUsed',
-      search:{ fromDate: fromISO, toDate: toISO, deviceSearch:{ id: deviceId } },
-      resultsLimit: 10000
-    });
-    if(events && events.length){
-      const liters = computeDeltaFromSeries(events);
-      if(liters>0) return { liters, source:'FuelUsed API', estimated: false };
-    }
-  }catch(e){ /* ignore */ }
-
-  // Fallback: StatusData diagnostic
-  try{
-    const statusData = await callGeotabAPI('Get',{
-      typeName:'StatusData',
-      search:{ 
-        fromDate: fromISO, 
-        toDate: toISO, 
-        diagnosticSearch:{ id:'DiagnosticDeviceTotalFuelId' }, 
-        deviceSearch:{ id: deviceId } 
-      },
-      resultsLimit: 5000
-    });
-    if(statusData && statusData.length){
-      const liters = computeDeltaFromSeries(statusData);
-      if(liters>0) return { liters, source:'StatusData API', estimated: false };
-    }
-  }catch(e){ /* ignore */ }
-
-  return { liters: 0, source: 'None', estimated: true };
-}
-
-// ====== Report Generation ======
-let _co2BarChart=null, _zonePieChart=null;
-
-document.getElementById('runBtn').onclick = async function() {
-  try {
-    const selectedZoneId = document.getElementById('zoneSelect').value;
-    if (!selectedZoneId) {
-      msg('banner', 'Please select a zone first', 'warning');
-      return;
-    }
-    
-    const selectedZone = HARDCODED_ZONES.find(z => z.id === selectedZoneId);
-    msg('banner', `Analyzing ${selectedZone.name} for fuel consumption and emissions...`, 'info');
-    setProgress(0, 100, 'Starting analysis...');
-    
-    const fromISO = new Date(document.getElementById('fromDate').value+'T00:00:00.000Z').toISOString();
-    const toISO = new Date(document.getElementById('toDate').value+'T23:59:59.999Z').toISOString();
-    const limit = parseInt(document.getElementById('limit').value) || 100;
-    
-    // Get devices
-    const devices = await callGeotabAPI('Get', { typeName:'Device', resultsLimit: limit });
-    setProgress(20, 100, 'Getting trips for selected zone...');
-    
-    // Get GPS data instead of trips (trips don't have coordinates)
-    const gpsData = await callGeotabAPI('Get', { 
-      typeName:'LogRecord', 
-      search: { fromDate: fromISO, toDate: toISO }, 
-      resultsLimit: 20000 
-    });
-    setProgress(40, 100, `Analyzing GPS data for ${selectedZone.name}...`);
-    
-    // Debug: Log GPS data
-    console.log('Total GPS records found:', gpsData.length);
-    console.log('Selected zone coordinates:', selectedZone.lat, selectedZone.lon);
-    
-    if (gpsData.length > 0) {
-      console.log('Sample GPS record:', gpsData[0]);
-      
-      // Show first 5 GPS points with coordinates
-      for (let i = 0; i < Math.min(5, gpsData.length); i++) {
-        const record = gpsData[i];
-        
-        // Try different possible coordinate field names
-        const lat = record.latitude || record.y;
-        const lon = record.longitude || record.x;
-        
-        if (lat !== undefined && lon !== undefined) {
-          console.log(`GPS ${i + 1}: (${lat}, ${lon})`);
-          
-          // Check distance to selected zone
-          const distToZone = getDistanceKm(lat, lon, selectedZone.lat, selectedZone.lon);
-          console.log(`  Distance to ${selectedZone.name}: ${distToZone.toFixed(2)} km`);
-        } else {
-          console.log(`GPS ${i + 1}: No coordinates found in`, record);
-        }
-      }
-    } else {
-      console.log('No GPS data found! Check date range and device filters.');
-    }
-    
-    const results = [];
-    let processed = 0;
-    let totalZoneMatches = 0;
-    
-    for (const device of devices) {
-      const deviceId = device.id;
-      
-      // Get device GPS records
-      const deviceGPS = gpsData.filter(record => {
-        const recordDeviceId = record.device ? (record.device.id || record.device) : null;
-        return recordDeviceId === deviceId;
-      });
-      
-      // Find GPS points in the selected zone
-      const zoneGPS = deviceGPS.filter(record => {
-        // Try different possible coordinate field names
-        const lat = record.latitude || record.y;
-        const lon = record.longitude || record.x;
-        
-        if (lat === undefined || lon === undefined) return false;
-        if (!lat || !lon) return false;
-        
-        // Check if GPS point is in the selected zone
-        const inZone = findZoneForLocation(lat, lon);
-        return inZone && inZone.id === selectedZoneId;
-      });
-      
-      // Track zone matches for debugging
-      if (zoneGPS.length > 0) {
-        totalZoneMatches++;
-        console.log(`${device.name || deviceId}: Found ${zoneGPS.length} GPS points in ${selectedZone.name}`);
-      }
-      
-      // Skip vehicles that didn't visit this zone
-      if (zoneGPS.length === 0) continue;
-      
-      // Get fuel data (your working method)
-      const fuelData = await getFuelUsedForDevice(deviceId, fromISO, toISO);
-      let liters = fuelData.liters;
-      let fuelSource = fuelData.source;
-      let estimated = fuelData.estimated;
-      
-      // Estimate distance from GPS points (rough calculation)
-      const totalGPSPoints = deviceGPS.length;
-      const zoneGPSPoints = zoneGPS.length;
-      
-      // Rough distance estimates (GPS points every ~1 minute while moving)
-      const totalDistanceKm = totalGPSPoints * 0.5; // Rough estimate
-      const zoneDistanceKm = zoneGPSPoints * 0.5;
-      
-      // Estimate fuel if none found
-      if (liters <= 0) {
-        estimated = true;
-        if(totalDistanceKm > 5) {
-          liters = (totalDistanceKm / 100) * 25; // 25L per 100km
-          fuelSource = 'Estimated (25L/100km from distance)';
-        } else {
-          liters = 60; // Conservative default
-          fuelSource = 'Estimated (60L default)';
-        }
-      }
-      
-      // Calculate proportional fuel for zone activity
-      const zoneFuelRatio = totalDistanceKm > 0 ? zoneDistanceKm / totalDistanceKm : 0.5;
-      const zoneFuel = liters * zoneFuelRatio;
-      const co2 = Math.round(zoneFuel * EMISSION_FACTOR * 100) / 100;
-      
-      results.push({
-        deviceId,
-        deviceName: device.name || deviceId,
-        totalLiters: Math.round(liters * 10) / 10,
-        zoneLiters: Math.round(zoneFuel * 10) / 10,
-        co2,
-        fuelSource,
-        estimated,
-        zoneTrips: zoneGPS.length,
-        totalTrips: totalGPSPoints,
-        totalDistanceKm: Math.round(totalDistanceKm * 10) / 10,
-        zoneDistanceKm: Math.round(zoneDistanceKm * 10) / 10,
-        zoneName: selectedZone.name
-      });
-      
-      processed++;
-      setProgress(40 + (processed / devices.length) * 50, 100, `Processed ${processed} vehicles with zone activity`);
-    }
-    
-    // Sort by zone CO2 emissions
-    results.sort((a, b) => b.co2 - a.co2);
-    
-    setProgress(95, 100, 'Generating zone-specific report...');
-    
-    // Display everything
-    renderZoneTable(results, selectedZone);
-    renderZoneCharts(results, selectedZone);
-    renderZoneSummary(results, selectedZone);
-    renderLegend();
-    
-    const totalCO2 = results.reduce((sum, r) => sum + r.co2, 0);
-    const actualCount = results.filter(r => !r.estimated).length;
-    
-    console.log(`Final results: ${results.length} vehicles had zone activity out of ${devices.length} total vehicles`);
-    
-    if (results.length === 0) {
-      msg('banner', `⚠️ No vehicles found visiting ${selectedZone.name}. Try expanding date range or check GPS coordinates.`, 'warning');
-    } else {
-      msg('banner', `✅ ${selectedZone.name}: ${results.length} vehicles visited this zone. ${actualCount} real fuel readings. Zone CO₂: ${Math.round(totalCO2)} kg`, 'success');
-    }
-    setProgress(100, 100, 'Complete');
-    
-  } catch(e) {
-    msg('banner', 'Zone analysis failed: ' + e.message, 'danger');
-    console.error('Zone analysis error:', e);
+    setStatus('Calling Get(Device)…');
+    const devices = await callGeotabAPI('Get', {typeName:'Device', resultsLimit:1});
+    setStatus('Get(Device) OK', 'ok');
+    log('Get(Device) result:', devices);
+  }catch(e){
+    setStatus('Get(Device) failed', 'bad');
+    log('Get(Device) error:', String(e));
   }
 };
 
-function renderZoneTable(results, selectedZone) {
-  const wrap = document.getElementById('tableWrap');
-  let html = `
-    <h4>🚛 Vehicles that visited ${selectedZone.name}</h4>
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Vehicle</th>
-          <th>Zone Distance (km)</th>
-          <th>Zone Fuel (L)</th>
-          <th>Zone CO₂ (kg)</th>
-          <th>Zone Trips</th>
-          <th>Total Distance (km)</th>
-          <th>Total Fuel (L)</th>
-          <th>Data Source</th>
-        </tr>
-      </thead>
-      <tbody>
-  `;
-  
-  results.forEach(r => {
-    const rowClass = r.estimated ? 'row-estimated' : '';
-    const badge = r.estimated ? '<span class="badge b-est">Est</span>' : '<span class="badge b-act">Real</span>';
-    html += `
-      <tr class="${rowClass}">
-        <td>${r.deviceName}</td>
-        <td>${r.zoneDistanceKm}</td>
-        <td>${r.zoneLiters}</td>
-        <td>${r.co2}</td>
-        <td>${r.zoneTrips}</td>
-        <td>${r.totalDistanceKm}</td>
-        <td>${r.totalLiters}</td>
-        <td>${badge} ${r.fuelSource}</td>
-      </tr>
-    `;
-  });
-  
-  html += '</tbody></table>';
-  wrap.innerHTML = html;
-}
-
-function renderZoneCharts(results, selectedZone) {
-  if (!results || results.length === 0) return;
-  
-  const top10 = results.slice(0, 10);
-  
-  document.getElementById('chartsSubtitle').textContent = `${results.length} vehicles visited ${selectedZone.name}`;
-  
-  // Vehicle emissions bar chart for this zone
-  const barCtx = document.getElementById('co2Bar').getContext('2d');
-  if(_co2BarChart) _co2BarChart.destroy();
-  
-  if (top10.length > 0) {
-    _co2BarChart = new Chart(barCtx, {
-      type: 'bar',
-      data: {
-        labels: top10.map(r => r.deviceName),
-        datasets: [{
-          label: `Zone CO₂ Emissions (kg)`,
-          data: top10.map(r => r.co2),
-          backgroundColor: '#3b82f6'
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          title: {
-            display: true,
-            text: `${selectedZone.name} - Top Vehicle Emissions`
-          }
-        },
-        scales: { y: { beginAtZero: true } }
-      }
-    });
+document.getElementById('btnWhoAmI').onclick = async function(){
+  try{
+    setStatus('Calling WhoAmI (Get User)…');
+    const me = await callGeotabAPI('Get', {typeName:'User', resultsLimit:1});
+    setStatus('WhoAmI OK', 'ok');
+    log('User sample:', me && me[0]);
+  }catch(e){
+    setStatus('WhoAmI failed', 'bad');
+    log('User get error:', String(e));
   }
-  
-  // Trip distribution pie chart
-  const pieCtx = document.getElementById('zonePie').getContext('2d');
-  if(_zonePieChart) _zonePieChart.destroy();
-  
-  if (results.length > 0) {
-    const tripRanges = {
-      '1-2 trips': results.filter(r => r.zoneTrips >= 1 && r.zoneTrips <= 2).length,
-      '3-5 trips': results.filter(r => r.zoneTrips >= 3 && r.zoneTrips <= 5).length,
-      '6-10 trips': results.filter(r => r.zoneTrips >= 6 && r.zoneTrips <= 10).length,
-      '10+ trips': results.filter(r => r.zoneTrips > 10).length
-    };
-    
-    _zonePieChart = new Chart(pieCtx, {
-      type: 'pie',
-      data: {
-        labels: Object.keys(tripRanges),
-        datasets: [{
-          label: 'Vehicle Distribution',
-          data: Object.values(tripRanges)
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          title: {
-            display: true,
-            text: `Trip Frequency to ${selectedZone.name}`
-          },
-          legend: { position: 'right' }
-        }
-      }
-    });
+};
+
+document.getElementById('btnReset').onclick = function(){
+  credentials = null;
+  apiUrl = null;
+  document.getElementById('log').textContent = '';
+  setStatus('Idle');
+  log('State reset.');
+};
+
+(async function init(){
+  const embedded = await waitForGeotab(4000);
+  if (embedded){
+    setEnv('Environment: Embedded in MyGeotab');
+    setMode('Embedded');
+    // Hide standalone auth block
+    document.getElementById('authStandalone').style.display = 'none';
+    setStatus('Ready (host session). Click Test.', 'ok');
+    log('Embedded detected. Using host session via geotab.api.call.');
+  } else {
+    setEnv('Environment: Standalone (browser)');
+    setMode('Standalone');
+    setStatus('Enter credentials and click Authenticate.');
+    log('Standalone detected. Will use JSON-RPC /apiv1 after Authenticate.');
   }
-  
-  document.getElementById('chartsCard').style.display = 'block';
-}
-
-function renderZoneSummary(results, selectedZone) {
-  let html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;">';
-  
-  // Zone statistics
-  const totalZoneCO2 = results.reduce((sum, r) => sum + r.co2, 0);
-  const totalZoneFuel = results.reduce((sum, r) => sum + r.zoneLiters, 0);
-  const totalZoneDistance = results.reduce((sum, r) => sum + r.zoneDistanceKm, 0);
-  const totalZoneTrips = results.reduce((sum, r) => sum + r.zoneTrips, 0);
-  
-  html += `<div>
-    <h4>🎯 ${selectedZone.name} Summary</h4>
-    <div style="margin-top:8px;">
-      <div style="padding:12px;background:#dcfce7;border-radius:8px;margin:6px 0;">
-        <strong>Vehicles Active:</strong> ${results.length}
-      </div>
-      <div style="padding:12px;background:#e0f2fe;border-radius:8px;margin:6px 0;">
-        <strong>Zone Trips:</strong> ${totalZoneTrips}
-      </div>
-      <div style="padding:12px;background:#fef3c7;border-radius:8px;margin:6px 0;">
-        <strong>Zone Distance:</strong> ${Math.round(totalZoneDistance)} km
-      </div>
-      <div style="padding:12px;background:#fee2e2;border-radius:8px;margin:6px 0;">
-        <strong>Zone Fuel:</strong> ${Math.round(totalZoneFuel)} L
-      </div>
-      <div style="padding:12px;background:#f3e8ff;border-radius:8px;margin:6px 0;">
-        <strong>Zone CO₂:</strong> ${Math.round(totalZoneCO2)} kg
-      </div>
-    </div>
-  </div>`;
-  
-  // Top vehicles by zone activity
-  const topVehicles = results.slice(0, 5);
-  html += '<div><h4>🚛 Most Active Vehicles</h4><table class="table" style="margin-top:8px;"><thead><tr><th>Vehicle</th><th>Zone Trips</th><th>Zone CO₂ (kg)</th></tr></thead><tbody>';
-  
-  topVehicles.forEach(vehicle => {
-    html += `<tr>
-      <td>${vehicle.deviceName}</td>
-      <td>${vehicle.zoneTrips}</td>
-      <td>${vehicle.co2}</td>
-    </tr>`;
-  });
-  
-  html += '</tbody></table></div>';
-  html += '</div>';
-  
-  document.getElementById('summaryContent').innerHTML = html;
-  document.getElementById('summaryCard').style.display = 'block';
-}
-
-function renderLegend() {
-  const el = document.getElementById('legendText');
-  el.innerHTML = `
-    <ul style="margin-left:16px;">
-      <li><strong>Project Zones:</strong> ${HARDCODED_ZONES.length} predefined locations for infrastructure projects</li>
-      <li><strong>Zone Detection:</strong> Vehicles assigned to zones based on trip start/end points within 1km</li>
-      <li><strong>Fuel Data:</strong> Uses FuelUsed API → StatusData fallback → Distance-based estimation (25L/100km)</li>
-      <li><strong>CO₂ Calculation:</strong> Fuel consumption × 2.68 kg/L emission factor (standard diesel)</li>
-      <li><strong>Zone Trips:</strong> Number of trips starting or ending in the vehicle's primary zone</li>
-      <li><strong>RUC Compliance:</strong> Road User Charges tracking based on fuel consumption by geographic area</li>
-      <li><strong>Data Quality:</strong> <span class="badge b-act">Real</span> = API data, <span class="badge b-est">Est</span> = Calculated estimate</li>
-    </ul>
-  `;
-  document.getElementById('legendCard').style.display = 'block';
-}
-
+})();
 </script>
 </body>
 </html>
