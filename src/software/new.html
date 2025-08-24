@@ -162,6 +162,10 @@
             <div id="avgEmissionsPerKm" class="stat-number">0 g/km</div>
             <div class="stat-label">Avg CO₂ per km</div>
           </div>
+          <div class="stat-card">
+            <div id="fuelDataQuality" class="stat-number">0/0</div>
+            <div class="stat-label">Actual/Estimated Fuel</div>
+          </div>
         </div>
       </div>
 
@@ -289,9 +293,11 @@ document.getElementById('generateWeeklyReport').onclick = async function(){
     const activeAssets = utilizationData.length;
     const avgUtilChange = utilizationData.length > 0 ? 
       Math.round(utilizationData.reduce((sum, d) => sum + d.utilizationChange, 0) / utilizationData.length * 100) / 100 : 0;
+    const actualFuelCount = utilizationData.filter(d => d.fuelUsed > 0 && !d.estimatedFuel).length;
+    const estimatedFuelCount = utilizationData.filter(d => d.estimatedFuel).length;
     
     showMessage('reportBanner', 
-      `✅ Weekly comparison complete! ${activeAssets} assets analyzed with ${avgUtilChange > 0 ? '+' : ''}${avgUtilChange}% avg utilization change`, 
+      `✅ Weekly comparison complete! ${activeAssets} assets analyzed with ${avgUtilChange > 0 ? '+' : ''}${avgUtilChange}% avg utilization change. Fuel data: ${actualFuelCount} actual, ${estimatedFuelCount} estimated.`, 
       'success');
     
     document.getElementById('exportCsv').disabled = false;
@@ -661,7 +667,54 @@ async function fetchUtilizationData(fromDateTime, toDateTime, resultsLimit, prog
   
   updateProgress(progressOffset + 6, totalSteps, 'Processing utilization data...');
   
-  // Process utilization data with emissions
+  // First pass: Calculate average fuel economy from vehicles with fuel data
+  let totalFuelEconomyData = [];
+  
+  devices.forEach(device => {
+    const deviceId = device.id;
+    const deviceName = device.name || `Device ${deviceId}`;
+    
+    // Get trips and fuel data for this device
+    const deviceTrips = trips.filter(t => extractId(t.device) === deviceId);
+    const totalDistance = deviceTrips.reduce((sum, trip) => sum + (trip.distance || 0), 0) / 1000; // Convert to km
+    
+    const deviceFuelData = fuelUsageData.filter(s => extractId(s.device) === deviceId);
+    let fuelUsed = 0;
+    
+    if (deviceFuelData.length > 0) {
+      const fuelValues = deviceFuelData.map(s => s.data || 0);
+      const minFuel = Math.min(...fuelValues);
+      const maxFuel = Math.max(...fuelValues);
+      fuelUsed = Math.max(0, maxFuel - minFuel);
+    }
+    
+    // If we have both fuel and distance data, calculate fuel economy
+    if (fuelUsed > 0 && totalDistance > 0) {
+      const fuelEconomyL100km = (fuelUsed / totalDistance) * 100; // L/100km
+      totalFuelEconomyData.push({
+        deviceName,
+        fuelUsed,
+        totalDistance,
+        fuelEconomyL100km
+      });
+    }
+  });
+  
+  // Calculate fleet average fuel economy
+  let fleetAvgFuelEconomy = 25; // Default fallback (L/100km)
+  if (totalFuelEconomyData.length > 0) {
+    const avgFuelEconomy = totalFuelEconomyData.reduce((sum, d) => sum + d.fuelEconomyL100km, 0) / totalFuelEconomyData.length;
+    fleetAvgFuelEconomy = avgFuelEconomy;
+    
+    console.log(`Fleet Fuel Economy Analysis:`);
+    console.log(`- ${totalFuelEconomyData.length} vehicles with complete fuel data`);
+    console.log(`- Fleet average: ${avgFuelEconomy.toFixed(1)} L/100km`);
+    console.log(`- Individual vehicle economies:`, totalFuelEconomyData.map(d => `${d.deviceName}: ${d.fuelEconomyL100km.toFixed(1)} L/100km`));
+  } else {
+    console.warn('No vehicles found with complete fuel data - using default fuel economy estimate');
+  }
+
+  // Second pass: Process utilization data with improved emissions calculations
   const processedData = devices.map(device => {
     const deviceId = device.id;
     const deviceName = device.name || `Device ${deviceId}`;
@@ -721,17 +774,28 @@ async function fetchUtilizationData(fromDateTime, toDateTime, resultsLimit, prog
       fuelUsed = Math.max(0, maxFuel - minFuel);
     }
     
-    // Calculate emissions
+    // Calculate emissions with improved fuel estimation
     let emissions = 0;
+    let estimatedFuel = false; // Flag to track if fuel was estimated
+    
     if (fuelUsed > 0) {
       // Use actual fuel data if available
       emissions = calculateEmissions(fuelUsed);
+      console.log(`${deviceName}: Using actual fuel data: ${fuelUsed.toFixed(1)}L`);
     } else if (totalDistance > 0) {
-      // Estimate from distance if no fuel data
-      emissions = estimateEmissionsFromDistance(totalDistance);
+      // Estimate fuel using fleet average fuel economy
+      const estimatedFuelUsage = (totalDistance / 100) * fleetAvgFuelEconomy; // liters
+      emissions = calculateEmissions(estimatedFuelUsage);
+      fuelUsed = estimatedFuelUsage; // Update fuelUsed with estimate for display
+      estimatedFuel = true;
+      console.log(`${deviceName}: Estimated fuel using fleet avg (${fleetAvgFuelEconomy.toFixed(1)} L/100km): ${estimatedFuelUsage.toFixed(1)}L for ${totalDistance.toFixed(1)}km`);
     } else if (engineHours > 0) {
-      // Estimate from engine hours as last resort
-      emissions = estimateEmissionsFromEngineHours(engineHours);
+      // Last resort: estimate from engine hours using fleet average or fallback
+      const estimatedFuelUsage = estimateEmissionsFromEngineHours(engineHours) / EMISSION_FACTORS.default; // Convert back to liters
+      emissions = calculateEmissions(estimatedFuelUsage);
+      fuelUsed = estimatedFuelUsage;
+      estimatedFuel = true;
+      console.log(`${deviceName}: Estimated fuel from engine hours: ${estimatedFuelUsage.toFixed(1)}L for ${engineHours.toFixed(1)} hrs`);
     }
     
     // Calculate emissions per km
@@ -772,6 +836,7 @@ async function fetchUtilizationData(fromDateTime, toDateTime, resultsLimit, prog
       zoneStopCount,
       utilization,
       fuelUsed,
+      estimatedFuel, // Flag to indicate if fuel was estimated
       emissions,
       emissionsPerKm
     };
@@ -816,9 +881,11 @@ document.getElementById('generateReport').onclick = async function(){
     const activeAssets = utilizationData.filter(d => d.utilization > 0).length;
     const avgUtilization = utilizationData.length > 0 ? 
       Math.round(utilizationData.reduce((sum, d) => sum + d.utilization, 0) / utilizationData.length * 100) / 100 : 0;
+    const actualFuelCount = utilizationData.filter(d => d.fuelUsed > 0 && !d.estimatedFuel).length;
+    const estimatedFuelCount = utilizationData.filter(d => d.estimatedFuel).length;
     
     showMessage('reportBanner', 
-      `✅ Report complete! ${activeAssets} active assets with ${avgUtilization}% average utilization`, 
+      `✅ Report complete! ${activeAssets} active assets with ${avgUtilization}% average utilization. Fuel data: ${actualFuelCount} actual, ${estimatedFuelCount} estimated using fleet average.`, 
       'success');
     
     document.getElementById('exportCsv').disabled = false;
@@ -841,12 +908,18 @@ function updateSummaryStats() {
   const totalEmissions = utilizationData.reduce((sum, d) => sum + d.emissions, 0);
   const avgEmissionsPerKm = totalDistance > 0 ? (totalEmissions * 1000) / totalDistance : 0;
   
+  // Fuel data breakdown
+  const actualFuelCount = utilizationData.filter(d => d.fuelUsed > 0 && !d.estimatedFuel).length;
+  const estimatedFuelCount = utilizationData.filter(d => d.estimatedFuel).length;
+  const totalFuelUsed = utilizationData.reduce((sum, d) => sum + (d.fuelUsed || 0), 0);
+  
   document.getElementById('totalAssets').textContent = totalAssets;
   document.getElementById('avgUtilization').textContent = `${Math.round(avgUtilization * 100) / 100}%`;
   document.getElementById('totalDistance').textContent = `${Math.round(totalDistance)} km`;
   document.getElementById('totalEngineHours').textContent = `${Math.round(totalEngineHours)} hrs`;
   document.getElementById('totalEmissions').textContent = `${Math.round(totalEmissions)} kg`;
   document.getElementById('avgEmissionsPerKm').textContent = `${Math.round(avgEmissionsPerKm)} g/km`;
+  document.getElementById('fuelDataQuality').textContent = `${actualFuelCount}/${estimatedFuelCount}`;
   
   document.getElementById('summaryStats').style.display = 'block';
 }
@@ -905,7 +978,7 @@ function renderUtilizationTable(isWeekly = false) {
           ${isWeekly ? '<th>Distance Change</th>' : ''}
           <th>Trips</th>
           <th>Zone Stops</th>
-          <th>Fuel Used (L)</th>
+          <th>Fuel Used (L)*</th>
           <th>CO₂ Emissions (kg)</th>
           <th>CO₂ per km (g/km)</th>
         </tr>
@@ -924,7 +997,7 @@ function renderUtilizationTable(isWeekly = false) {
         ${isWeekly ? `<td>${formatComparison(asset.totalDistance, asset.previousDistance || 0, 'km')}</td>` : ''}
         <td>${asset.tripCount}</td>
         <td>${asset.zoneStopCount}</td>
-        <td>${asset.fuelUsed > 0 ? asset.fuelUsed.toFixed(1) : 'N/A'}</td>
+        <td>${asset.fuelUsed > 0 ? asset.fuelUsed.toFixed(1) + (asset.estimatedFuel ? '*' : '') : 'N/A'}</td>
         <td>${asset.emissions.toFixed(1)}</td>
         <td><span class="${getEmissionsClass(asset.emissionsPerKm)}">${asset.emissionsPerKm}</span></td>
       </tr>
@@ -932,6 +1005,24 @@ function renderUtilizationTable(isWeekly = false) {
   });
   
   html += `</tbody></table>`;
+  
+  // Add fuel estimation summary
+  const actualFuelCount = utilizationData.filter(asset => asset.fuelUsed > 0 && !asset.estimatedFuel).length;
+  const estimatedFuelCount = utilizationData.filter(asset => asset.estimatedFuel).length;
+  const noFuelCount = utilizationData.filter(asset => asset.fuelUsed === 0).length;
+  
+  if (estimatedFuelCount > 0) {
+    html += `
+      <div class="alert alert-info" style="margin-top: 15px;">
+        <strong>📊 Fuel Data Summary:</strong><br>
+        • ${actualFuelCount} vehicles with actual fuel data<br>
+        • ${estimatedFuelCount} vehicles with estimated fuel data (*)<br>
+        • ${noFuelCount} vehicles with no fuel data<br>
+        <small>* Estimated using fleet average fuel economy of ${utilizationData.length > 0 ? 'calculated from actual data' : 'default values'}</small>
+      </div>
+    `;
+  }
+  
   container.innerHTML = html;
 }
 
@@ -1117,10 +1208,11 @@ document.getElementById('exportCsv').onclick = function() {
     return;
   }
   
-  let csv = 'Asset,Utilization (%),Engine Hours,Distance (km),Trips,Zone Stops,Fuel Used (L),CO₂ Emissions (kg),CO₂ per km (g/km)\n';
+  let csv = 'Asset,Utilization (%),Engine Hours,Distance (km),Trips,Zone Stops,Fuel Used (L),Fuel Source,CO₂ Emissions (kg),CO₂ per km (g/km)\n';
   
   utilizationData.forEach(asset => {
-    csv += `"${asset.deviceName}",${asset.utilization},${asset.engineHours},${asset.totalDistance},${asset.tripCount},${asset.zoneStopCount},${asset.fuelUsed},${asset.emissions},${asset.emissionsPerKm}\n`;
+    const fuelSource = asset.fuelUsed > 0 ? (asset.estimatedFuel ? 'Estimated' : 'Actual') : 'N/A';
+    csv += `"${asset.deviceName}",${asset.utilization},${asset.engineHours},${asset.totalDistance},${asset.tripCount},${asset.zoneStopCount},${asset.fuelUsed},${fuelSource},${asset.emissions},${asset.emissionsPerKm}\n`;
   });
   
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
