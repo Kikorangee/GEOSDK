@@ -7,16 +7,16 @@
 
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Segoe UI',Tahoma,Verdana,sans-serif;background:#0f172a;color:#111;padding:22px}
-    .container{max-width:1200px;margin:0 auto}
+    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#0f172a;color:#111;padding:22px}
+    .container{max-width:1400px;margin:0 auto}
     .header,.card{background:rgba(255,255,255,.96);backdrop-filter:blur(6px);border-radius:14px;padding:22px;margin-bottom:22px;box-shadow:0 10px 28px rgba(0,0,0,.12)}
     .header{text-align:center}
     .header h1{color:#0f172a;font-size:2em;margin-bottom:6px}
     .muted{color:#64748b}
-    .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:10px}
+    .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
     .form-control{width:100%;padding:11px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px}
-    .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-    .btn{padding:11px 18px;border:none;border-radius:10px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px}
+    .btn{padding:11px 18px;border:none;border-radius:10px;font-weight:600;cursor:pointer;margin:4px;
+         display:flex; align-items:center; justify-content:center; gap:6px;}
     .btn-primary{background:#0ea5e9;color:#fff}
     .btn-blue{background:#2563eb;color:#fff}
     .btn-red{background:#ef4444;color:#fff}
@@ -28,31 +28,21 @@
     .alert-danger{background:#fee2e2;color:#7f1d1d;border-left:5px solid #ef4444}
     .emoji{width:0.9em;height:0.9em;vertical-align:middle;margin-right:4px}
     .card h3{display:flex;align-items:center;gap:6px}
-    /* tiny top status bar so you always know state */
-    .statusbar{position:sticky;top:0;z-index:10;margin-bottom:12px}
-    .status{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:700}
-    .status.disconnected{background:#fee2e2;color:#7f1d1d}
-    .status.connected{background:#dcfce7;color:#065f46}
-    pre{white-space:pre-wrap;background:#0f172a;color:#e2e8f0;border-radius:10px;padding:12px;overflow:auto}
   </style>
 
   <script>
-    (function(){
-      if(!window.Chart){
-        const s=document.createElement('script');
-        s.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js';
+    (function(){ 
+      if(!window.Chart){ 
+        var s=document.createElement('script'); 
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js'; 
         document.head.appendChild(s);
-      }
+      } 
     })();
   </script>
 </head>
 
 <body>
   <div class="container">
-    <div class="statusbar">
-      <span id="connStatus" class="status disconnected">Not connected</span>
-    </div>
-
     <div class="header">
       <h1>Emissions Dashboard - UCCL Project Sites</h1>
       <div class="muted">Fuel consumption & carbon emissions tracking for your project sites</div>
@@ -64,139 +54,117 @@
         Authentication
       </h3>
 
-      <div class="row">
+      <div class="row" style="margin-top:8px">
         <input id="server" class="form-control" placeholder="Server" value="my.geotab.com" />
         <input id="database" class="form-control" placeholder="Database (case-sensitive)" />
       </div>
 
-      <div class="row">
+      <div class="row" style="margin-top:8px">
         <input id="username" class="form-control" placeholder="Username" />
         <input id="password" class="form-control" type="password" placeholder="Password" />
       </div>
 
-      <div class="actions">
+      <div>
         <button id="authBtn" class="btn btn-primary">
-          <img src="https://kikorangee.github.io/GEOSDK/src/software/1.png" alt="" class="emoji">Authenticate
+          <img src="https://kikorangee.github.io/GEOSDK/src/software/1.png" alt="Geo Emoji" class="emoji">
+          Authenticate
         </button>
 
         <button id="testBtn" class="btn btn-blue" disabled>
-          <img src="https://kikorangee.github.io/GEOSDK/src/software/1.png" alt="" class="emoji">Test Get
+          <img src="https://kikorangee.github.io/GEOSDK/src/software/1.png" alt="Geo Emoji" class="emoji">
+          Test Get
         </button>
 
         <button id="logout" class="btn btn-red">
-          <img src="https://kikorangee.github.io/GEOSDK/src/software/1.png" alt="" class="emoji">Logout
+          <img src="https://kikorangee.github.io/GEOSDK/src/software/1.png" alt="Geo Emoji" class="emoji">
+          Logout
         </button>
       </div>
 
       <div id="authResult" style="margin-top:8px"></div>
-      <pre id="debug" style="margin-top:8px;display:none"></pre>
     </div>
 
     <div id="reportCard" class="card" style="display:none;">
-      <!-- your report UI goes here -->
-      <h3>Report</h3>
-      <div id="reportInfo" class="muted">Authenticated. Add your report logic here.</div>
+      <!-- Report card content goes here -->
     </div>
   </div>
 
   <script>
-    // ===== State
-    let apiUrl = null;
+    /** ===== Core State ===== */
     let credentials = null;
+    let apiUrl = null;
 
-    // ===== Helpers
+    /** ===== Utils ===== */
     const $ = (id) => document.getElementById(id);
-    const setStatus = (ok) => {
-      const el = $('connStatus');
-      if (!el) return;
-      el.classList.toggle('connected', !!ok);
-      el.classList.toggle('disconnected', !ok);
-      el.textContent = ok ? 'Connected' : 'Not connected';
-    };
     function msg(id, text, type='info'){
       const cls = type==='success'?'alert-success':type==='warning'?'alert-warning':type==='danger'?'alert-danger':'alert-info';
       const el = $(id);
       if (el) el.innerHTML = `<div class="alert ${cls}">${text}</div>`;
     }
-    function toApiUrl(host){
-      const s = (host||'').trim();
-      if (!s) return null;
-      // Ensure trailing /apiv1 ONCE
-      let base = /^https?:\/\//i.test(s) ? s : 'https://' + s;
-      base = base.replace(/\/+$/,'');
-      return base.endsWith('/apiv1') ? base : base + '/apiv1';
+    function toApiUrl(hostOrPath){
+      const s = hostOrPath.trim();
+      if (/^https?:\/\//i.test(s)) return s.endsWith('/apiv1') ? s : s.replace(/\/+$/, '') + '/apiv1';
+      return 'https://' + s.replace(/\/+$/, '') + '/apiv1';
     }
     async function callGeotabAPI(method, params = {}){
       if (!apiUrl) throw new Error('Not authenticated');
-      const body = { method, params: credentials ? { ...params, credentials } : params };
-      const res = await fetch(apiUrl,{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify(body)
+      const p = credentials ? { ...params, credentials } : params;
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ method, params: p })
       });
       const json = await res.json();
       if (json.error) throw new Error(json.error.message || 'API Error');
       return json.result !== undefined ? json.result : json;
     }
 
-    // ===== Wire UI
+    /** ===== Wire UI ===== */
     document.addEventListener('DOMContentLoaded', () => {
       const authBtn = $('authBtn'), testBtn = $('testBtn'), logoutBtn = $('logout');
 
-      authBtn.addEventListener('click', async () => {
-        const server = $('server').value.trim();
-        const database = $('database').value.trim();
-        const username = $('username').value.trim();
-        const password = $('password').value;
+      if (authBtn){
+        authBtn.onclick = async () => {
+          const server = $('server')?.value.trim();
+          const database = $('database')?.value.trim();
+          const username = $('username')?.value.trim();
+          const password = $('password')?.value || '';
+          if (!server || !database || !username || !password){
+            msg('authResult','Fill all authentication fields','warning'); return;
+          }
+          try{
+            apiUrl = toApiUrl(server);
+            const auth = await callGeotabAPI('Authenticate', { userName: username, password, database });
+            credentials = auth.credentials;
+            if (!credentials) throw new Error('No credentials returned');
+            msg('authResult','✅ Connected successfully.','success');
+            if ($('reportCard')) $('reportCard').style.display = 'block';
+            if (testBtn) testBtn.disabled = false;
+          }catch(err){
+            msg('authResult','❌ '+err.message,'danger');
+          }
+        };
+      }
 
-        if (!server || !database || !username || !password){
-          msg('authResult','Fill all authentication fields','warning'); 
-          return;
-        }
+      if (testBtn){
+        testBtn.onclick = async () => {
+          try{
+            const devices = await callGeotabAPI('Get', { typeName:'Device', resultsLimit:5 });
+            msg('authResult','Got '+devices.length+' devices.','success');
+          }catch(err){
+            msg('authResult','❌ '+err.message,'danger');
+          }
+        };
+      }
 
-        try{
-          apiUrl = toApiUrl(server);
-          if (!apiUrl) throw new Error('Invalid server URL');
-
-          const result = await callGeotabAPI('Authenticate', { userName: username, password, database });
-          credentials = result.credentials;
-          if (!credentials) throw new Error('No credentials returned');
-
-          msg('authResult','✅ Connected successfully.','success');
-          setStatus(true);
-          testBtn.disabled = false;
-          $('reportCard').style.display = 'block';
-        }catch(err){
-          msg('authResult','❌ ' + err.message,'danger');
-          setStatus(false);
-          testBtn.disabled = true;
-          $('reportCard').style.display = 'none';
-        }
-      });
-
-      testBtn.addEventListener('click', async () => {
-        try{
-          const devices = await callGeotabAPI('Get', { typeName:'Device', resultsLimit:5 });
-          msg('authResult','Got ' + devices.length + ' devices.','success');
-          const dbg = $('debug');
-          dbg.style.display = 'block';
-          dbg.textContent = JSON.stringify(devices, null, 2);
-        }catch(err){
-          msg('authResult','❌ ' + err.message,'danger');
-        }
-      });
-
-      logoutBtn.addEventListener('click', () => {
-        credentials = null;
-        apiUrl = null;
-        setStatus(false);
-        msg('authResult','Logged out.','info');
-        testBtn.disabled = true;
-        $('reportCard').style.display = 'none';
-        const dbg = $('debug');
-        dbg.textContent = '';
-        dbg.style.display = 'none';
-      });
+      if (logoutBtn){
+        logoutBtn.onclick = () => {
+          credentials = null;
+          apiUrl = null;
+          msg('authResult','Logged out.','info');
+          if (testBtn) testBtn.disabled = true;
+        };
+      }
     });
   </script>
 </body>
