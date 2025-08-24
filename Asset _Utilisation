@@ -45,6 +45,14 @@
     .stat-label{color:#718096;margin-top:5px}
     .zone-pill{display:inline-block;background:#e2e8f0;border-radius:999px;padding:4px 12px;margin:2px;font-size:11px;color:#495057;font-weight:500}
     .zone-pill.active{background:#2d5016;color:#fff}
+    .comparison-up{color:#28a745;font-weight:700}
+    .comparison-down{color:#dc3545;font-weight:700}
+    .comparison-same{color:#6c757d;font-weight:500}
+    .emissions-high{background:#fed7d7;color:#742a2a;padding:4px 8px;border-radius:4px;font-weight:600}
+    .emissions-medium{background:#fefcbf;color:#744210;padding:4px 8px;border-radius:4px;font-weight:600}
+    .emissions-low{background:#c6f6d5;color:#22543d;padding:4px 8px;border-radius:4px;font-weight:600}
+    .weekly-header{background:#f8f9fa;padding:10px;border-radius:6px;margin:10px 0;border-left:4px solid #2d5016}
+    .period-label{font-size:11px;color:#666;display:block;margin-top:2px}
   </style>
 </head>
 <body>
@@ -87,14 +95,28 @@
         <div id="selectedZones"></div>
       </div>
 
-      <div class="form-row">
-        <input id="fromDate" class="form-control" type="date" />
-        <input id="toDate" class="form-control" type="date" />
-        <input id="resultsLimit" class="form-control" placeholder="Asset Limit" value="50" />
+      <div class="card">
+        <h4>📅 Reporting Options</h4>
+        <div class="form-row">
+          <select id="reportType" class="form-select">
+            <option value="custom">Custom Date Range</option>
+            <option value="weekly">Week-over-Week Comparison</option>
+          </select>
+        </div>
+        <div id="customDateInputs" class="form-row">
+          <input id="fromDate" class="form-control" type="date" />
+          <input id="toDate" class="form-control" type="date" />
+          <input id="resultsLimit" class="form-control" placeholder="Asset Limit" value="50" />
+        </div>
+        <div id="weeklyInputs" class="form-row" style="display:none;">
+          <input id="resultsLimitWeekly" class="form-control" placeholder="Asset Limit" value="50" />
+          <div class="alert alert-info">📊 Compares last week vs. previous week automatically</div>
+        </div>
       </div>
       
       <div>
         <button id="generateReport" class="btn btn-success" disabled>📊 Generate Utilization Report</button>
+        <button id="generateWeeklyReport" class="btn btn-warning" disabled style="display:none;">📈 Generate Weekly Comparison</button>
         <button id="exportCsv" class="btn btn-info" disabled>📈 Export CSV</button>
         <button id="exportDetailedReport" class="btn btn-warning" disabled>📋 Detailed Report</button>
         <button id="logout" class="btn btn-danger">🚪 Logout</button>
@@ -127,6 +149,35 @@
           <div class="stat-card">
             <div id="totalEngineHours" class="stat-number">0 hrs</div>
             <div class="stat-label">Total Engine Hours</div>
+          </div>
+          <div class="stat-card">
+            <div id="totalEmissions" class="stat-number">0 kg</div>
+            <div class="stat-label">Total CO₂ Emissions</div>
+          </div>
+          <div class="stat-card">
+            <div id="avgEmissionsPerKm" class="stat-number">0 g/km</div>
+            <div class="stat-label">Avg CO₂ per km</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="weeklyComparison" style="display:none;">
+        <h4>📊 Week-over-Week Comparison</h4>
+        <div class="weekly-header">
+          <strong id="comparisonPeriods">Comparison Period</strong>
+          <div class="stats-grid" style="margin-top:15px;">
+            <div class="stat-card">
+              <div id="utilizationChange" class="stat-number">0%</div>
+              <div class="stat-label">Utilization Change</div>
+            </div>
+            <div class="stat-card">
+              <div id="distanceChange" class="stat-number">0 km</div>
+              <div class="stat-label">Distance Change</div>
+            </div>
+            <div class="stat-card">
+              <div id="emissionsChange" class="stat-number">0 kg</div>
+              <div class="stat-label">Emissions Change</div>
+            </div>
           </div>
         </div>
       </div>
