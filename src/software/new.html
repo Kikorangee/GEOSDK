@@ -1,1506 +1,296 @@
-<!DOCTYPE html>
-<html>
+# Create an optimized version of the "attached API" reporter with:
+# - Batched multiCall (or parallel JSON-RPC calls) with limited concurrency
+# - Visible progress + cancel support
+# - Per-batch timeout guard
+# - ResultsLimit controls
+# - Same delta logic (DiagnosticDeviceTotalFuelId & DiagnosticOdometerAdjustmentId)
+from pathlib import Path
+
+html = r"""<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Geotab Asset Utilization Reporter - Zone-Based Analysis</title>
+  <title>Geotab Utilization & Emissions – Attached API (Fast, Batched)</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#2d5016 0%,#1a5f7a 50%,#57606f 100%);min-height:100vh;color:#333;padding:20px}
+    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#0f172a;color:#111;padding:22px}
     .container{max-width:1400px;margin:0 auto}
-    .header,.card{background:rgba(255,255,255,.95);backdrop-filter:blur(10px);border-radius:15px;padding:25px;margin-bottom:25px;box-shadow:0 10px 30px rgba(0,0,0,.1)}
+    .header,.card{background:rgba(255,255,255,.96);backdrop-filter:blur(6px);border-radius:14px;padding:22px;margin-bottom:22px;box-shadow:0 10px 28px rgba(0,0,0,.12)}
     .header{text-align:center}
-    .header h1{color:#2d3748;font-size:2.2em;font-weight:700;margin-bottom:10px}
-    .card-title{color:#2d3748;font-size:1.3em;font-weight:700;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #e2e8f0}
-    .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:15px}
-    .form-control,.form-select{width:100%;padding:12px 16px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;transition:all .2s ease}
-    .form-control:focus,.form-select:focus{outline:none;border-color:#2d5016;box-shadow:0 0 0 3px rgba(45,80,22,.1)}
-    .btn{padding:12px 24px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s ease;margin:5px}
-    .btn:hover{transform:translateY(-1px);box-shadow:0 4px 15px rgba(0,0,0,.2)}
-    .btn-primary{background:linear-gradient(135deg,#2d5016,#1a5f7a);color:#fff}
-    .btn-success{background:linear-gradient(135deg,#48bb78,#38a169);color:#fff}
-    .btn-info{background:linear-gradient(135deg,#4299e1,#3182ce);color:#fff}
-    .btn-warning{background:linear-gradient(135deg,#ed8936,#dd6b20);color:#fff}
-    .btn-danger{background:linear-gradient(135deg,#f56565,#e53e3e);color:#fff}
+    .header h1{color:#0f172a;font-size:2em;margin-bottom:6px}
+    .muted{color:#64748b}
+    .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+    .form-control,.form-select{width:100%;padding:11px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px}
+    .btn{padding:11px 18px;border:none;border-radius:10px;font-weight:600;cursor:pointer;margin:4px}
+    .btn-primary{background:linear-gradient(135deg,#14532d,#1e40af);color:#fff}
+    .btn-green{background:#16a34a;color:#fff}
+    .btn-blue{background:#2563eb;color:#fff}
+    .btn-red{background:#ef4444;color:#fff}
+    .btn-amber{background:#f59e0b;color:#fff}
     .btn[disabled]{opacity:.5;cursor:not-allowed}
-    .alert{padding:15px;border-radius:8px;margin:15px 0;font-weight:500}
-    .alert-success{background:#c6f6d5;color:#22543d;border-left:4px solid #38a169}
-    .alert-error{background:#fed7d7;color:#742a2a;border-left:4px solid #e53e3e}
-    .alert-warning{background:#fefcbf;color:#744210;border-left:4px solid #d69e2e}
-    .alert-info{background:#ebf8ff;color:#2b6cb0;border-left:4px solid #4299e1}
-    .utilization-table{width:100%;border-collapse:collapse;margin-top:20px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,.1)}
-    .utilization-table th{background:linear-gradient(135deg,#2d5016,#1a5f7a);color:#fff;padding:12px;text-align:left;font-weight:600;font-size:13px}
-    .utilization-table td{padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:13px;vertical-align:top}
-    .utilization-table tr:hover{background:#f7fafc}
-    .utilization-table tr:nth-child(even){background:#f8f9fa}
-    .metric-high{background:#c6f6d5;color:#22543d;padding:4px 8px;border-radius:4px;font-weight:600}
-    .metric-medium{background:#fefcbf;color:#744210;padding:4px 8px;border-radius:4px;font-weight:600}
-    .metric-low{background:#fed7d7;color:#742a2a;padding:4px 8px;border-radius:4px;font-weight:600}
-    .muted{color:#718096}
-    .progress-bar{width:100%;background:#e2e8f0;border-radius:4px;overflow:hidden;margin:10px 0}
-    .progress-fill{height:20px;background:linear-gradient(90deg,#2d5016,#1a5f7a);transition:width 0.3s ease;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600}
-    .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin:20px 0}
-    .stat-card{background:linear-gradient(135deg,#fff,#f8f9fa);border-radius:10px;padding:20px;text-align:center;border-left:4px solid #2d5016}
-    .stat-number{font-size:2em;font-weight:700;color:#2d5016}
-    .stat-label{color:#718096;margin-top:5px}
-    .zone-pill{display:inline-block;background:#e2e8f0;border-radius:999px;padding:4px 12px;margin:2px;font-size:11px;color:#495057;font-weight:500}
-    .zone-pill.active{background:#2d5016;color:#fff}
-    .comparison-up{color:#28a745;font-weight:700}
-    .comparison-down{color:#dc3545;font-weight:700}
-    .comparison-same{color:#6c757d;font-weight:500}
-    .emissions-high{background:#fed7d7;color:#742a2a;padding:4px 8px;border-radius:4px;font-weight:600}
-    .emissions-medium{background:#fefcbf;color:#744210;padding:4px 8px;border-radius:4px;font-weight:600}
-    .emissions-low{background:#c6f6d5;color:#22543d;padding:4px 8px;border-radius:4px;font-weight:600}
-    .weekly-header{background:#f8f9fa;padding:10px;border-radius:6px;margin:10px 0;border-left:4px solid #2d5016}
-    .period-label{font-size:11px;color:#666;display:block;margin-top:2px}
-    #chartsSection .card{margin-bottom:20px}
-    #chartsSection canvas{max-height:400px}
-    #chartsSection h4{color:#2d3748;margin-bottom:15px}
-    .formula-box{background:#f8f9fa;padding:15px;border-radius:6px;margin:10px 0;border-left:3px solid #2d5016}
-    .data-source-actual{background:#d4edda;color:#155724;padding:4px 8px;border-radius:4px;font-weight:500;margin:2px}
-    .data-source-estimated{background:#fff3cd;color:#856404;padding:4px 8px;border-radius:4px;font-weight:500;margin:2px}
-    .data-source-none{background:#f8d7da;color:#721c24;padding:4px 8px;border-radius:4px;font-weight:500;margin:2px}
-    code{background:#e9ecef;padding:2px 6px;border-radius:3px;font-family:monospace;color:#495057}
+    .alert{padding:12px 14px;border-radius:10px;margin:10px 0;font-weight:600}
+    .alert-info{background:#e0f2fe;color:#075985;border-left:5px solid #38bdf8}
+    .alert-success{background:#dcfce7;color:#065f46;border-left:5px solid #22c55e}
+    .alert-warning{background:#fef9c3;color:#713f12;border-left:5px solid #f59e0b}
+    .alert-danger{background:#fee2e2;color:#7f1d1d;border-left:5px solid #ef4444}
+    .progress{height:18px;background:#e2e8f0;border-radius:9px;overflow:hidden;margin-top:8px}
+    .progress > div{height:100%;background:linear-gradient(90deg,#14532d,#1e40af);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
+    .table{width:100%;border-collapse:collapse;margin-top:12px;background:#fff;border-radius:10px;overflow:hidden}
+    .table th{background:#0f172a;color:#fff;padding:10px;text-align:left}
+    .table td{padding:9px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;vertical-align:top}
+    tr.row-estimated{background:#fff7ed}
+    .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;border:1px solid #e2e8f0}
+    .b-act{background:#dcfce7;color:#14532d;border-color:#22c55e}
+    .b-est{background:#fef3c7;color:#92400e;border-color:#f59e0b}
   </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>🚛 Geotab Asset Utilization Reporter</h1>
-      <p>Comprehensive zone-based asset utilization analysis and reporting</p>
-    </div>
-
-    <div class="card">
-      <h3 class="card-title">🔐 Authentication</h3>
-      <div class="form-row">
-        <input id="server" class="form-control" placeholder="Server" value="my.geotab.com" />
-        <input id="database" class="form-control" placeholder="Database" value="uccnz" />
-      </div>
-      <div class="form-row">
-        <input id="username" class="form-control" placeholder="Username" value="francis@directt.co.nz" />
-        <input id="password" class="form-control" type="password" placeholder="Password" value="@fr4nc1sWynn5" />
-      </div>
-      <button id="authButton" class="btn btn-primary">🔑 Authenticate</button>
-      <div id="authResult"></div>
-    </div>
-
-    <div id="reportSection" class="card" style="display:none;">
-      <h3 class="card-title">📊 Asset Utilization Analysis</h3>
-      
-      <div class="card">
-        <h4>🏢 Zone Selection</h4>
-        <div id="zoneLoader" style="display:none;">
-          <div class="progress-bar">
-            <div class="progress-fill" style="width:100%;">Loading Zones...</div>
-          </div>
-        </div>
-        <div class="form-row">
-          <select id="zoneSelect" class="form-select" style="display:none;">
-            <option value="">Select a zone...</option>
-          </select>
-          <button id="loadZones" class="btn btn-info">🔍 Load Available Zones</button>
-        </div>
-        <div id="selectedZones"></div>
-      </div>
-
-      <div class="card">
-        <h4>📅 Reporting Options</h4>
-        <div class="form-row">
-          <select id="reportType" class="form-select">
-            <option value="custom">Custom Date Range</option>
-            <option value="weekly">Week-over-Week Comparison</option>
-          </select>
-        </div>
-        <div id="customDateInputs" class="form-row">
-          <input id="fromDate" class="form-control" type="date" />
-          <input id="toDate" class="form-control" type="date" />
-          <input id="resultsLimit" class="form-control" placeholder="Asset Limit" value="50" />
-        </div>
-        <div id="weeklyInputs" class="form-row" style="display:none;">
-          <input id="resultsLimitWeekly" class="form-control" placeholder="Asset Limit" value="50" />
-          <div class="alert alert-info">📊 Compares last week vs. previous week automatically</div>
-        </div>
-      </div>
-      
-      <div>
-        <button id="generateReport" class="btn btn-success" disabled>📊 Generate Utilization Report</button>
-        <button id="generateWeeklyReport" class="btn btn-warning" disabled style="display:none;">📈 Generate Weekly Comparison</button>
-        <button id="exportCsv" class="btn btn-info" disabled>📈 Export CSV</button>
-        <button id="exportDetailedReport" class="btn btn-warning" disabled>📋 Detailed Report</button>
-        <button id="toggleLegend" class="btn btn-info" disabled>📋 Show Calculation Details</button>
-        <button id="logout" class="btn btn-danger">🚪 Logout</button>
-      </div>
-
-      <div id="reportBanner"></div>
-      
-      <div id="progressContainer" style="display:none;">
-        <div class="progress-bar">
-          <div id="progressBar" class="progress-fill" style="width:0%;">0%</div>
-        </div>
-        <div id="progressText" class="muted" style="text-align:center;margin-top:5px;"></div>
-      </div>
-
-      <div id="summaryStats" style="display:none;">
-        <h4>📈 Summary Statistics</h4>
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div id="totalAssets" class="stat-number">0</div>
-            <div class="stat-label">Total Assets</div>
-          </div>
-          <div class="stat-card">
-            <div id="avgUtilization" class="stat-number">0%</div>
-            <div class="stat-label">Average Utilization</div>
-          </div>
-          <div class="stat-card">
-            <div id="totalDistance" class="stat-number">0 km</div>
-            <div class="stat-label">Total Distance</div>
-          </div>
-          <div class="stat-card">
-            <div id="totalEngineHours" class="stat-number">0 hrs</div>
-            <div class="stat-label">Total Engine Hours</div>
-          </div>
-          <div class="stat-card">
-            <div id="totalEmissions" class="stat-number">0 kg</div>
-            <div class="stat-label">Total CO₂ Emissions</div>
-          </div>
-          <div class="stat-card">
-            <div id="avgEmissionsPerKm" class="stat-number">0 g/km</div>
-            <div class="stat-label">Avg CO₂ per km</div>
-          </div>
-          <div class="stat-card">
-            <div id="fuelDataQuality" class="stat-number">0/0</div>
-            <div class="stat-label">Actual/Estimated Fuel</div>
-          </div>
-        </div>
-      </div>
-
-      <div id="weeklyComparison" style="display:none;">
-        <h4>📊 Week-over-Week Comparison</h4>
-        <div class="weekly-header">
-          <strong id="comparisonPeriods">Comparison Period</strong>
-          <div class="stats-grid" style="margin-top:15px;">
-            <div class="stat-card">
-              <div id="utilizationChange" class="stat-number">0%</div>
-              <div class="stat-label">Utilization Change</div>
-            </div>
-            <div class="stat-card">
-              <div id="distanceChange" class="stat-number">0 km</div>
-              <div class="stat-label">Distance Change</div>
-            </div>
-            <div class="stat-card">
-              <div id="emissionsChange" class="stat-number">0 kg</div>
-              <div class="stat-label">Emissions Change</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div id="chartsSection" style="display:none;">
-        <h4>📊 Visual Analytics</h4>
-        <div class="card">
-          <h5 style="margin-bottom:15px;color:#2d5016;">🏆 Asset Utilization Rankings (Highest to Lowest)</h5>
-          <canvas id="utilizationChart" width="400" height="200"></canvas>
-        </div>
-        <div class="card" style="margin-top:20px;">
-          <h5 style="margin-bottom:15px;color:#2d5016;">🌱 Carbon Emissions Analysis</h5>
-          <canvas id="emissionsChart" width="400" height="200"></canvas>
-        </div>
-        <div id="comparisonChartContainer" class="card" style="margin-top:20px;display:none;">
-          <h5 style="margin-bottom:15px;color:#2d5016;">📈 Week-over-Week Comparison</h5>
-          <canvas id="comparisonChart" width="400" height="200"></canvas>
-        </div>
-      </div>
-
-      <div id="calculationLegend" style="display:none;">
-        <h4>📋 Calculation Methodology & Data Sources</h4>
-        <div class="card">
-          <h5 style="color:#2d5016;margin-bottom:10px;">🧮 Formulas Used</h5>
-          <div style="background:#f8f9fa;padding:15px;border-radius:6px;margin:10px 0;">
-            <strong>Asset Utilization:</strong><br>
-            <code>Utilization (%) = (Engine Hours ÷ Calendar Hours) × 100</code><br>
-            <small class="muted">Alternative: Business Hours method = (Engine Hours ÷ (Days × 10 hours)) × 100</small>
-          </div>
-          <div style="background:#f8f9fa;padding:15px;border-radius:6px;margin:10px 0;">
-            <strong>Fleet Average Fuel Economy:</strong><br>
-            <code>Fleet Avg = Σ(Individual L/100km) ÷ Number of Vehicles with Data</code><br>
-            <code>Individual L/100km = (Fuel Used ÷ Distance) × 100</code>
-          </div>
-          <div style="background:#f8f9fa;padding:15px;border-radius:6px;margin:10px 0;">
-            <strong>Fuel Estimation (when no actual data):</strong><br>
-            <code>Estimated Fuel = (Distance ÷ 100) × Fleet Average L/100km</code><br>
-            <small class="muted">Fallback: Engine Hour estimation = Hours × 15L/hr (fleet avg)</small>
-          </div>
-          <div style="background:#f8f9fa;padding:15px;border-radius:6px;margin:10px 0;">
-            <strong>CO₂ Emissions:</strong><br>
-            <code>CO₂ (kg) = Fuel Used (L) × 2.68 kg CO₂/L (diesel factor)</code><br>
-            <code>CO₂ per km (g/km) = (CO₂ emissions × 1000) ÷ Distance</code>
-          </div>
-        </div>
-
-        <div class="card">
-          <h5 style="color:#2d5016;margin-bottom:10px;">📊 Fleet Performance Analysis</h5>
-          <div id="fleetAnalysisDetails"></div>
-        </div>
-
-        <div class="card">
-          <h5 style="color:#2d5016;margin-bottom:10px;">🔍 Data Source Breakdown</h5>
-          <div id="dataSourceBreakdown"></div>
-        </div>
-      </div>
-      
-      <div id="utilizationResult"></div>
-    </div>
+<div class="container">
+  <div class="header">
+    <h1>🚛 Utilization & Emissions – Attached API (Fast)</h1>
+    <div class="muted">Fuel from <code>DiagnosticDeviceTotalFuelId</code> delta; distance from <code>DiagnosticOdometerAdjustmentId</code>. Batched calls, progress, cancel, timeouts.</div>
   </div>
 
+  <div class="card">
+    <h3>🔐 Authentication</h3>
+    <div class="row" style="margin-top:8px">
+      <input id="server" class="form-control" placeholder="Server" value="my.geotab.com" />
+      <input id="database" class="form-control" placeholder="Database" value="UCCNZ" />
+    </div>
+    <div class="row" style="margin-top:8px">
+      <input id="username" class="form-control" placeholder="Username" value="francis@directt.co.nz" />
+      <input id="password" class="form-control" type="password" placeholder="Password" value="@fr4nc1sWynn5" />
+    </div>
+    <div>
+      <button id="authBtn" class="btn btn-primary">🔑 Authenticate</button>
+      <button id="useSession" class="btn btn-blue">🧩 Use MyGeotab Session</button>
+      <button id="logout" class="btn btn-red">🚪 Logout</button>
+    </div>
+    <div id="authResult" style="margin-top:8px"></div>
+  </div>
+
+  <div id="reportCard" class="card" style="display:none;">
+    <h3>📊 Report</h3>
+    <div class="row">
+      <input id="fromDate" class="form-control" type="date" />
+      <input id="toDate" class="form-control" type="date" />
+      <input id="limit" class="form-control" placeholder="Asset limit" value="300" />
+      <input id="resultsLimit" class="form-control" placeholder="Per-device StatusData limit" value="1000" />
+      <input id="concurrency" class="form-control" placeholder="Parallel devices" value="8" />
+      <input id="timeoutSec" class="form-control" placeholder="Batch timeout (sec)" value="45" />
+    </div>
+    <div style="margin-top:10px">
+      <button id="runBtn" class="btn btn-green">📊 Generate</button>
+      <button id="cancelBtn" class="btn btn-amber" disabled>⛔ Cancel</button>
+    </div>
+    <div id="banner" style="margin-top:10px"></div>
+    <div class="progress"><div id="progressFill" style="width:0%">0%</div></div>
+    <div id="progressText" class="muted" style="text-align:center;margin-top:6px;"></div>
+    <div id="tableWrap" style="margin-top:10px"></div>
+  </div>
+</div>
+
 <script>
-let credentials = null;
-let serverUsed = null;
-let utilizationData = [];
-let weeklyComparisonData = {};
-let fleetAnalysisData = null; // Store fleet analysis for legend
+let credentials=null, serverUsed=null;
+let cancelFlag=false;
 
-// Generate weekly comparison report
-document.getElementById('generateWeeklyReport').onclick = async function(){
-  if(!credentials && !window.geotab && !window.api){ showMessage('reportBanner','Not authenticated','error'); return; }
-  if(selectedZoneIds.size === 0){ showMessage('reportBanner','Please select at least one zone','error'); return; }
-  
-  const resultsLimit = parseInt(document.getElementById('resultsLimitWeekly').value) || 50;
-
-  try {
-    showMessage('reportBanner','🔄 Generating week-over-week comparison report...','info');
-    document.getElementById('exportCsv').disabled = true;
-    document.getElementById('exportDetailedReport').disabled = true;
-    
-    // Calculate date ranges for last week and previous week
-    const today = new Date();
-    const lastMonday = new Date(today);
-    lastMonday.setDate(today.getDate() - today.getDay() + 1); // Get last Monday
-    if (lastMonday > today) lastMonday.setDate(lastMonday.getDate() - 7); // If today is Sunday, go back one more week
-    
-    const lastWeekStart = new Date(lastMonday);
-    lastWeekStart.setDate(lastMonday.getDate() - 7);
-    const lastWeekEnd = new Date(lastMonday);
-    lastWeekEnd.setDate(lastMonday.getDate() - 1);
-    
-    const previousWeekStart = new Date(lastWeekStart);
-    previousWeekStart.setDate(lastWeekStart.getDate() - 7);
-    const previousWeekEnd = new Date(lastWeekStart);
-    previousWeekEnd.setDate(lastWeekStart.getDate() - 1);
-    
-    const lastWeekStartStr = lastWeekStart.toISOString().split('T')[0] + 'T00:00:00.000Z';
-    const lastWeekEndStr = lastWeekEnd.toISOString().split('T')[0] + 'T23:59:59.000Z';
-    const previousWeekStartStr = previousWeekStart.toISOString().split('T')[0] + 'T00:00:00.000Z';
-    const previousWeekEndStr = previousWeekEnd.toISOString().split('T')[0] + 'T23:59:59.000Z';
-    
-    // Fetch data for both weeks
-    const lastWeekData = await fetchUtilizationData(lastWeekStartStr, lastWeekEndStr, resultsLimit, 0, 16);
-    const previousWeekData = await fetchUtilizationData(previousWeekStartStr, previousWeekEndStr, resultsLimit, 8, 16);
-    
-    // Process comparison data
-    weeklyComparisonData = {
-      lastWeek: lastWeekData,
-      previousWeek: previousWeekData,
-      periods: {
-        lastWeek: `${lastWeekStart.toLocaleDateString()} - ${lastWeekEnd.toLocaleDateString()}`,
-        previousWeek: `${previousWeekStart.toLocaleDateString()} - ${previousWeekEnd.toLocaleDateString()}`
-      }
-    };
-    
-    // Set utilizationData to last week for table display
-    utilizationData = lastWeekData.map(asset => {
-      const previousAsset = previousWeekData.find(p => p.deviceId === asset.deviceId);
-      return {
-        ...asset,
-        previousUtilization: previousAsset ? previousAsset.utilization : 0,
-        previousDistance: previousAsset ? previousAsset.totalDistance : 0,
-        previousEmissions: previousAsset ? previousAsset.emissions : 0,
-        utilizationChange: previousAsset ? asset.utilization - previousAsset.utilization : asset.utilization,
-        distanceChange: previousAsset ? asset.totalDistance - previousAsset.totalDistance : asset.totalDistance,
-        emissionsChange: previousAsset ? asset.emissions - previousAsset.emissions : asset.emissions
-      };
-    });
-    
-    // Update summary statistics and show weekly comparison
-    updateSummaryStats();
-    updateWeeklyComparison();
-    
-    // Render the utilization table with comparisons
-    renderUtilizationTable(true);
-    
-    // Create charts including comparison chart
-    document.getElementById('chartsSection').style.display = 'block';
-    createUtilizationChart();
-    createEmissionsChart();
-    
-    // Populate and enable calculation legend
-    populateCalculationLegend();
-    document.getElementById('toggleLegend').disabled = false;
-    createComparisonChart();
-    
-    const activeAssets = utilizationData.length;
-    const avgUtilChange = utilizationData.length > 0 ? 
-      Math.round(utilizationData.reduce((sum, d) => sum + d.utilizationChange, 0) / utilizationData.length * 100) / 100 : 0;
-    const actualFuelCount = utilizationData.filter(d => d.fuelUsed > 0 && !d.estimatedFuel).length;
-    const estimatedFuelCount = utilizationData.filter(d => d.estimatedFuel).length;
-    
-    showMessage('reportBanner', 
-      `✅ Weekly comparison complete! ${activeAssets} assets analyzed with ${avgUtilChange > 0 ? '+' : ''}${avgUtilChange}% avg utilization change. Fuel data: ${actualFuelCount} actual, ${estimatedFuelCount} estimated.`, 
-      'success');
-    
-    document.getElementById('exportCsv').disabled = false;
-    document.getElementById('exportDetailedReport').disabled = false;
-    
-  } catch (error) {
-    showMessage('reportBanner', `Failed to generate weekly report: ${error.message}`, 'error');
-  }
-};
-let selectedZoneIds = new Set();
-let availableZones = [];
-
-// Carbon emission factors (kg CO2 per liter)
-const EMISSION_FACTORS = {
-  diesel: 2.68,    // kg CO2/L for diesel
-  gasoline: 2.31,  // kg CO2/L for gasoline
-  default: 2.68    // Default to diesel
-};
-
-function setDefaultDates(){
+function setDefaults(){
   const today = new Date();
-  const lastMonth = new Date(today.getTime() - 30*24*60*60*1000);
+  const last = new Date(today.getTime() - 14*24*3600*1000);
   document.getElementById('toDate').value = today.toISOString().split('T')[0];
-  document.getElementById('fromDate').value = lastMonth.toISOString().split('T')[0];
+  document.getElementById('fromDate').value = last.toISOString().split('T')[0];
 }
-setDefaultDates();
+setDefaults();
 
-// Handle report type changes
-document.getElementById('reportType').onchange = function() {
-  const reportType = this.value;
-  const customInputs = document.getElementById('customDateInputs');
-  const weeklyInputs = document.getElementById('weeklyInputs');
-  const generateReport = document.getElementById('generateReport');
-  const generateWeeklyReport = document.getElementById('generateWeeklyReport');
-  
-  if (reportType === 'weekly') {
-    customInputs.style.display = 'none';
-    weeklyInputs.style.display = 'block';
-    generateReport.style.display = 'none';
-    generateWeeklyReport.style.display = 'inline-block';
-    generateWeeklyReport.disabled = selectedZoneIds.size === 0;
-  } else {
-    customInputs.style.display = 'block';
-    weeklyInputs.style.display = 'none';
-    generateReport.style.display = 'inline-block';
-    generateWeeklyReport.style.display = 'none';
-    generateReport.disabled = selectedZoneIds.size === 0;
-  }
-};
-
-function showMessage(elId, msg, type='info'){
-  const el = document.getElementById(elId);
-  const c = type==='error'?'alert-error':type==='success'?'alert-success':type==='warning'?'alert-warning':'alert-info';
-  el.style.display = '';
-  el.innerHTML = `<div class="alert ${c}">${msg}</div>`;
+function msg(id, text, type='info'){
+  const cls = type==='success'?'alert-success':type==='warning'?'alert-warning':type==='danger'?'alert-danger':'alert-info';
+  document.getElementById(id).innerHTML = `<div class="alert ${cls}">${text}</div>`;
 }
-
-function updateProgress(current, total, text = '') {
-  const container = document.getElementById('progressContainer');
-  const bar = document.getElementById('progressBar');
-  const textEl = document.getElementById('progressText');
-  
-  if (total === 0) {
-    container.style.display = 'none';
-    return;
-  }
-  
-  container.style.display = 'block';
-  const percentage = Math.round((current / total) * 100);
-  bar.style.width = `${percentage}%`;
-  bar.textContent = `${percentage}%`;
-  textEl.textContent = text || `Processing ${current} of ${total}...`;
+function setProgress(done,total,label=''){
+  const fill = document.getElementById('progressFill');
+  const txt = document.getElementById('progressText');
+  const pct = total? Math.round(done/total*100) : 0;
+  fill.style.width = pct+'%'; fill.textContent = pct+'%';
+  txt.textContent = label || `${done}/${total}`;
 }
+function idOf(x){ if(!x) return null; if(typeof x==='object' && x.id) return x.id; if(typeof x==='string') return x; try{ return JSON.parse(x).id || null }catch(e){ return null } }
 
 async function callGeotabAPI(method, params={}){
-  if (window.geotab && typeof window.geotab.call === 'function'){
-    return new Promise((resolve,reject)=>window.geotab.call(method, params, resolve, reject));
+  if (window.geotab && typeof window.geotab.call==='function'){
+    return new Promise((res,rej)=>window.geotab.call(method, params, res, rej));
   }
-  if (window.api && typeof window.api.call === 'function'){
-    return new Promise((resolve,reject)=>window.api.call(method, params, resolve, reject));
+  if (window.api && typeof window.api.call==='function'){
+    return new Promise((res,rej)=>window.api.call(method, params, res, rej));
   }
-  const requestBody = { method, params: credentials ? {...params, credentials} : params };
-  const res = await fetch(`https://${serverUsed}/apiv1`, {
-    method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify(requestBody)
-  });
-  if(!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-  const data = await res.json();
-  if(data.error) throw new Error(data.error.message || data.error.name);
-  return data.result;
+  const rpc = { id:1, jsonrpc:"2.0", method, params: (credentials && method!=='Authenticate') ? { ...params, credentials } : params };
+  const r = await fetch(`https://${serverUsed}/apiv1`, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify(rpc) });
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  const j = await r.json();
+  if(j.error){ throw new Error((j.error.data && j.error.data.exceptionMessage) || j.error.message || j.error.name); }
+  return j.result!==undefined ? j.result : j;
 }
 
-function extractId(data){
-  if(!data) return null;
-  if(typeof data==='object' && data.id) return data.id;
-  if(typeof data==='string'){ try{ return JSON.parse(data).id || null }catch(e){ return data } }
-  return null;
-}
-
-function calculateUtilization(engineHours, totalCalendarHours) {
-  if (!totalCalendarHours || totalCalendarHours === 0) return 0;
-  // Utilization = (actual engine hours / total calendar hours) * 100
-  // Cap at 100% and round to 2 decimal places
-  const utilization = (engineHours / totalCalendarHours) * 100;
-  return Math.min(100, Math.round(utilization * 100) / 100);
-}
-
-function calculateEmissions(fuelUsed, fuelType = 'diesel') {
-  if (!fuelUsed || fuelUsed === 0) return 0;
-  const factor = EMISSION_FACTORS[fuelType] || EMISSION_FACTORS.default;
-  return Math.round(fuelUsed * factor * 100) / 100; // kg CO2
-}
-
-// Fallback emissions estimation when fuel data is unavailable
-function estimateEmissionsFromDistance(distance, vehicleType = 'truck') {
-  if (!distance || distance === 0) return 0;
-  
-  // Rough estimates based on typical fuel consumption (L/100km) and emission factors
-  const fuelConsumptionPer100km = {
-    truck: 35,        // Heavy trucks: ~35L/100km
-    van: 12,          // Light commercial: ~12L/100km
-    car: 8,           // Passenger car: ~8L/100km
-    default: 25       // Average fleet
-  };
-  
-  const consumption = fuelConsumptionPer100km[vehicleType] || fuelConsumptionPer100km.default;
-  const estimatedFuel = (distance / 100) * consumption; // liters
-  return calculateEmissions(estimatedFuel);
-}
-
-function estimateEmissionsFromEngineHours(engineHours, vehicleType = 'truck') {
-  if (!engineHours || engineHours === 0) return 0;
-  
-  // Rough estimates based on typical fuel consumption per hour
-  const fuelConsumptionPerHour = {
-    truck: 25,        // Heavy trucks: ~25L/hour
-    van: 8,           // Light commercial: ~8L/hour  
-    car: 5,           // Passenger car: ~5L/hour
-    default: 15       // Average fleet
-  };
-  
-  const consumption = fuelConsumptionPerHour[vehicleType] || fuelConsumptionPerHour.default;
-  const estimatedFuel = engineHours * consumption; // liters
-  return calculateEmissions(estimatedFuel);
-}
-
-function getEmissionsClass(emissionsPerKm) {
-  if (emissionsPerKm <= 800) return 'emissions-low';    // Low emissions < 800g/km
-  if (emissionsPerKm <= 1200) return 'emissions-medium'; // Medium 800-1200g/km
-  return 'emissions-high'; // High > 1200g/km
-}
-
-function formatComparison(current, previous, unit = '', isPercentage = false) {
-  if (previous === 0) return `<span class="comparison-same">N/A</span>`;
-  
-  const diff = current - previous;
-  const percentChange = ((diff / previous) * 100).toFixed(1);
-  const arrow = diff > 0 ? '↗' : diff < 0 ? '↘' : '→';
-  const className = diff > 0 ? 'comparison-up' : diff < 0 ? 'comparison-down' : 'comparison-same';
-  
-  if (isPercentage) {
-    return `<span class="${className}">${arrow} ${Math.abs(diff).toFixed(1)}${unit} (${percentChange}%)</span>`;
-  } else {
-    return `<span class="${className}">${arrow} ${Math.abs(diff).toFixed(1)}${unit} (${percentChange}%)</span>`;
-  }
-}
-
-function getUtilizationClass(utilization) {
-  if (utilization >= 70) return 'metric-high';
-  if (utilization >= 40) return 'metric-medium';
-  return 'metric-low';
-}
-
-// Authentication
-document.getElementById('authButton').onclick = async function(){
+document.getElementById('authBtn').onclick = async function(){
   const server = document.getElementById('server').value.trim();
   const database = document.getElementById('database').value.trim();
   const username = document.getElementById('username').value.trim();
   const password = document.getElementById('password').value;
-  if(!server || !database || !username || !password){ showMessage('authResult','Please fill in all fields','error'); return; }
+  if(!server||!database||!username||!password){ msg('authResult','Fill all fields','warning'); return; }
   try{
-    showMessage('authResult','Authenticating...','warning');
     serverUsed = server;
-    const res = await callGeotabAPI('Authenticate', { userName:username, password, database });
-    if(res.path && res.path !== 'ThisServer'){
-      serverUsed = res.path;
-      const res2 = await callGeotabAPI('Authenticate', { userName:username, password, database });
-      credentials = res2.credentials;
+    const r = await callGeotabAPI('Authenticate',{ userName:username, password, database });
+    if(r.path && r.path!=='ThisServer'){
+      serverUsed = r.path;
+      const r2 = await callGeotabAPI('Authenticate',{ userName:username, password, database });
+      credentials = r2.credentials;
     } else {
-      credentials = res.credentials;
+      credentials = r.credentials;
     }
-    showMessage('authResult','Authentication successful! 🎉','success');
-    document.getElementById('reportSection').style.display = '';
+    msg('authResult',`✅ Authenticated on ${serverUsed} / DB: ${database}`,'success');
+    document.getElementById('reportCard').style.display='block';
+  }catch(e){ msg('authResult','Auth failed: '+e.message,'danger'); }
+};
+
+document.getElementById('useSession').onclick = function(){
+  if (window.geotab && typeof window.geotab.call==='function'){
+    credentials = { sessionId:'', database:'' };
+    serverUsed = location.host;
+    msg('authResult','✅ Using MyGeotab session','success');
+    document.getElementById('reportCard').style.display='block';
+  } else {
+    msg('authResult','Not running inside MyGeotab. Use manual auth.','warning');
+  }
+};
+
+document.getElementById('logout').onclick = function(){
+  credentials=null; serverUsed=null;
+  document.getElementById('reportCard').style.display='none';
+  document.getElementById('authResult').innerHTML='';
+  document.getElementById('banner').innerHTML='';
+  document.getElementById('tableWrap').innerHTML='';
+};
+
+function computeDelta(odo, fuel){
+  let dist=0, liters=0, hasFuel=false;
+  if(odo && odo.length>1){ dist = (odo[odo.length-1].data - odo[0].data) / 1000; }
+  if(fuel && fuel.length>1){ liters = (fuel[fuel.length-1].data - fuel[0].data); hasFuel=true; }
+  if(liters<0) liters = 0;
+  return { distanceKm: dist>0?dist:0, liters: liters>0?liters:0, hasFuel };
+}
+
+async function fetchForDevices(devices, fromISO, toISO, resultsLimit=1000, concurrency=8, timeoutSec=45){
+  const rows=[];
+  let done=0, total=devices.length;
+  cancelFlag=false;
+  document.getElementById('cancelBtn').disabled=false;
+
+  const chunks=[];
+  for(let i=0;i<devices.length;i+=concurrency){
+    chunks.push(devices.slice(i, i+concurrency));
+  }
+
+  for(const chunk of chunks){
+    if(cancelFlag) break;
+
+    // Build multiCall batch if available
+    if (window.geotab && typeof window.geotab.multiCall==='function'){
+      const calls=[];
+      for(const d of chunk){
+        const id=d.id;
+        calls.push(["Get",{ typeName:"StatusData", search:{ fromDate:fromISO, toDate:toISO, diagnosticSearch:{ id:"DiagnosticOdometerAdjustmentId" }, deviceSearch:{ id }, }, resultsLimit }]);
+        calls.push(["Get",{ typeName:"StatusData", search:{ fromDate:fromISO, toDate:toISO, diagnosticSearch:{ id:"DiagnosticDeviceTotalFuelId" }, deviceSearch:{ id }, }, resultsLimit }]);
+      }
+      const res = await Promise.race([
+        new Promise((resolve,reject)=>window.geotab.multiCall(calls, resolve, reject)),
+        new Promise((_,reject)=>setTimeout(()=>reject(new Error('Batch timeout')), timeoutSec*1000))
+      ]);
+      // Pair results for each device
+      for(let i=0;i<chunk.length;i++){
+        const d=chunk[i];
+        const odo = res[2*i] || [];
+        const fuel = res[2*i+1] || [];
+        const { distanceKm, liters, hasFuel } = computeDelta(odo, fuel);
+        const est = !hasFuel;
+        const fuelLit = est ? (distanceKm>0 ? (distanceKm/100)*25 : 8*15) : liters;
+        const co2 = Math.round(fuelLit*2.68*100)/100;
+        rows.push({ deviceName:d.name||d.id, distanceKm:Math.round(distanceKm*10)/10, liters:Math.round(fuelLit*10)/10, fuelSource: est?'Estimated':'Actual', estimated: est, co2 });
+        done++; setProgress(done,total,`Processed ${done}/${total}`);
+      }
+    } else {
+      // Standalone: parallel per-device with Promise.allSettled and timeout
+      const ps = chunk.map(async d=>{
+        const id=d.id;
+        const odoP = callGeotabAPI("Get",{ typeName:"StatusData", search:{ fromDate:fromISO, toDate:toISO, diagnosticSearch:{ id:"DiagnosticOdometerAdjustmentId" }, deviceSearch:{ id } }, resultsLimit });
+        const fuelP= callGeotabAPI("Get",{ typeName:"StatusData", search:{ fromDate:fromISO, toDate:toISO, diagnosticSearch:{ id:"DiagnosticDeviceTotalFuelId" }, deviceSearch:{ id } }, resultsLimit });
+        const res = await Promise.race([Promise.all([odoP,fuelP]), new Promise((_,reject)=>setTimeout(()=>reject(new Error('Batch timeout')), timeoutSec*1000))]);
+        const { distanceKm, liters, hasFuel } = computeDelta(res[0], res[1]);
+        const est = !hasFuel;
+        const fuelLit = est ? (distanceKm>0 ? (distanceKm/100)*25 : 8*15) : liters;
+        const co2 = Math.round(fuelLit*2.68*100)/100;
+        rows.push({ deviceName:d.name||d.id, distanceKm:Math.round(distanceKm*10)/10, liters:Math.round(fuelLit*10)/10, fuelSource: est?'Estimated':'Actual', estimated: est, co2 });
+        done++; setProgress(done,total,`Processed ${done}/${total}`);
+      });
+      await Promise.allSettled(ps);
+    }
+  }
+
+  document.getElementById('cancelBtn').disabled=true;
+  return rows;
+}
+
+document.getElementById('cancelBtn').onclick = function(){ cancelFlag=true; msg('banner','Cancelling after current batch…','warning'); };
+
+document.getElementById('runBtn').onclick = async function(){
+  try{
+    msg('banner','Running…','info');
+    setProgress(0,1,'Starting…');
+    const fromISO = new Date(document.getElementById('fromDate').value+'T00:00:00.000Z').toISOString();
+    const toISO = new Date(document.getElementById('toDate').value+'T23:59:59.999Z').toISOString();
+    const limit = parseInt(document.getElementById('limit').value)||300;
+    const resultsLimit = parseInt(document.getElementById('resultsLimit').value)||1000;
+    const concurrency = parseInt(document.getElementById('concurrency').value)||8;
+    const timeoutSec = parseInt(document.getElementById('timeoutSec').value)||45;
+
+    const devices = await callGeotabAPI('Get',{ typeName:'Device', resultsLimit:limit });
+    setProgress(0, devices.length, 'Processing devices…');
+
+    const rows = await fetchForDevices(devices, fromISO, toISO, resultsLimit, concurrency, timeoutSec);
+    rows.sort((a,b)=> b.liters-a.liters);
+    renderTable(rows);
+    const act = rows.filter(r=>r.fuelSource==='Actual').length;
+    const est = rows.filter(r=>r.fuelSource==='Estimated').length;
+    msg('banner',`✅ Done — Fuel coverage: Actual ${act} | Estimated ${est}`,'success');
   }catch(e){
-    showMessage('authResult',`Authentication failed: ${e.message}`,'error');
+    msg('banner','Failed: '+e.message,'danger');
   }
 };
 
-// Load available zones
-document.getElementById('loadZones').onclick = async function(){
-  if(!credentials && !window.geotab && !window.api){ showMessage('reportBanner','Not authenticated','error'); return; }
-  
-  try {
-    document.getElementById('zoneLoader').style.display = 'block';
-    showMessage('reportBanner', 'Loading zones...', 'info');
-    
-    const zones = await callGeotabAPI('Get', {
-      typeName: 'Zone',
-      resultsLimit: 1000
-    });
-    
-    availableZones = zones.filter(z => z.name && z.name.trim());
-    
-    const zoneSelect = document.getElementById('zoneSelect');
-    zoneSelect.innerHTML = '<option value="">Select a zone...</option>';
-    
-    availableZones.forEach(zone => {
-      const option = document.createElement('option');
-      option.value = zone.id;
-      option.textContent = `${zone.name} (${zone.zoneTypes && zone.zoneTypes.length ? zone.zoneTypes.map(zt => zt.name || zt).join(', ') : 'Zone'})`;
-      zoneSelect.appendChild(option);
-    });
-    
-    document.getElementById('zoneLoader').style.display = 'none';
-    zoneSelect.style.display = 'block';
-    showMessage('reportBanner', `✅ Loaded ${availableZones.length} zones`, 'success');
-    
-  } catch (error) {
-    document.getElementById('zoneLoader').style.display = 'none';
-    showMessage('reportBanner', `Failed to load zones: ${error.message}`, 'error');
-  }
-};
-
-// Enhanced data fetching with fuel usage for emissions
-async function fetchUtilizationData(fromDateTime, toDateTime, resultsLimit, progressOffset = 0, totalSteps = 8) {
-  const totalHours = (new Date(toDateTime) - new Date(fromDateTime)) / (1000 * 60 * 60);
-  
-  updateProgress(progressOffset + 1, totalSteps, 'Getting devices...');
-  
-  // Get all devices
-  const devices = await callGeotabAPI('Get', {
-    typeName: 'Device',
-    resultsLimit: resultsLimit
+function renderTable(rows){
+  const wrap = document.getElementById('tableWrap');
+  if(!rows.length){ wrap.innerHTML = '<div class="alert alert-warning">No data</div>'; return; }
+  let html = `<table class="table"><thead><tr>
+    <th>Asset</th><th>Distance (km)</th><th>Fuel (L)</th><th>Fuel Source</th><th>CO₂ (kg)</th>
+  </tr></thead><tbody>`;
+  rows.forEach(r=>{
+    const rowCls = r.estimated ? ' class="row-estimated"' : '';
+    const badge = r.estimated ? '<span class="badge b-est">Estimated</span>' : '<span class="badge b-act">Actual</span>';
+    html += `<tr${rowCls}>
+      <td>${r.deviceName}</td>
+      <td>${r.distanceKm}</td>
+      <td>${r.liters}</td>
+      <td>${badge}</td>
+      <td>${r.co2}</td>
+    </tr>`;
   });
-  
-  if (!devices.length) {
-    throw new Error('No devices found');
-  }
-  
-  updateProgress(progressOffset + 2, totalSteps, 'Getting engine hours...');
-  
-  // Get engine hours data
-  const engineHoursData = await callGeotabAPI('Get', {
-    typeName: 'StatusData',
-    search: {
-      fromDate: fromDateTime,
-      toDate: toDateTime,
-      diagnosticSearch: { id: 'DiagnosticEngineHoursId' }
-    },
-    resultsLimit: 5000
-  });
-  
-  updateProgress(progressOffset + 3, totalSteps, 'Getting fuel usage data...');
-  
-  // Try multiple fuel diagnostics - Geotab systems may use different IDs
-  let fuelUsageData = [];
-  const fuelDiagnostics = [
-    'DiagnosticFuelUsedId',
-    'DiagnosticFuelUsedSinceRestartId', 
-    'DiagnosticTotalFuelUsedId',
-    'DiagnosticFuelConsumedId'
-  ];
-  
-  for (const diagnosticId of fuelDiagnostics) {
-    try {
-      const fuelData = await callGeotabAPI('Get', {
-        typeName: 'StatusData',
-        search: {
-          fromDate: fromDateTime,
-          toDate: toDateTime,
-          diagnosticSearch: { id: diagnosticId }
-        },
-        resultsLimit: 2000
-      });
-      if (fuelData && fuelData.length > 0) {
-        fuelUsageData = fuelData;
-        console.log(`Found fuel data using diagnostic: ${diagnosticId}`);
-        break;
-      }
-    } catch (e) {
-      console.warn(`Failed to get fuel data with ${diagnosticId}:`, e);
-    }
-  }
-  
-  // If no specific fuel diagnostic works, try to get all fuel-related diagnostics
-  if (fuelUsageData.length === 0) {
-    try {
-      const allDiagnostics = await callGeotabAPI('Get', {
-        typeName: 'Diagnostic',
-        resultsLimit: 1000
-      });
-      
-      const fuelDiags = allDiagnostics.filter(d => 
-        d.name && (
-          d.name.toLowerCase().includes('fuel') ||
-          d.name.toLowerCase().includes('consumption') ||
-          d.name.toLowerCase().includes('economy')
-        )
-      );
-      
-      for (const diag of fuelDiags.slice(0, 3)) { // Try top 3 fuel diagnostics
-        try {
-          const fuelData = await callGeotabAPI('Get', {
-            typeName: 'StatusData',
-            search: {
-              fromDate: fromDateTime,
-              toDate: toDateTime,
-              diagnosticSearch: { id: diag.id }
-            },
-            resultsLimit: 2000
-          });
-          if (fuelData && fuelData.length > 0) {
-            fuelUsageData = fuelData;
-            console.log(`Found fuel data using diagnostic: ${diag.name}`);
-            break;
-          }
-        } catch (e) {
-          console.warn(`Failed to get fuel data with ${diag.name}:`, e);
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to search for fuel diagnostics:', e);
-    }
-  }
-  
-  updateProgress(progressOffset + 4, totalSteps, 'Getting trip data...');
-  
-  // Get trip data
-  const trips = await callGeotabAPI('Get', {
-    typeName: 'Trip',
-    search: {
-      fromDate: fromDateTime,
-      toDate: toDateTime
-    },
-    resultsLimit: 5000
-  });
-  
-  updateProgress(progressOffset + 5, totalSteps, 'Getting zone stops...');
-  
-  // Get zone stops for selected zones
-  const zoneStops = [];
-  for (const zoneId of selectedZoneIds) {
-    try {
-      const stops = await callGeotabAPI('Get', {
-        typeName: 'ZoneStop',
-        search: {
-          fromDate: fromDateTime,
-          toDate: toDateTime,
-          zoneSearch: { id: zoneId }
-        },
-        resultsLimit: 1000
-      });
-      zoneStops.push(...stops);
-    } catch (e) {
-      console.warn(`Failed to get zone stops for zone ${zoneId}:`, e);
-    }
-  }
-  
-  updateProgress(progressOffset + 6, totalSteps, 'Processing utilization data...');
-  
-  // First pass: Calculate average fuel economy from vehicles with fuel data
-  let totalFuelEconomyData = [];
-  
-  devices.forEach(device => {
-    const deviceId = device.id;
-    const deviceName = device.name || `Device ${deviceId}`;
-    
-    // Get trips and fuel data for this device
-    const deviceTrips = trips.filter(t => extractId(t.device) === deviceId);
-    const totalDistance = deviceTrips.reduce((sum, trip) => sum + (trip.distance || 0), 0) / 1000; // Convert to km
-    
-    const deviceFuelData = fuelUsageData.filter(s => extractId(s.device) === deviceId);
-    let fuelUsed = 0;
-    
-    if (deviceFuelData.length > 0) {
-      const fuelValues = deviceFuelData.map(s => s.data || 0);
-      const minFuel = Math.min(...fuelValues);
-      const maxFuel = Math.max(...fuelValues);
-      fuelUsed = Math.max(0, maxFuel - minFuel);
-    }
-    
-    // If we have both fuel and distance data, calculate fuel economy
-    if (fuelUsed > 0 && totalDistance > 0) {
-      const fuelEconomyL100km = (fuelUsed / totalDistance) * 100; // L/100km
-      totalFuelEconomyData.push({
-        deviceName,
-        fuelUsed,
-        totalDistance,
-        fuelEconomyL100km
-      });
-    }
-  });
-  
-  // Calculate fleet average fuel economy
-  let fleetAvgFuelEconomy = 25; // Default fallback (L/100km)
-  if (totalFuelEconomyData.length > 0) {
-    const avgFuelEconomy = totalFuelEconomyData.reduce((sum, d) => sum + d.fuelEconomyL100km, 0) / totalFuelEconomyData.length;
-    fleetAvgFuelEconomy = avgFuelEconomy;
-    
-    console.log(`Fleet Fuel Economy Analysis:`);
-    console.log(`- ${totalFuelEconomyData.length} vehicles with complete fuel data`);
-    console.log(`- Fleet average: ${avgFuelEconomy.toFixed(1)} L/100km`);
-    console.log(`- Individual vehicle economies:`, totalFuelEconomyData.map(d => `${d.deviceName}: ${d.fuelEconomyL100km.toFixed(1)} L/100km`));
-  } else {
-    console.warn('No vehicles found with complete fuel data - using default fuel economy estimate');
-  }
-
-  // Store fleet analysis data for legend
-  fleetAnalysisData = {
-    totalVehicles: devices.length,
-    vehiclesWithFuelData: totalFuelEconomyData.length,
-    fleetAvgFuelEconomy: fleetAvgFuelEconomy,
-    individualFuelEconomies: totalFuelEconomyData,
-    totalHours: totalHours,
-    days: Math.round(totalHours / 24)
-  };
-
-  // Second pass: Process utilization data with improved emissions calculations
-  const processedData = devices.map(device => {
-    const deviceId = device.id;
-    const deviceName = device.name || `Device ${deviceId}`;
-    
-    // Get engine hours for this device
-    const deviceEngineData = engineHoursData.filter(s => extractId(s.device) === deviceId);
-    let engineHours = 0;
-    
-    if (deviceEngineData.length > 0) {
-      // Geotab engine hours are typically cumulative values in hours
-      // Calculate the difference between max and min readings during the period
-      const engineValues = deviceEngineData.map(s => s.data || 0);
-      const minEngine = Math.min(...engineValues);
-      const maxEngine = Math.max(...engineValues);
-      engineHours = Math.max(0, maxEngine - minEngine);
-      
-      // Sanity check: if difference is too large, the data might be in different units
-      if (engineHours > totalHours * 2) {
-        console.warn(`Suspicious engine hours for ${deviceName}: ${engineHours} hours in ${totalHours} calendar hours`);
-        // Try dividing by 3600 in case the data is in seconds
-        engineHours = engineHours / 3600;
-      }
-      
-      // If still too high, cap it at reasonable maximum
-      if (engineHours > totalHours) {
-        console.warn(`Capping engine hours for ${deviceName} from ${engineHours} to ${totalHours}`);
-        engineHours = totalHours;
-      }
-      
-      // If the difference is still 0 but we have data, use a different approach
-      if (engineHours === 0 && engineValues.length > 0 && maxEngine > 0) {
-        // Use the maximum value as total engine hours (assuming it's cumulative)
-        engineHours = Math.min(maxEngine, totalHours);
-      }
-      
-      console.log(`Device ${deviceName}: Min engine: ${minEngine}, Max engine: ${maxEngine}, Calculated hours: ${engineHours}`);
-    }
-    
-    // Get trips for this device
-    const deviceTrips = trips.filter(t => extractId(t.device) === deviceId);
-    const totalDistance = deviceTrips.reduce((sum, trip) => sum + (trip.distance || 0), 0) / 1000; // Convert to km
-    const tripCount = deviceTrips.length;
-    
-    // Get zone stops for this device
-    const deviceZoneStops = zoneStops.filter(z => extractId(z.device) === deviceId);
-    const zoneStopCount = deviceZoneStops.length;
-    
-    // Get fuel usage for this device
-    const deviceFuelData = fuelUsageData.filter(s => extractId(s.device) === deviceId);
-    let fuelUsed = 0;
-    
-    if (deviceFuelData.length > 0) {
-      // Calculate fuel used based on max value minus min value
-      const fuelValues = deviceFuelData.map(s => s.data || 0);
-      const minFuel = Math.min(...fuelValues);
-      const maxFuel = Math.max(...fuelValues);
-      fuelUsed = Math.max(0, maxFuel - minFuel);
-    }
-    
-    // Calculate emissions with improved fuel estimation
-    let emissions = 0;
-    let estimatedFuel = false; // Flag to track if fuel was estimated
-    
-    if (fuelUsed > 0) {
-      // Use actual fuel data if available
-      emissions = calculateEmissions(fuelUsed);
-      console.log(`${deviceName}: Using actual fuel data: ${fuelUsed.toFixed(1)}L`);
-    } else if (totalDistance > 0) {
-      // Estimate fuel using fleet average fuel economy
-      const estimatedFuelUsage = (totalDistance / 100) * fleetAvgFuelEconomy; // liters
-      emissions = calculateEmissions(estimatedFuelUsage);
-      fuelUsed = estimatedFuelUsage; // Update fuelUsed with estimate for display
-      estimatedFuel = true;
-      console.log(`${deviceName}: Estimated fuel using fleet avg (${fleetAvgFuelEconomy.toFixed(1)} L/100km): ${estimatedFuelUsage.toFixed(1)}L for ${totalDistance.toFixed(1)}km`);
-    } else if (engineHours > 0) {
-      // Last resort: estimate from engine hours using fleet average or fallback
-      const estimatedFuelUsage = estimateEmissionsFromEngineHours(engineHours) / EMISSION_FACTORS.default; // Convert back to liters
-      emissions = calculateEmissions(estimatedFuelUsage);
-      fuelUsed = estimatedFuelUsage;
-      estimatedFuel = true;
-      console.log(`${deviceName}: Estimated fuel from engine hours: ${estimatedFuelUsage.toFixed(1)}L for ${engineHours.toFixed(1)} hrs`);
-    }
-    
-    // Calculate emissions per km
-    const emissionsPerKm = totalDistance > 0 ? Math.round((emissions * 1000) / totalDistance) : 0; // g CO2/km
-    
-    // Calculate utilization - try different approaches for more realistic results
-    let utilization = 0;
-    
-    if (engineHours > 0) {
-      // Method 1: Against total calendar time (traditional approach)
-      const calendarUtilization = calculateUtilization(engineHours, totalHours);
-      
-      // Method 2: Against reasonable business hours (8-12 hours per day)
-      const days = Math.ceil(totalHours / 24);
-      const businessHoursPerDay = 10; // Assume 10 hour work days
-      const totalBusinessHours = days * businessHoursPerDay;
-      const businessUtilization = calculateUtilization(engineHours, totalBusinessHours);
-      
-      // Use the more reasonable of the two calculations
-      // If calendar utilization is very low, use business hours calculation
-      utilization = calendarUtilization < 5 && businessUtilization < 100 ? businessUtilization : calendarUtilization;
-      
-      // Debug logging
-      console.log(`Asset ${deviceName}: Engine Hours: ${engineHours}, Calendar Hours: ${totalHours}, Business Hours: ${totalBusinessHours}, Calendar Util: ${calendarUtilization}%, Business Util: ${businessUtilization}%`);
-    }
-    
-    // If utilization still seems off, cap it more reasonably
-    if (utilization > 80) {
-      console.warn(`High utilization detected for ${deviceName}: ${utilization}% - checking data quality`);
-    }
-    
-    return {
-      deviceId,
-      deviceName,
-      engineHours,
-      totalDistance,
-      tripCount,
-      zoneStopCount,
-      utilization,
-      fuelUsed,
-      estimatedFuel, // Flag to indicate if fuel was estimated
-      emissions,
-      emissionsPerKm
-    };
-  });
-  
-  updateProgress(progressOffset + 7, totalSteps, 'Finalizing data...');
-  
-  console.log(`Processed ${processedData.length} devices. Period: ${totalHours} hours (${Math.round(totalHours/24)} days)`);
-  
-  // Sort by utilization (highest first)
-  return processedData.sort((a, b) => b.utilization - a.utilization);
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
 }
-
-// Generate utilization report
-document.getElementById('generateReport').onclick = async function(){
-  if(!credentials && !window.geotab && !window.api){ showMessage('reportBanner','Not authenticated','error'); return; }
-  if(selectedZoneIds.size === 0){ showMessage('reportBanner','Please select at least one zone','error'); return; }
-  
-  const fromDate = document.getElementById('fromDate').value;
-  const toDate = document.getElementById('toDate').value;
-  const resultsLimit = parseInt(document.getElementById('resultsLimit').value) || 50;
-  
-  if(!fromDate || !toDate){ showMessage('reportBanner','Please select a date range','error'); return; }
-  
-  try {
-    showMessage('reportBanner','Generating utilization report...','info');
-    document.getElementById('exportCsv').disabled = true;
-    document.getElementById('exportDetailedReport').disabled = true;
-    
-    const fromDateTime = new Date(fromDate + 'T00:00:00.000Z').toISOString();
-    const toDateTime = new Date(toDate + 'T23:59:59.999Z').toISOString();
-    
-    utilizationData = await fetchUtilizationData(fromDateTime, toDateTime, resultsLimit);
-    
-    updateSummaryStats();
-    renderUtilizationTable();
-    
-    document.getElementById('chartsSection').style.display = 'block';
-    createUtilizationChart();
-    createEmissionsChart();
-    
-    const activeAssets = utilizationData.filter(d => d.utilization > 0).length;
-    const avgUtilization = utilizationData.length > 0 ? 
-      Math.round(utilizationData.reduce((sum, d) => sum + d.utilization, 0) / utilizationData.length * 100) / 100 : 0;
-    const actualFuelCount = utilizationData.filter(d => d.fuelUsed > 0 && !d.estimatedFuel).length;
-    const estimatedFuelCount = utilizationData.filter(d => d.estimatedFuel).length;
-    
-    showMessage('reportBanner', 
-      `✅ Report complete! ${activeAssets} active assets with ${avgUtilization}% average utilization. Fuel data: ${actualFuelCount} actual, ${estimatedFuelCount} estimated using fleet average.`, 
-      'success');
-    
-    document.getElementById('exportCsv').disabled = false;
-    document.getElementById('exportDetailedReport').disabled = false;
-    
-  } catch (error) {
-    showMessage('reportBanner', `Failed to generate report: ${error.message}`, 'error');
-  }
-};
-
-// Update summary statistics
-function updateSummaryStats() {
-  if (!utilizationData.length) return;
-  
-  const totalAssets = utilizationData.length;
-  const activeAssets = utilizationData.filter(d => d.utilization > 0).length;
-  const avgUtilization = utilizationData.reduce((sum, d) => sum + d.utilization, 0) / totalAssets;
-  const totalDistance = utilizationData.reduce((sum, d) => sum + d.totalDistance, 0);
-  const totalEngineHours = utilizationData.reduce((sum, d) => sum + d.engineHours, 0);
-  const totalEmissions = utilizationData.reduce((sum, d) => sum + d.emissions, 0);
-  const avgEmissionsPerKm = totalDistance > 0 ? (totalEmissions * 1000) / totalDistance : 0;
-  
-  // Fuel data breakdown
-  const actualFuelCount = utilizationData.filter(d => d.fuelUsed > 0 && !d.estimatedFuel).length;
-  const estimatedFuelCount = utilizationData.filter(d => d.estimatedFuel).length;
-  const totalFuelUsed = utilizationData.reduce((sum, d) => sum + (d.fuelUsed || 0), 0);
-  
-  document.getElementById('totalAssets').textContent = totalAssets;
-  document.getElementById('avgUtilization').textContent = `${Math.round(avgUtilization * 100) / 100}%`;
-  document.getElementById('totalDistance').textContent = `${Math.round(totalDistance)} km`;
-  document.getElementById('totalEngineHours').textContent = `${Math.round(totalEngineHours)} hrs`;
-  document.getElementById('totalEmissions').textContent = `${Math.round(totalEmissions)} kg`;
-  document.getElementById('avgEmissionsPerKm').textContent = `${Math.round(avgEmissionsPerKm)} g/km`;
-  document.getElementById('fuelDataQuality').textContent = `${actualFuelCount}/${estimatedFuelCount}`;
-  
-  document.getElementById('summaryStats').style.display = 'block';
-}
-
-// Populate the calculation legend with actual data
-function populateCalculationLegend() {
-  if (!fleetAnalysisData || !utilizationData.length) return;
-
-  // Fleet Analysis Details
-  let fleetHtml = `
-    <div class="formula-box">
-      <strong>📊 Your Fleet Analysis Results:</strong><br>
-      <strong>Analysis Period:</strong> ${fleetAnalysisData.days} days (${fleetAnalysisData.totalHours.toFixed(1)} hours)<br>
-      <strong>Total Vehicles:</strong> ${fleetAnalysisData.totalVehicles}<br>
-      <strong>Vehicles with Fuel Data:</strong> ${fleetAnalysisData.vehiclesWithFuelData}<br>
-      <strong>Fleet Average Fuel Economy:</strong> ${fleetAnalysisData.fleetAvgFuelEconomy.toFixed(1)} L/100km
-    </div>
-  `;
-
-  if (fleetAnalysisData.individualFuelEconomies.length > 0) {
-    fleetHtml += `<div class="formula-box">
-      <strong>Individual Vehicle Fuel Economies (used to calculate fleet average):</strong><br>`;
-    
-    fleetAnalysisData.individualFuelEconomies.forEach(vehicle => {
-      fleetHtml += `<span class="data-source-actual">${vehicle.deviceName}: ${vehicle.fuelEconomyL100km.toFixed(1)} L/100km</span> `;
-    });
-    
-    fleetHtml += `</div>`;
-  }
-
-  document.getElementById('fleetAnalysisDetails').innerHTML = fleetHtml;
-
-  // Data Source Breakdown
-  const actualFuelVehicles = utilizationData.filter(d => d.fuelUsed > 0 && !d.estimatedFuel);
-  const estimatedFuelVehicles = utilizationData.filter(d => d.estimatedFuel);
-  const noFuelVehicles = utilizationData.filter(d => d.fuelUsed === 0);
-
-  let dataSourceHtml = `
-    <div class="formula-box">
-      <strong>🟢 Vehicles with Actual Fuel Data (${actualFuelVehicles.length}):</strong><br>`;
-  
-  if (actualFuelVehicles.length > 0) {
-    actualFuelVehicles.forEach(vehicle => {
-      const fuelEconomy = vehicle.totalDistance > 0 ? ((vehicle.fuelUsed / vehicle.totalDistance) * 100).toFixed(1) : 'N/A';
-      dataSourceHtml += `<span class="data-source-actual">${vehicle.deviceName} (${fuelEconomy} L/100km)</span> `;
-    });
-  } else {
-    dataSourceHtml += `<em>No vehicles found with actual fuel data</em>`;
-  }
-  
-  dataSourceHtml += `</div>`;
-
-  if (estimatedFuelVehicles.length > 0) {
-    dataSourceHtml += `<div class="formula-box">
-      <strong>🟡 Vehicles with Estimated Fuel Data (${estimatedFuelVehicles.length}):</strong><br>
-      <small>Estimated using fleet average of ${fleetAnalysisData.fleetAvgFuelEconomy.toFixed(1)} L/100km</small><br>`;
-    
-    estimatedFuelVehicles.forEach(vehicle => {
-      dataSourceHtml += `<span class="data-source-estimated">${vehicle.deviceName} (${vehicle.fuelUsed.toFixed(1)}L est.)</span> `;
-    });
-    
-    dataSourceHtml += `</div>`;
-  }
-
-  if (noFuelVehicles.length > 0) {
-    dataSourceHtml += `<div class="formula-box">
-      <strong>🔴 Vehicles with No Fuel Data (${noFuelVehicles.length}):</strong><br>`;
-    
-    noFuelVehicles.forEach(vehicle => {
-      dataSourceHtml += `<span class="data-source-none">${vehicle.deviceName}</span> `;
-    });
-    
-    dataSourceHtml += `</div>`;
-  }
-
-  document.getElementById('dataSourceBreakdown').innerHTML = dataSourceHtml;
-}
-
-// Update weekly comparison stats
-function updateWeeklyComparison() {
-  if (!weeklyComparisonData.lastWeek || !weeklyComparisonData.previousWeek) return;
-  
-  const lastWeek = weeklyComparisonData.lastWeek;
-  const previousWeek = weeklyComparisonData.previousWeek;
-  
-  const lastWeekUtilization = lastWeek.reduce((sum, d) => sum + d.utilization, 0) / lastWeek.length;
-  const previousWeekUtilization = previousWeek.reduce((sum, d) => sum + d.utilization, 0) / previousWeek.length;
-  const utilizationChange = lastWeekUtilization - previousWeekUtilization;
-  
-  const lastWeekDistance = lastWeek.reduce((sum, d) => sum + d.totalDistance, 0);
-  const previousWeekDistance = previousWeek.reduce((sum, d) => sum + d.totalDistance, 0);
-  const distanceChange = lastWeekDistance - previousWeekDistance;
-  
-  const lastWeekEmissions = lastWeek.reduce((sum, d) => sum + d.emissions, 0);
-  const previousWeekEmissions = previousWeek.reduce((sum, d) => sum + d.emissions, 0);
-  const emissionsChange = lastWeekEmissions - previousWeekEmissions;
-  
-  document.getElementById('utilizationChange').innerHTML = 
-    `${utilizationChange > 0 ? '+' : ''}${Math.round(utilizationChange * 100) / 100}%`;
-  document.getElementById('distanceChange').innerHTML = 
-    `${distanceChange > 0 ? '+' : ''}${Math.round(distanceChange)} km`;
-  document.getElementById('emissionsChange').innerHTML = 
-    `${emissionsChange > 0 ? '+' : ''}${Math.round(emissionsChange)} kg`;
-  
-  document.getElementById('comparisonPeriods').innerHTML = 
-    `<strong>Current Period:</strong> ${weeklyComparisonData.periods.lastWeek}<br>
-     <strong>Previous Period:</strong> ${weeklyComparisonData.periods.previousWeek}`;
-  
-  document.getElementById('weeklyComparison').style.display = 'block';
-}
-
-// Render the utilization table
-function renderUtilizationTable(isWeekly = false) {
-  const container = document.getElementById('utilizationResult');
-  if (!utilizationData.length) {
-    container.innerHTML = '<div class="alert alert-warning">No utilization data found</div>';
-    return;
-  }
-  
-  let html = `
-    <h4>📋 Asset Utilization Details</h4>
-    <table class="utilization-table">
-      <thead>
-        <tr>
-          <th>Asset</th>
-          <th>Utilization</th>
-          ${isWeekly ? '<th>Utilization Change</th>' : ''}
-          <th>Engine Hours</th>
-          <th>Distance (km)</th>
-          ${isWeekly ? '<th>Distance Change</th>' : ''}
-          <th>Trips</th>
-          <th>Zone Stops</th>
-          <th>Fuel Used (L)*</th>
-          <th>CO₂ Emissions (kg)</th>
-          <th>CO₂ per km (g/km)</th>
-        </tr>
-      </thead>
-      <tbody>
-  `;
-  
-  utilizationData.forEach(asset => {
-    html += `
-      <tr>
-        <td>${asset.deviceName}</td>
-        <td><span class="${getUtilizationClass(asset.utilization)}">${asset.utilization.toFixed(1)}%</span></td>
-        ${isWeekly ? `<td>${formatComparison(asset.utilization, asset.previousUtilization || 0, '%', true)}</td>` : ''}
-        <td>${asset.engineHours.toFixed(1)}</td>
-        <td>${asset.totalDistance.toFixed(1)}</td>
-        ${isWeekly ? `<td>${formatComparison(asset.totalDistance, asset.previousDistance || 0, 'km')}</td>` : ''}
-        <td>${asset.tripCount}</td>
-        <td>${asset.zoneStopCount}</td>
-        <td>${asset.fuelUsed > 0 ? asset.fuelUsed.toFixed(1) + (asset.estimatedFuel ? '*' : '') : 'N/A'}</td>
-        <td>${asset.emissions.toFixed(1)}</td>
-        <td><span class="${getEmissionsClass(asset.emissionsPerKm)}">${asset.emissionsPerKm}</span></td>
-      </tr>
-    `;
-  });
-  
-  html += `</tbody></table>`;
-  
-  // Add fuel estimation summary
-  const actualFuelCount = utilizationData.filter(asset => asset.fuelUsed > 0 && !asset.estimatedFuel).length;
-  const estimatedFuelCount = utilizationData.filter(asset => asset.estimatedFuel).length;
-  const noFuelCount = utilizationData.filter(asset => asset.fuelUsed === 0).length;
-  
-  if (estimatedFuelCount > 0) {
-    html += `
-      <div class="alert alert-info" style="margin-top: 15px;">
-        <strong>📊 Fuel Data Summary:</strong><br>
-        • ${actualFuelCount} vehicles with actual fuel data<br>
-        • ${estimatedFuelCount} vehicles with estimated fuel data (*)<br>
-        • ${noFuelCount} vehicles with no fuel data<br>
-        <small>* Estimated using fleet average fuel economy of ${utilizationData.length > 0 ? 'calculated from actual data' : 'default values'}</small>
-      </div>
-    `;
-  }
-  
-  container.innerHTML = html;
-}
-
-// Create utilization chart
-function createUtilizationChart() {
-  const ctx = document.getElementById('utilizationChart').getContext('2d');
-  
-  // Sort by utilization (highest first) and take top 10
-  const topAssets = [...utilizationData].sort((a, b) => b.utilization - a.utilization).slice(0, 10);
-  
-  const labels = topAssets.map(asset => asset.deviceName);
-  const data = topAssets.map(asset => asset.utilization);
-  
-  // Create gradient for bars
-  const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-  gradient.addColorStop(0, '#2d5016');
-  gradient.addColorStop(1, '#1a5f7a');
-  
-  // Create chart
-  new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Utilization (%)',
-        data: data,
-        backgroundColor: gradient,
-        borderColor: 'rgba(45, 80, 22, 1)',
-        borderWidth: 1
-      }]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        y: {
-          beginAtZero: true,
-          max: 100,
-          title: {
-            display: true,
-            text: 'Utilization (%)'
-          }
-        },
-        x: {
-          title: {
-            display: true,
-            text: 'Assets'
-          }
-        }
-      }
-    }
-  });
-}
-
-// Create emissions chart
-function createEmissionsChart() {
-  const ctx = document.getElementById('emissionsChart').getContext('2d');
-  
-  // Sort by emissions (highest first) and take top 10
-  const topEmitters = [...utilizationData].sort((a, b) => b.emissions - a.emissions).slice(0, 10);
-  
-  const labels = topEmitters.map(asset => asset.deviceName);
-  const emissionsData = topEmitters.map(asset => asset.emissions);
-  const emissionsPerKmData = topEmitters.map(asset => asset.emissionsPerKm);
-  
-  // Create chart
-  new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [
-        {
-          label: 'Total CO₂ (kg)',
-          data: emissionsData,
-          backgroundColor: 'rgba(220, 53, 69, 0.7)',
-          borderColor: 'rgba(220, 53, 69, 1)',
-          borderWidth: 1,
-          yAxisID: 'y'
-        },
-        {
-          label: 'CO₂ per km (g/km)',
-          data: emissionsPerKmData,
-          backgroundColor: 'rgba(40, 167, 69, 0.7)',
-          borderColor: 'rgba(40, 167, 69, 1)',
-          borderWidth: 1,
-          type: 'line',
-          yAxisID: 'y1'
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        y: {
-          beginAtZero: true,
-          title: {
-            display: true,
-            text: 'Total CO₂ Emissions (kg)'
-          }
-        },
-        y1: {
-          position: 'right',
-          beginAtZero: true,
-          title: {
-            display: true,
-            text: 'CO₂ per km (g/km)'
-          },
-          grid: {
-            drawOnChartArea: false
-          }
-        },
-        x: {
-          title: {
-            display: true,
-            text: 'Assets'
-          }
-        }
-      }
-    }
-  });
-}
-
-// Create comparison chart for weekly data
-function createComparisonChart() {
-  if (!weeklyComparisonData.lastWeek || !weeklyComparisonData.previousWeek) return;
-  
-  const ctx = document.getElementById('comparisonChart').getContext('2d');
-  document.getElementById('comparisonChartContainer').style.display = 'block';
-  
-  const lastWeek = weeklyComparisonData.lastWeek;
-  const previousWeek = weeklyComparisonData.previousWeek;
-  
-  // Calculate averages
-  const avgUtilizationLast = lastWeek.reduce((sum, d) => sum + d.utilization, 0) / lastWeek.length;
-  const avgUtilizationPrev = previousWeek.reduce((sum, d) => sum + d.utilization, 0) / previousWeek.length;
-  
-  const avgDistanceLast = lastWeek.reduce((sum, d) => sum + d.totalDistance, 0) / lastWeek.length;
-  const avgDistancePrev = previousWeek.reduce((sum, d) => sum + d.totalDistance, 0) / previousWeek.length;
-  
-  const avgEmissionsLast = lastWeek.reduce((sum, d) => sum + d.emissions, 0) / lastWeek.length;
-  const avgEmissionsPrev = previousWeek.reduce((sum, d) => sum + d.emissions, 0) / previousWeek.length;
-  
-  // Create chart
-  new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: ['Utilization (%)', 'Distance (km)', 'Emissions (kg)'],
-      datasets: [
-        {
-          label: 'Last Week',
-          data: [avgUtilizationLast, avgDistanceLast, avgEmissionsLast],
-          backgroundColor: 'rgba(40, 167, 69, 0.7)',
-          borderColor: 'rgba(40, 167, 69, 1)',
-          borderWidth: 1
-        },
-        {
-          label: 'Previous Week',
-          data: [avgUtilizationPrev, avgDistancePrev, avgEmissionsPrev],
-          backgroundColor: 'rgba(108, 117, 125, 0.7)',
-          borderColor: 'rgba(108, 117, 125, 1)',
-          borderWidth: 1
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        y: {
-          beginAtZero: true,
-          title: {
-            display: true,
-            text: 'Average Values'
-          }
-        }
-      }
-    }
-  });
-}
-
-// Toggle legend visibility
-document.getElementById('toggleLegend').onclick = function() {
-  const legend = document.getElementById('calculationLegend');
-  const button = document.getElementById('toggleLegend');
-  
-  if (legend.style.display === 'none' || !legend.style.display) {
-    legend.style.display = 'block';
-    button.textContent = '📋 Hide Calculation Details';
-  } else {
-    legend.style.display = 'none';
-    button.textContent = '📋 Show Calculation Details';
-  }
-};
-
-// Export CSV
-document.getElementById('exportCsv').onclick = function() {
-  if (!utilizationData.length) {
-    showMessage('reportBanner', 'No data to export', 'error');
-    return;
-  }
-  
-  let csv = 'Asset,Utilization (%),Engine Hours,Distance (km),Trips,Zone Stops,Fuel Used (L),Fuel Source,CO₂ Emissions (kg),CO₂ per km (g/km)\n';
-  
-  utilizationData.forEach(asset => {
-    const fuelSource = asset.fuelUsed > 0 ? (asset.estimatedFuel ? 'Estimated' : 'Actual') : 'N/A';
-    csv += `"${asset.deviceName}",${asset.utilization},${asset.engineHours},${asset.totalDistance},${asset.tripCount},${asset.zoneStopCount},${asset.fuelUsed},${fuelSource},${asset.emissions},${asset.emissionsPerKm}\n`;
-  });
-  
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-  link.setAttribute('href', url);
-  link.setAttribute('download', `asset-utilization-report-${new Date().toISOString().split('T')[0]}.csv`);
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
-
-// Export detailed report
-document.getElementById('exportDetailedReport').onclick = function() {
-  const container = document.getElementById('utilizationResult');
-  const chartsSection = document.getElementById('chartsSection');
-  const summaryStats = document.getElementById('summaryStats');
-  const weeklyComparison = document.getElementById('weeklyComparison');
-  
-  // Create a temporary container for printing
-  const printContainer = document.createElement('div');
-  printContainer.innerHTML = `
-    <h1>Asset Utilization Report</h1>
-    <p>Generated on: ${new Date().toLocaleString()}</p>
-    ${summaryStats.outerHTML}
-    ${weeklyComparison.style.display !== 'none' ? weeklyComparison.outerHTML : ''}
-    ${container.outerHTML}
-    ${chartsSection.outerHTML}
-  `;
-  
-  // Create a new window for printing
-  const printWindow = window.open('', '_blank');
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Asset Utilization Report</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 20px; }
-          table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-          th { background-color: #f2f2f2; }
-          .metric-high { background-color: #d4edda; }
-          .metric-medium { background-color: #fff3cd; }
-          .metric-low { background-color: #f8d7da; }
-          .emissions-high { background-color: #f8d7da; }
-          .emissions-medium { background-color: #fff3cd; }
-          .emissions-low { background-color: #d4edda; }
-          .stat-card { border: 1px solid #ddd; padding: 15px; margin: 10px; text-align: center; display: inline-block; width: 200px; }
-          .stat-number { font-size: 24px; font-weight: bold; }
-          canvas { max-width: 100%; height: auto; }
-        </style>
-      </head>
-      <body>
-        ${printContainer.innerHTML}
-      </body>
-    </html>
-  `);
-  printWindow.document.close();
-  
-  // Wait for charts to render before printing
-  setTimeout(() => {
-    printWindow.print();
-  }, 500);
-};
-
-// Logout
-document.getElementById('logout').onclick = function() {
-  credentials = null;
-  serverUsed = null;
-  utilizationData = [];
-  fleetAnalysisData = null;
-  selectedZoneIds.clear();
-  document.getElementById('reportSection').style.display = 'none';
-  document.getElementById('authResult').innerHTML = '';
-  document.getElementById('utilizationResult').innerHTML = '';
-  document.getElementById('summaryStats').style.display = 'none';
-  document.getElementById('chartsSection').style.display = 'none';
-  document.getElementById('calculationLegend').style.display = 'none';
-  document.getElementById('weeklyComparison').style.display = 'none';
-  document.getElementById('zoneSelect').style.display = 'none';
-  document.getElementById('zoneSelect').innerHTML = '<option value="">Select a zone...</option>';
-  document.getElementById('selectedZones').innerHTML = '';
-  document.getElementById('toggleLegend').disabled = true;
-  document.getElementById('toggleLegend').textContent = '📋 Show Calculation Details';
-  showMessage('authResult', 'Logged out successfully', 'success');
-};
-
-// Zone selection
-document.getElementById('zoneSelect').onchange = function() {
-  const zoneId = this.value;
-  if (!zoneId) return;
-  
-  const zone = availableZones.find(z => z.id === zoneId);
-  if (!zone) return;
-  
-  if (!selectedZoneIds.has(zoneId)) {
-    selectedZoneIds.add(zoneId);
-    renderSelectedZones();
-  }
-  
-  this.value = '';
-};
-
-function renderSelectedZones() {
-  const container = document.getElementById('selectedZones');
-  if (selectedZoneIds.size === 0) {
-    container.innerHTML = '<div class="alert alert-warning">No zones selected</div>';
-    document.getElementById('generateReport').disabled = true;
-    document.getElementById('generateWeeklyReport').disabled = true;
-    return;
-  }
-  
-  let html = '<h4>✅ Selected Zones</h4><div style="margin-bottom: 15px;">';
-  
-  selectedZoneIds.forEach(zoneId => {
-    const zone = availableZones.find(z => z.id === zoneId);
-    if (zone) {
-      html += `<span class="zone-pill active">${zone.name} <button onclick="removeZone('${zoneId}')" style="background:none;border:none;cursor:pointer;margin-left:5px;">✖</button></span> `;
-    }
-  });
-  
-  html += '</div>';
-  container.innerHTML = html;
-  document.getElementById('generateReport').disabled = false;
-  document.getElementById('generateWeeklyReport').disabled = 
-    document.getElementById('reportType').value === 'weekly' ? false : true;
-}
-
-function removeZone(zoneId) {
-  selectedZoneIds.delete(zoneId);
-  renderSelectedZones();
-}
-
-// Initialize the app
-document.addEventListener('DOMContentLoaded', function() {
-  // Check if we're in a Geotab environment
-  if (window.geotab || window.api) {
-    document.getElementById('server').value = window.location.hostname;
-    document.getElementById('authButton').click();
-  }
-});
 </script>
 </body>
 </html>
+"""
+
+out = Path("/mnt/data/geotab_utilization_reporter_attached_api_fast.html")
+out.write_text(html, encoding="utf-8")
+out.as_posix()
