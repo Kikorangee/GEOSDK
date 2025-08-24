@@ -400,6 +400,39 @@ function calculateEmissions(fuelUsed, fuelType = 'diesel') {
   return Math.round(fuelUsed * factor * 100) / 100; // kg CO2
 }
 
+// Fallback emissions estimation when fuel data is unavailable
+function estimateEmissionsFromDistance(distance, vehicleType = 'truck') {
+  if (!distance || distance === 0) return 0;
+  
+  // Rough estimates based on typical fuel consumption (L/100km) and emission factors
+  const fuelConsumptionPer100km = {
+    truck: 35,        // Heavy trucks: ~35L/100km
+    van: 12,          // Light commercial: ~12L/100km
+    car: 8,           // Passenger car: ~8L/100km
+    default: 25       // Average fleet
+  };
+  
+  const consumption = fuelConsumptionPer100km[vehicleType] || fuelConsumptionPer100km.default;
+  const estimatedFuel = (distance / 100) * consumption; // liters
+  return calculateEmissions(estimatedFuel);
+}
+
+function estimateEmissionsFromEngineHours(engineHours, vehicleType = 'truck') {
+  if (!engineHours || engineHours === 0) return 0;
+  
+  // Rough estimates based on typical fuel consumption per hour
+  const fuelConsumptionPerHour = {
+    truck: 25,        // Heavy trucks: ~25L/hour
+    van: 8,           // Light commercial: ~8L/hour  
+    car: 5,           // Passenger car: ~5L/hour
+    default: 15       // Average fleet
+  };
+  
+  const consumption = fuelConsumptionPerHour[vehicleType] || fuelConsumptionPerHour.default;
+  const estimatedFuel = engineHours * consumption; // liters
+  return calculateEmissions(estimatedFuel);
+}
+
 function getEmissionsClass(emissionsPerKm) {
   if (emissionsPerKm <= 800) return 'emissions-low';    // Low emissions < 800g/km
   if (emissionsPerKm <= 1200) return 'emissions-medium'; // Medium 800-1200g/km
@@ -518,16 +551,76 @@ async function fetchUtilizationData(fromDateTime, toDateTime, resultsLimit, prog
   
   updateProgress(progressOffset + 3, totalSteps, 'Getting fuel usage data...');
   
-  // Get fuel usage data for emissions calculation
-  const fuelUsageData = await callGeotabAPI('Get', {
-    typeName: 'StatusData',
-    search: {
-      fromDate: fromDateTime,
-      toDate: toDateTime,
-      diagnosticSearch: { id: 'DiagnosticFuelUsedId' }
-    },
-    resultsLimit: 5000
-  });
+  // Try multiple fuel diagnostics - Geotab systems may use different IDs
+  let fuelUsageData = [];
+  const fuelDiagnostics = [
+    'DiagnosticFuelUsedId',
+    'DiagnosticFuelUsedSinceRestartId', 
+    'DiagnosticTotalFuelUsedId',
+    'DiagnosticFuelConsumedId'
+  ];
+  
+  for (const diagnosticId of fuelDiagnostics) {
+    try {
+      const fuelData = await callGeotabAPI('Get', {
+        typeName: 'StatusData',
+        search: {
+          fromDate: fromDateTime,
+          toDate: toDateTime,
+          diagnosticSearch: { id: diagnosticId }
+        },
+        resultsLimit: 2000
+      });
+      if (fuelData && fuelData.length > 0) {
+        fuelUsageData = fuelData;
+        console.log(`Found fuel data using diagnostic: ${diagnosticId}`);
+        break;
+      }
+    } catch (e) {
+      console.warn(`Failed to get fuel data with ${diagnosticId}:`, e);
+    }
+  }
+  
+  // If no specific fuel diagnostic works, try to get all fuel-related diagnostics
+  if (fuelUsageData.length === 0) {
+    try {
+      const allDiagnostics = await callGeotabAPI('Get', {
+        typeName: 'Diagnostic',
+        resultsLimit: 1000
+      });
+      
+      const fuelDiags = allDiagnostics.filter(d => 
+        d.name && (
+          d.name.toLowerCase().includes('fuel') ||
+          d.name.toLowerCase().includes('consumption') ||
+          d.name.toLowerCase().includes('economy')
+        )
+      );
+      
+      for (const diag of fuelDiags.slice(0, 3)) { // Try top 3 fuel diagnostics
+        try {
+          const fuelData = await callGeotabAPI('Get', {
+            typeName: 'StatusData',
+            search: {
+              fromDate: fromDateTime,
+              toDate: toDateTime,
+              diagnosticSearch: { id: diag.id }
+            },
+            resultsLimit: 2000
+          });
+          if (fuelData && fuelData.length > 0) {
+            fuelUsageData = fuelData;
+            console.log(`Found fuel data using diagnostic: ${diag.name}`);
+            break;
+          }
+        } catch (e) {
+          console.warn(`Failed to get fuel data with ${diag.name}:`, e);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to search for fuel diagnostics:', e);
+    }
+  }
   
   updateProgress(progressOffset + 4, totalSteps, 'Getting trip data...');
   
@@ -576,8 +669,32 @@ async function fetchUtilizationData(fromDateTime, toDateTime, resultsLimit, prog
     
     // Get fuel usage for this device
     const deviceFuelData = fuelUsageData.filter(s => extractId(s.device) === deviceId);
-    const fuelUsed = deviceFuelData.length > 0 ? 
-      Math.max(...deviceFuelData.map(s => s.data || 0)) : 0; // in liters
+    let fuelUsed = 0;
+    let emissions = 0;
+    let emissionsSource = 'estimated';
+    
+    if (deviceFuelData.length > 0) {
+      // Use actual fuel data if available
+      const fuelValues = deviceFuelData.map(s => s.data || 0).filter(v => v > 0);
+      if (fuelValues.length > 0) {
+        fuelUsed = Math.max(...fuelValues);
+        emissions = calculateEmissions(fuelUsed);
+        emissionsSource = 'actual';
+      }
+    }
+    
+    // Fallback to estimation if no fuel data
+    if (emissions === 0) {
+      if (totalDistance > 0) {
+        emissions = estimateEmissionsFromDistance(totalDistance);
+        emissionsSource = 'distance-based';
+      } else if (engineHours > 0) {
+        emissions = estimateEmissionsFromEngineHours(engineHours);
+        emissionsSource = 'engine-hours-based';
+      }
+    }
+    
+    const emissionsPerKm = totalDistance > 0 ? Math.round((emissions * 1000) / totalDistance) : 0; // g CO2/km
     
     // Get trips for this device
     const deviceTrips = trips.filter(t => extractId(t.device) === deviceId);
@@ -592,8 +709,6 @@ async function fetchUtilizationData(fromDateTime, toDateTime, resultsLimit, prog
     }, 0);
     
     const utilization = calculateUtilization(engineHours, totalHours);
-    const emissions = calculateEmissions(fuelUsed); // kg CO2
-    const emissionsPerKm = totalDistance > 0 ? Math.round((emissions * 1000) / totalDistance) : 0; // g CO2/km
     
     return {
       deviceId,
@@ -602,6 +717,7 @@ async function fetchUtilizationData(fromDateTime, toDateTime, resultsLimit, prog
       fuelUsed: Math.round(fuelUsed * 100) / 100,
       emissions: emissions,
       emissionsPerKm: emissionsPerKm,
+      emissionsSource: emissionsSource, // Track how emissions were calculated
       emissionsClass: getEmissionsClass(emissionsPerKm),
       totalDistance: Math.round(totalDistance * 100) / 100,
       tripCount,
@@ -695,9 +811,13 @@ document.getElementById('generateReport').onclick = async function(){
     const avgUtil = utilizationData.length > 0 ? 
       Math.round(utilizationData.reduce((sum, d) => sum + d.utilization, 0) / utilizationData.length) : 0;
     const totalEmissions = Math.round(utilizationData.reduce((sum, d) => sum + d.emissions, 0));
+    const actualEmissionsCount = utilizationData.filter(d => d.emissionsSource === 'actual').length;
+    const emissionsMessage = totalEmissions > 0 ? 
+      ` and ${totalEmissions} kg CO₂ (${actualEmissionsCount} actual, ${activeAssets - actualEmissionsCount} estimated)` : 
+      ' (no emissions data available)';
     
     showMessage('reportBanner', 
-      `✅ Report generated! Found ${activeAssets} active assets with ${avgUtil}% avg utilization and ${totalEmissions} kg CO₂ emissions`, 
+      `✅ Report generated! Found ${activeAssets} active assets with ${avgUtil}% avg utilization${emissionsMessage}`, 
       'success');
     
     document.getElementById('exportCsv').disabled = false;
@@ -799,6 +919,8 @@ function renderUtilizationTable(showComparison = false) {
           ${asset.previousDistance !== undefined ? 
             `<span class="period-label">Prev: ${asset.previousDistance.toLocaleString()}</span>` : ''}</td>
       <td><span class="${asset.emissionsClass || 'emissions-low'}">${(asset.emissions || 0).toFixed(1)} kg</span>
+          ${asset.emissionsSource !== 'actual' ? 
+            `<span class="period-label">${asset.emissionsSource}</span>` : ''}
           ${asset.previousEmissions !== undefined ? 
             `<span class="period-label">Prev: ${asset.previousEmissions.toFixed(1)} kg</span>` : ''}</td>
       <td><span class="${asset.emissionsClass || 'emissions-low'}">${asset.emissionsPerKm || 0} g/km</span></td>
@@ -827,7 +949,7 @@ document.getElementById('exportCsv').onclick = function(){
   
   const isWeeklyComparison = weeklyComparisonData.lastWeek && weeklyComparisonData.previousWeek;
   
-  let headers = ['Asset_Name','Asset_ID','Utilization_Percent','Engine_Hours','Distance_KM','CO2_Emissions_KG','CO2_Per_KM_G','Fuel_Used_L','Trip_Count','Zone_Time_Hours','Zone_Stops','Last_Activity'];
+  let headers = ['Asset_Name','Asset_ID','Utilization_Percent','Engine_Hours','Distance_KM','CO2_Emissions_KG','CO2_Per_KM_G','Emissions_Source','Fuel_Used_L','Trip_Count','Zone_Time_Hours','Zone_Stops','Last_Activity'];
   
   if (isWeeklyComparison) {
     headers.push('Previous_Utilization_Percent', 'Previous_Distance_KM', 'Previous_CO2_Emissions_KG', 'Utilization_Change', 'Distance_Change_KM', 'Emissions_Change_KG');
@@ -844,6 +966,7 @@ document.getElementById('exportCsv').onclick = function(){
       asset.totalDistance,
       asset.emissions || 0,
       asset.emissionsPerKm || 0,
+      `"${asset.emissionsSource || 'unknown'}"`,
       asset.fuelUsed || 0,
       asset.tripCount,
       asset.zoneTimeHours,
@@ -892,6 +1015,8 @@ document.getElementById('exportDetailedReport').onclick = function(){
   const totalEngineHours = Math.round(utilizationData.reduce((sum, d) => sum + d.engineHours, 0));
   const totalEmissions = Math.round(utilizationData.reduce((sum, d) => sum + (d.emissions || 0), 0));
   const avgEmissionsPerKm = totalDistance > 0 ? Math.round((totalEmissions * 1000) / totalDistance) : 0;
+  const actualEmissionsCount = utilizationData.filter(d => d.emissionsSource === 'actual').length;
+  const estimatedEmissionsCount = totalAssets - actualEmissionsCount;
   
   let reportTitle = 'Asset Utilization Report';
   let dateRange = '';
@@ -935,7 +1060,8 @@ document.getElementById('exportDetailedReport').onclick = function(){
   <h1>🚛 ${reportTitle}</h1>
   <div class="meta">Generated: ${new Date().toLocaleString()}<br>
   Date Range: ${dateRange}<br>
-  Selected Zones: ${selectedZoneNames.join(', ')}</div>
+  Selected Zones: ${selectedZoneNames.join(', ')}<br>
+  ${totalEmissions > 0 ? `Emissions Data: ${actualEmissionsCount} actual, ${estimatedEmissionsCount} estimated` : 'Emissions Data: Not available'}</div>
   
   <div class="summary">
     <h3>📈 Executive Summary</h3>
