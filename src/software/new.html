@@ -56,6 +56,11 @@
     #chartsSection .card{margin-bottom:20px}
     #chartsSection canvas{max-height:400px}
     #chartsSection h4{color:#2d3748;margin-bottom:15px}
+    .formula-box{background:#f8f9fa;padding:15px;border-radius:6px;margin:10px 0;border-left:3px solid #2d5016}
+    .data-source-actual{background:#d4edda;color:#155724;padding:4px 8px;border-radius:4px;font-weight:500;margin:2px}
+    .data-source-estimated{background:#fff3cd;color:#856404;padding:4px 8px;border-radius:4px;font-weight:500;margin:2px}
+    .data-source-none{background:#f8d7da;color:#721c24;padding:4px 8px;border-radius:4px;font-weight:500;margin:2px}
+    code{background:#e9ecef;padding:2px 6px;border-radius:3px;font-family:monospace;color:#495057}
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 </head>
@@ -123,6 +128,7 @@
         <button id="generateWeeklyReport" class="btn btn-warning" disabled style="display:none;">📈 Generate Weekly Comparison</button>
         <button id="exportCsv" class="btn btn-info" disabled>📈 Export CSV</button>
         <button id="exportDetailedReport" class="btn btn-warning" disabled>📋 Detailed Report</button>
+        <button id="toggleLegend" class="btn btn-info" disabled>📋 Show Calculation Details</button>
         <button id="logout" class="btn btn-danger">🚪 Logout</button>
       </div>
 
@@ -205,6 +211,43 @@
           <canvas id="comparisonChart" width="400" height="200"></canvas>
         </div>
       </div>
+
+      <div id="calculationLegend" style="display:none;">
+        <h4>📋 Calculation Methodology & Data Sources</h4>
+        <div class="card">
+          <h5 style="color:#2d5016;margin-bottom:10px;">🧮 Formulas Used</h5>
+          <div style="background:#f8f9fa;padding:15px;border-radius:6px;margin:10px 0;">
+            <strong>Asset Utilization:</strong><br>
+            <code>Utilization (%) = (Engine Hours ÷ Calendar Hours) × 100</code><br>
+            <small class="muted">Alternative: Business Hours method = (Engine Hours ÷ (Days × 10 hours)) × 100</small>
+          </div>
+          <div style="background:#f8f9fa;padding:15px;border-radius:6px;margin:10px 0;">
+            <strong>Fleet Average Fuel Economy:</strong><br>
+            <code>Fleet Avg = Σ(Individual L/100km) ÷ Number of Vehicles with Data</code><br>
+            <code>Individual L/100km = (Fuel Used ÷ Distance) × 100</code>
+          </div>
+          <div style="background:#f8f9fa;padding:15px;border-radius:6px;margin:10px 0;">
+            <strong>Fuel Estimation (when no actual data):</strong><br>
+            <code>Estimated Fuel = (Distance ÷ 100) × Fleet Average L/100km</code><br>
+            <small class="muted">Fallback: Engine Hour estimation = Hours × 15L/hr (fleet avg)</small>
+          </div>
+          <div style="background:#f8f9fa;padding:15px;border-radius:6px;margin:10px 0;">
+            <strong>CO₂ Emissions:</strong><br>
+            <code>CO₂ (kg) = Fuel Used (L) × 2.68 kg CO₂/L (diesel factor)</code><br>
+            <code>CO₂ per km (g/km) = (CO₂ emissions × 1000) ÷ Distance</code>
+          </div>
+        </div>
+
+        <div class="card">
+          <h5 style="color:#2d5016;margin-bottom:10px;">📊 Fleet Performance Analysis</h5>
+          <div id="fleetAnalysisDetails"></div>
+        </div>
+
+        <div class="card">
+          <h5 style="color:#2d5016;margin-bottom:10px;">🔍 Data Source Breakdown</h5>
+          <div id="dataSourceBreakdown"></div>
+        </div>
+      </div>
       
       <div id="utilizationResult"></div>
     </div>
@@ -215,6 +258,7 @@ let credentials = null;
 let serverUsed = null;
 let utilizationData = [];
 let weeklyComparisonData = {};
+let fleetAnalysisData = null; // Store fleet analysis for legend
 
 // Generate weekly comparison report
 document.getElementById('generateWeeklyReport').onclick = async function(){
@@ -288,6 +332,10 @@ document.getElementById('generateWeeklyReport').onclick = async function(){
     document.getElementById('chartsSection').style.display = 'block';
     createUtilizationChart();
     createEmissionsChart();
+    
+    // Populate and enable calculation legend
+    populateCalculationLegend();
+    document.getElementById('toggleLegend').disabled = false;
     createComparisonChart();
     
     const activeAssets = utilizationData.length;
@@ -714,6 +762,16 @@ async function fetchUtilizationData(fromDateTime, toDateTime, resultsLimit, prog
     console.warn('No vehicles found with complete fuel data - using default fuel economy estimate');
   }
 
+  // Store fleet analysis data for legend
+  fleetAnalysisData = {
+    totalVehicles: devices.length,
+    vehiclesWithFuelData: totalFuelEconomyData.length,
+    fleetAvgFuelEconomy: fleetAvgFuelEconomy,
+    individualFuelEconomies: totalFuelEconomyData,
+    totalHours: totalHours,
+    days: Math.round(totalHours / 24)
+  };
+
   // Second pass: Process utilization data with improved emissions calculations
   const processedData = devices.map(device => {
     const deviceId = device.id;
@@ -922,6 +980,80 @@ function updateSummaryStats() {
   document.getElementById('fuelDataQuality').textContent = `${actualFuelCount}/${estimatedFuelCount}`;
   
   document.getElementById('summaryStats').style.display = 'block';
+}
+
+// Populate the calculation legend with actual data
+function populateCalculationLegend() {
+  if (!fleetAnalysisData || !utilizationData.length) return;
+
+  // Fleet Analysis Details
+  let fleetHtml = `
+    <div class="formula-box">
+      <strong>📊 Your Fleet Analysis Results:</strong><br>
+      <strong>Analysis Period:</strong> ${fleetAnalysisData.days} days (${fleetAnalysisData.totalHours.toFixed(1)} hours)<br>
+      <strong>Total Vehicles:</strong> ${fleetAnalysisData.totalVehicles}<br>
+      <strong>Vehicles with Fuel Data:</strong> ${fleetAnalysisData.vehiclesWithFuelData}<br>
+      <strong>Fleet Average Fuel Economy:</strong> ${fleetAnalysisData.fleetAvgFuelEconomy.toFixed(1)} L/100km
+    </div>
+  `;
+
+  if (fleetAnalysisData.individualFuelEconomies.length > 0) {
+    fleetHtml += `<div class="formula-box">
+      <strong>Individual Vehicle Fuel Economies (used to calculate fleet average):</strong><br>`;
+    
+    fleetAnalysisData.individualFuelEconomies.forEach(vehicle => {
+      fleetHtml += `<span class="data-source-actual">${vehicle.deviceName}: ${vehicle.fuelEconomyL100km.toFixed(1)} L/100km</span> `;
+    });
+    
+    fleetHtml += `</div>`;
+  }
+
+  document.getElementById('fleetAnalysisDetails').innerHTML = fleetHtml;
+
+  // Data Source Breakdown
+  const actualFuelVehicles = utilizationData.filter(d => d.fuelUsed > 0 && !d.estimatedFuel);
+  const estimatedFuelVehicles = utilizationData.filter(d => d.estimatedFuel);
+  const noFuelVehicles = utilizationData.filter(d => d.fuelUsed === 0);
+
+  let dataSourceHtml = `
+    <div class="formula-box">
+      <strong>🟢 Vehicles with Actual Fuel Data (${actualFuelVehicles.length}):</strong><br>`;
+  
+  if (actualFuelVehicles.length > 0) {
+    actualFuelVehicles.forEach(vehicle => {
+      const fuelEconomy = vehicle.totalDistance > 0 ? ((vehicle.fuelUsed / vehicle.totalDistance) * 100).toFixed(1) : 'N/A';
+      dataSourceHtml += `<span class="data-source-actual">${vehicle.deviceName} (${fuelEconomy} L/100km)</span> `;
+    });
+  } else {
+    dataSourceHtml += `<em>No vehicles found with actual fuel data</em>`;
+  }
+  
+  dataSourceHtml += `</div>`;
+
+  if (estimatedFuelVehicles.length > 0) {
+    dataSourceHtml += `<div class="formula-box">
+      <strong>🟡 Vehicles with Estimated Fuel Data (${estimatedFuelVehicles.length}):</strong><br>
+      <small>Estimated using fleet average of ${fleetAnalysisData.fleetAvgFuelEconomy.toFixed(1)} L/100km</small><br>`;
+    
+    estimatedFuelVehicles.forEach(vehicle => {
+      dataSourceHtml += `<span class="data-source-estimated">${vehicle.deviceName} (${vehicle.fuelUsed.toFixed(1)}L est.)</span> `;
+    });
+    
+    dataSourceHtml += `</div>`;
+  }
+
+  if (noFuelVehicles.length > 0) {
+    dataSourceHtml += `<div class="formula-box">
+      <strong>🔴 Vehicles with No Fuel Data (${noFuelVehicles.length}):</strong><br>`;
+    
+    noFuelVehicles.forEach(vehicle => {
+      dataSourceHtml += `<span class="data-source-none">${vehicle.deviceName}</span> `;
+    });
+    
+    dataSourceHtml += `</div>`;
+  }
+
+  document.getElementById('dataSourceBreakdown').innerHTML = dataSourceHtml;
 }
 
 // Update weekly comparison stats
@@ -1201,6 +1333,20 @@ function createComparisonChart() {
   });
 }
 
+// Toggle legend visibility
+document.getElementById('toggleLegend').onclick = function() {
+  const legend = document.getElementById('calculationLegend');
+  const button = document.getElementById('toggleLegend');
+  
+  if (legend.style.display === 'none' || !legend.style.display) {
+    legend.style.display = 'block';
+    button.textContent = '📋 Hide Calculation Details';
+  } else {
+    legend.style.display = 'none';
+    button.textContent = '📋 Show Calculation Details';
+  }
+};
+
 // Export CSV
 document.getElementById('exportCsv').onclick = function() {
   if (!utilizationData.length) {
@@ -1284,16 +1430,20 @@ document.getElementById('logout').onclick = function() {
   credentials = null;
   serverUsed = null;
   utilizationData = [];
+  fleetAnalysisData = null;
   selectedZoneIds.clear();
   document.getElementById('reportSection').style.display = 'none';
   document.getElementById('authResult').innerHTML = '';
   document.getElementById('utilizationResult').innerHTML = '';
   document.getElementById('summaryStats').style.display = 'none';
   document.getElementById('chartsSection').style.display = 'none';
+  document.getElementById('calculationLegend').style.display = 'none';
   document.getElementById('weeklyComparison').style.display = 'none';
   document.getElementById('zoneSelect').style.display = 'none';
   document.getElementById('zoneSelect').innerHTML = '<option value="">Select a zone...</option>';
   document.getElementById('selectedZones').innerHTML = '';
+  document.getElementById('toggleLegend').disabled = true;
+  document.getElementById('toggleLegend').textContent = '📋 Show Calculation Details';
   showMessage('authResult', 'Logged out successfully', 'success');
 };
 
