@@ -3,218 +3,201 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Emissions Dashboard (Embedded)</title>
+  <title>UCCL Emissions Reporting</title>
+
   <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;background:#0f172a;color:#111;margin:0;padding:22px}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',Tahoma,Verdana,sans-serif;background:#0f172a;color:#111;padding:22px}
     .container{max-width:1200px;margin:0 auto}
-    .card{background:#fff;border-radius:14px;padding:16px;margin-bottom:16px;box-shadow:0 10px 28px rgba(0,0,0,.12)}
-    .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
-    .form-control{width:100%;padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px}
-    .btn{padding:10px 14px;border:0;border-radius:10px;background:#2563eb;color:#fff;cursor:pointer}
-    .alert{padding:10px;border-radius:10px;margin:8px 0;font-weight:600}
+    .header,.card{background:rgba(255,255,255,.96);backdrop-filter:blur(6px);border-radius:14px;padding:22px;margin-bottom:22px;box-shadow:0 10px 28px rgba(0,0,0,.12)}
+    .header{text-align:center}
+    .header h1{color:#0f172a;font-size:2em;margin-bottom:6px}
+    .muted{color:#64748b}
+    .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:10px}
+    .form-control{width:100%;padding:11px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px}
+    .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+    .btn{padding:11px 18px;border:none;border-radius:10px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px}
+    .btn-primary{background:#0ea5e9;color:#fff}
+    .btn-blue{background:#2563eb;color:#fff}
+    .btn-red{background:#ef4444;color:#fff}
+    .btn[disabled]{opacity:.5;cursor:not-allowed}
+    .alert{padding:12px 14px;border-radius:10px;margin:10px 0;font-weight:600}
     .alert-info{background:#e0f2fe;color:#075985;border-left:5px solid #38bdf8}
     .alert-success{background:#dcfce7;color:#065f46;border-left:5px solid #22c55e}
     .alert-warning{background:#fef9c3;color:#713f12;border-left:5px solid #f59e0b}
     .alert-danger{background:#fee2e2;color:#7f1d1d;border-left:5px solid #ef4444}
-    .table{width:100%;border-collapse:collapse;margin-top:12px;background:#fff;border-radius:10px;overflow:hidden}
-    .table th{background:#0f172a;color:#fff;padding:10px;text-align:left}
-    .table td{padding:9px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;vertical-align:top}
-    .progress{height:16px;background:#e2e8f0;border-radius:9px;overflow:hidden;margin-top:8px}
-    .progress > div{height:100%;background:#1e40af;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
+    .emoji{width:0.9em;height:0.9em;vertical-align:middle;margin-right:4px}
+    .card h3{display:flex;align-items:center;gap:6px}
+    /* tiny top status bar so you always know state */
+    .statusbar{position:sticky;top:0;z-index:10;margin-bottom:12px}
+    .status{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:700}
+    .status.disconnected{background:#fee2e2;color:#7f1d1d}
+    .status.connected{background:#dcfce7;color:#065f46}
+    pre{white-space:pre-wrap;background:#0f172a;color:#e2e8f0;border-radius:10px;padding:12px;overflow:auto}
   </style>
-</head>
-<body>
-<div class="container">
-  <div class="card">
-    <h2 style="margin:0 0 6px">Emissions Dashboard – Embedded</h2>
-    <div id="authResult" class="alert alert-info">Detecting host session…</div>
-    <div class="row" style="margin-top:8px">
-      <input id="fromDate" class="form-control" type="date" />
-      <input id="toDate" class="form-control" type="date" />
-      <select id="zoneSelect" class="form-control">
-        <option value="">Select zone…</option>
-      </select>
-      <input id="limit" class="form-control" type="number" value="100" min="1" />
-      <button id="runBtn" class="btn" disabled>Run Analysis</button>
-      <button id="testBtn" class="btn" style="background:#16a34a">Test Get(Device)</button>
-    </div>
-    <div class="progress"><div id="progressFill" style="width:0%">0%</div></div>
-    <div id="banner"></div>
-  </div>
 
-  <div id="selectedZoneInfo" class="card" style="display:none;">
-    <h3 id="selectedZoneName">Zone</h3>
-    <div id="selectedZoneDetails" class="muted"></div>
-  </div>
-
-  <div id="reportCard" class="card" style="display:none;">
-    <div id="tableWrap"></div>
-  </div>
-
-  <div id="chartsCard" class="card" style="display:none;">
-    <h3>Charts</h3>
-    <div id="chartsSubtitle" style="margin-bottom:8px"></div>
-    <canvas id="co2Bar" height="120"></canvas>
-    <canvas id="zonePie" height="120"></canvas>
-  </div>
-
-  <div id="summaryCard" class="card" style="display:none;">
-    <h3>Summary</h3>
-    <div id="summaryContent"></div>
-  </div>
-
-  <div id="legendCard" class="card" style="display:none;">
-    <h3>Legend</h3>
-    <div id="legendText"></div>
-  </div>
-</div>
-
-<script>
-// Minimal Chart.js via CDN (HTTPS); can be removed if CSP blocks it – logic doesn't depend on charts.
-(function(){
-  var s=document.createElement('script');
-  s.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js';
-  document.head.appendChild(s);
-})();
-
-// ====== HARDCODED PROJECT ZONES ======
-const HARDCODED_ZONES = [
-  { id: 'b140', name: 'Channel Infrastructure', lat: -35.84166865, lon: 174.4928981 },
-  { id: 'b141', name: 'Maungaturoto Solar Farm', lat: -36.08750065, lon: 174.3546467 },
-  { id: 'b142', name: 'Port Road Site Office', lat: -35.73915967, lon: 174.3363262 }
-];
-
-// ====== Embedded-only API wrapper ======
-function msg(id, text, type='info'){
-  const cls=type==='success'?'alert-success':type==='warning'?'alert-warning':type==='danger'?'alert-danger':'alert-info';
-  const el=document.getElementById(id); if(el) el.innerHTML = `<div class="alert ${cls}">${text}</div>`;
-}
-
-function isEmbeddedGeotab(){
-  return !!(window.geotab && window.geotab.api && typeof window.geotab.api.call === 'function');
-}
-
-function setDefaults(){
-  const t=new Date(), l=new Date(t.getTime()-14*24*3600*1000);
-  document.getElementById('toDate').value=t.toISOString().split('T')[0];
-  document.getElementById('fromDate').value=l.toISOString().split('T')[0];
-  const zoneSelect=document.getElementById('zoneSelect');
-  HARDCODED_ZONES.forEach(z=>{ const o=document.createElement('option'); o.value=z.id; o.textContent=z.name; zoneSelect.appendChild(o); });
-}
-
-function setProgress(done,total,label=''){
-  const f=document.getElementById('progressFill'); const p=total?Math.round(done/total*100):0;
-  f.style.width=p+'%'; f.textContent=p+'%';
-}
-
-function getDistanceKm(lat1, lon1, lat2, lon2){
-  const R = 6371; const dLat=(lat2-lat1)*Math.PI/180; const dLon=(lon2-lon1)*Math.PI/180;
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-  return 2*R*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-}
-
-function findZoneForLocation(lat, lon){
-  if (!lat || !lon) return null;
-  for (const zone of HARDCODED_ZONES){
-    const d=getDistanceKm(lat,lon,zone.lat,zone.lon);
-    if (d <= 5) return zone;
-  }
-  return null;
-}
-
-function callGeotabAPI(method, params){
-  return new Promise((resolve, reject)=>{
-    try{
-      window.geotab.api.call(method, params||{}, resolve, reject);
-    }catch(e){ reject(e); }
-  });
-}
-
-// ====== Init & UI ======
-document.addEventListener('DOMContentLoaded', async () => {
-  setDefaults();
-  if (!isEmbeddedGeotab()){
-    msg('authResult', '❌ Not embedded in MyGeotab. Load as an Add-In.', 'danger');
-    document.getElementById('testBtn').disabled = true;
-    document.getElementById('runBtn').disabled = true;
-    return;
-  }
-  msg('authResult', '✅ Connected via MyGeotab host session.', 'success');
-});
-
-document.getElementById('testBtn').onclick = async function(){
-  try{
-    const res = await callGeotabAPI('Get', {typeName:'Device', resultsLimit:1});
-    msg('authResult', '🧪 API working: ' + (res.length ? (res[0].name || res[0].id) : 'no devices'), 'success');
-  }catch(e){
-    msg('authResult', '🧪 Test failed: '+ (e.message||e), 'danger');
-  }
-};
-
-document.getElementById('zoneSelect').onchange = function(){
-  const id=this.value; const info=document.getElementById('selectedZoneInfo');
-  if (!id){ info.style.display='none'; document.getElementById('runBtn').disabled=true; return; }
-  const z = HARDCODED_ZONES.find(x=>x.id===id);
-  document.getElementById('selectedZoneName').textContent = '🎯 ' + z.name;
-  document.getElementById('selectedZoneDetails').innerHTML = `<b>Zone ID:</b> ${z.id}<br><b>GPS:</b> ${z.lat}, ${z.lon}<br><b>Detection:</b> 5km radius`;
-  info.style.display='block';
-  document.getElementById('runBtn').disabled=false;
-};
-
-document.getElementById('runBtn').onclick = async function(){
-  try{
-    const selectedZoneId = document.getElementById('zoneSelect').value;
-    if (!selectedZoneId){ msg('banner','Select a zone first','warning'); return; }
-    const selectedZone = HARDCODED_ZONES.find(z=>z.id===selectedZoneId);
-    const fromISO = new Date(document.getElementById('fromDate').value+'T00:00:00Z').toISOString();
-    const toISO = new Date(document.getElementById('toDate').value+'T23:59:59Z').toISOString();
-    setProgress(10,100,'Start');
-
-    const devices = await callGeotabAPI('Get',{typeName:'Device', resultsLimit: +document.getElementById('limit').value || 100});
-    setProgress(30,100,'Devices');
-    const gps = await callGeotabAPI('Get',{typeName:'LogRecord', search:{fromDate: fromISO, toDate: toISO}, resultsLimit: 20000});
-    setProgress(60,100,'GPS');
-
-    const results = [];
-    devices.forEach(d=>{
-      const devId = d.id;
-      const my = gps.filter(r=> (r.device && (r.device.id || r.device)) === devId);
-      const inZone = my.filter(r=>{
-        const lat = r.latitude ?? r.y; const lon = r.longitude ?? r.x;
-        if (lat==null || lon==null) return false;
-        const z = findZoneForLocation(lat,lon);
-        return z && z.id === selectedZoneId;
-      });
-      if (inZone.length){
-        results.push({ name: d.name || devId, zonePoints: inZone.length, totalPoints: my.length });
+  <script>
+    (function(){
+      if(!window.Chart){
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js';
+        document.head.appendChild(s);
       }
+    })();
+  </script>
+</head>
+
+<body>
+  <div class="container">
+    <div class="statusbar">
+      <span id="connStatus" class="status disconnected">Not connected</span>
+    </div>
+
+    <div class="header">
+      <h1>Emissions Dashboard - UCCL Project Sites</h1>
+      <div class="muted">Fuel consumption & carbon emissions tracking for your project sites</div>
+    </div>
+
+    <div class="card">
+      <h3>
+        <img src="https://kikorangee.github.io/GEOSDK/src/software/1.png" alt="Geo Emoji" class="emoji">
+        Authentication
+      </h3>
+
+      <div class="row">
+        <input id="server" class="form-control" placeholder="Server" value="my.geotab.com" />
+        <input id="database" class="form-control" placeholder="Database (case-sensitive)" />
+      </div>
+
+      <div class="row">
+        <input id="username" class="form-control" placeholder="Username" />
+        <input id="password" class="form-control" type="password" placeholder="Password" />
+      </div>
+
+      <div class="actions">
+        <button id="authBtn" class="btn btn-primary">
+          <img src="https://kikorangee.github.io/GEOSDK/src/software/1.png" alt="" class="emoji">Authenticate
+        </button>
+
+        <button id="testBtn" class="btn btn-blue" disabled>
+          <img src="https://kikorangee.github.io/GEOSDK/src/software/1.png" alt="" class="emoji">Test Get
+        </button>
+
+        <button id="logout" class="btn btn-red">
+          <img src="https://kikorangee.github.io/GEOSDK/src/software/1.png" alt="" class="emoji">Logout
+        </button>
+      </div>
+
+      <div id="authResult" style="margin-top:8px"></div>
+      <pre id="debug" style="margin-top:8px;display:none"></pre>
+    </div>
+
+    <div id="reportCard" class="card" style="display:none;">
+      <!-- your report UI goes here -->
+      <h3>Report</h3>
+      <div id="reportInfo" class="muted">Authenticated. Add your report logic here.</div>
+    </div>
+  </div>
+
+  <script>
+    // ===== State
+    let apiUrl = null;
+    let credentials = null;
+
+    // ===== Helpers
+    const $ = (id) => document.getElementById(id);
+    const setStatus = (ok) => {
+      const el = $('connStatus');
+      if (!el) return;
+      el.classList.toggle('connected', !!ok);
+      el.classList.toggle('disconnected', !ok);
+      el.textContent = ok ? 'Connected' : 'Not connected';
+    };
+    function msg(id, text, type='info'){
+      const cls = type==='success'?'alert-success':type==='warning'?'alert-warning':type==='danger'?'alert-danger':'alert-info';
+      const el = $(id);
+      if (el) el.innerHTML = `<div class="alert ${cls}">${text}</div>`;
+    }
+    function toApiUrl(host){
+      const s = (host||'').trim();
+      if (!s) return null;
+      // Ensure trailing /apiv1 ONCE
+      let base = /^https?:\/\//i.test(s) ? s : 'https://' + s;
+      base = base.replace(/\/+$/,'');
+      return base.endsWith('/apiv1') ? base : base + '/apiv1';
+    }
+    async function callGeotabAPI(method, params = {}){
+      if (!apiUrl) throw new Error('Not authenticated');
+      const body = { method, params: credentials ? { ...params, credentials } : params };
+      const res = await fetch(apiUrl,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(body)
+      });
+      const json = await res.json();
+      if (json.error) throw new Error(json.error.message || 'API Error');
+      return json.result !== undefined ? json.result : json;
+    }
+
+    // ===== Wire UI
+    document.addEventListener('DOMContentLoaded', () => {
+      const authBtn = $('authBtn'), testBtn = $('testBtn'), logoutBtn = $('logout');
+
+      authBtn.addEventListener('click', async () => {
+        const server = $('server').value.trim();
+        const database = $('database').value.trim();
+        const username = $('username').value.trim();
+        const password = $('password').value;
+
+        if (!server || !database || !username || !password){
+          msg('authResult','Fill all authentication fields','warning'); 
+          return;
+        }
+
+        try{
+          apiUrl = toApiUrl(server);
+          if (!apiUrl) throw new Error('Invalid server URL');
+
+          const result = await callGeotabAPI('Authenticate', { userName: username, password, database });
+          credentials = result.credentials;
+          if (!credentials) throw new Error('No credentials returned');
+
+          msg('authResult','✅ Connected successfully.','success');
+          setStatus(true);
+          testBtn.disabled = false;
+          $('reportCard').style.display = 'block';
+        }catch(err){
+          msg('authResult','❌ ' + err.message,'danger');
+          setStatus(false);
+          testBtn.disabled = true;
+          $('reportCard').style.display = 'none';
+        }
+      });
+
+      testBtn.addEventListener('click', async () => {
+        try{
+          const devices = await callGeotabAPI('Get', { typeName:'Device', resultsLimit:5 });
+          msg('authResult','Got ' + devices.length + ' devices.','success');
+          const dbg = $('debug');
+          dbg.style.display = 'block';
+          dbg.textContent = JSON.stringify(devices, null, 2);
+        }catch(err){
+          msg('authResult','❌ ' + err.message,'danger');
+        }
+      });
+
+      logoutBtn.addEventListener('click', () => {
+        credentials = null;
+        apiUrl = null;
+        setStatus(false);
+        msg('authResult','Logged out.','info');
+        testBtn.disabled = true;
+        $('reportCard').style.display = 'none';
+        const dbg = $('debug');
+        dbg.textContent = '';
+        dbg.style.display = 'none';
+      });
     });
-
-    results.sort((a,b)=>b.zonePoints-a.zonePoints);
-    let html = `<h4>Vehicles visiting ${selectedZone.name}</h4><table class="table"><thead><tr><th>Vehicle</th><th>Points in Zone</th><th>Total Points</th></tr></thead><tbody>`;
-    results.forEach(r=>{ html += `<tr><td>${r.name}</td><td>${r.zonePoints}</td><td>${r.totalPoints}</td></tr>`; });
-    html += `</tbody></table>`;
-    document.getElementById('tableWrap').innerHTML = html;
-    document.getElementById('reportCard').style.display='block';
-    msg('banner', `✅ ${results.length} vehicles found in ${selectedZone.name}`, 'success');
-    setProgress(100,100,'Done');
-  }catch(e){
-    msg('banner','Zone analysis failed: '+(e.message||e),'danger');
-  }
-};
-</script>
-
-<!-- geotab.addin wrapper (optional; MyGeotab loads window.geotab) -->
-<script>
-window.geotab = window.geotab || {};
-window.geotab.addin = window.geotab.addin || {};
-window.geotab.addin.emissionsEmbedded = function(api, state){
-  return {
-    initialize: function(api, state, done){ try{ done(); } catch(e){} },
-    focus: function(api, state){},
-    blur: function(){}
-  };
-};
-</script>
+  </script>
 </body>
 </html>
