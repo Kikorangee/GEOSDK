@@ -33,6 +33,7 @@
   <input id="password" type="password" placeholder="Password" />
 </div>
 <div>
+  <button id="authBtn">Login</button>
   <button id="logout">Logout</button>
 </div>
 <div id="authResult"></div>
@@ -104,9 +105,12 @@ function clearPerformanceStats() {
 
 // ===== STORAGE HELPERS =====
 function saveCredentials(server, database, username, password) {
-  if (!document.getElementById('rememberAuth').checked) return;
-  const creds = { server, database, username, password: btoa(password) };
-  localStorage.setItem('geotab_creds', JSON.stringify(creds));
+  // Guard: only save if a rememberAuth checkbox exists and is checked
+  const rememberEl = document.getElementById('rememberAuth');
+  if (rememberEl && rememberEl.checked) {
+    const creds = { server, database, username, password: btoa(password) };
+    localStorage.setItem('geotab_creds', JSON.stringify(creds));
+  }
 }
 
 function loadCredentials() {
@@ -235,7 +239,8 @@ document.getElementById('authBtn').onclick = async () => {
     msg('authResult', 'Connected. You can now run analysis.');
     $('runBtn').disabled = !$('zoneSelect').value;
     
-    if (!$('fastMode').checked) {
+    const fm = $('fastMode');
+    if (!fm || !fm.checked) {
       msg('authResult', 'Testing connection...');
       const devices = await callGeotabAPI('Get', {typeName: 'Device', resultsLimit: 1});
       msg('authResult', `Connected successfully. Found ${devices.length} device(s) available.`);
@@ -248,21 +253,26 @@ document.getElementById('authBtn').onclick = async () => {
   }
 };
 
-document.getElementById('quickAuthBtn').onclick = async () => {
-  const saved = loadCredentials();
-  if (!saved) {
-    msg('authResult', 'No saved credentials found.');
-    return;
-  }
-  
-  $('server').value = saved.server;
-  $('database').value = saved.database;
-  $('username').value = saved.username;
-  $('password').value = saved.password;
-  
-  // Auto-trigger authentication
-  document.getElementById('authBtn').click();
-};
+// Guard quick auth (button may not exist in this layout)
+(function(){
+  const quickAuthBtn = document.getElementById('quickAuthBtn');
+  if (!quickAuthBtn) return;
+  quickAuthBtn.onclick = async () => {
+    const saved = loadCredentials();
+    if (!saved) {
+      msg('authResult', 'No saved credentials found.');
+      return;
+    }
+    
+    $('server').value = saved.server;
+    $('database').value = saved.database;
+    $('username').value = saved.username;
+    $('password').value = saved.password;
+    
+    // Auto-trigger authentication
+    document.getElementById('authBtn').click();
+  };
+})();
 
 document.getElementById('logout').onclick = () => { 
   credentials = null; 
@@ -723,7 +733,8 @@ async function runAnalysis() {
     }
     
     const selectedZone = HARDCODED_ZONES.find(z => z.id === selectedZoneId);
-    const skipGPS = $('fastMode').checked; // Use fast mode setting
+    const fm = $('fastMode');
+    const skipGPS = !!(fm && fm.checked); // Guard for missing fastMode checkbox
     const mode = skipGPS ? 'Fast Mode (Trip-based)' : 'Full Mode (GPS + Trips)';
     msg('banner', `Analyzing ${selectedZone.name} - ${mode}...`);
     setProgress(0, 100, 'Start');
