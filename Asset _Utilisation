@@ -53,6 +53,9 @@
     .emissions-low{background:#c6f6d5;color:#22543d;padding:4px 8px;border-radius:4px;font-weight:600}
     .weekly-header{background:#f8f9fa;padding:10px;border-radius:6px;margin:10px 0;border-left:4px solid #2d5016}
     .period-label{font-size:11px;color:#666;display:block;margin-top:2px}
+    #chartsSection .card{margin-bottom:20px}
+    #chartsSection canvas{max-height:400px}
+    #chartsSection h4{color:#2d3748;margin-bottom:15px}
   </style>
 </head>
 <body>
@@ -181,6 +184,22 @@
           </div>
         </div>
       </div>
+
+      <div id="chartsSection" style="display:none;">
+        <h4>📊 Visual Analytics</h4>
+        <div class="card">
+          <h5 style="margin-bottom:15px;color:#2d5016;">🏆 Asset Utilization Rankings (Highest to Lowest)</h5>
+          <canvas id="utilizationChart" width="400" height="200"></canvas>
+        </div>
+        <div class="card" style="margin-top:20px;">
+          <h5 style="margin-bottom:15px;color:#2d5016;">🌱 Carbon Emissions Analysis</h5>
+          <canvas id="emissionsChart" width="400" height="200"></canvas>
+        </div>
+        <div id="comparisonChartContainer" class="card" style="margin-top:20px;display:none;">
+          <h5 style="margin-bottom:15px;color:#2d5016;">📈 Week-over-Week Comparison</h5>
+          <canvas id="comparisonChart" width="400" height="200"></canvas>
+        </div>
+      </div>
       
       <div id="utilizationResult"></div>
     </div>
@@ -190,8 +209,106 @@
 let credentials = null;
 let serverUsed = null;
 let utilizationData = [];
+let weeklyComparisonData = {};
+
+// Generate weekly comparison report
+document.getElementById('generateWeeklyReport').onclick = async function(){
+  if(!credentials && !window.geotab && !window.api){ showMessage('reportBanner','Not authenticated','error'); return; }
+  if(selectedZoneIds.size === 0){ showMessage('reportBanner','Please select at least one zone','error'); return; }
+  
+  const resultsLimit = parseInt(document.getElementById('resultsLimitWeekly').value) || 50;
+
+  try {
+    showMessage('reportBanner','🔄 Generating week-over-week comparison report...','info');
+    document.getElementById('exportCsv').disabled = true;
+    document.getElementById('exportDetailedReport').disabled = true;
+    
+    // Calculate date ranges for last week and previous week
+    const today = new Date();
+    const lastMonday = new Date(today);
+    lastMonday.setDate(today.getDate() - today.getDay() + 1); // Get last Monday
+    if (lastMonday > today) lastMonday.setDate(lastMonday.getDate() - 7); // If today is Sunday, go back one more week
+    
+    const lastWeekStart = new Date(lastMonday);
+    lastWeekStart.setDate(lastMonday.getDate() - 7);
+    const lastWeekEnd = new Date(lastMonday);
+    lastWeekEnd.setDate(lastMonday.getDate() - 1);
+    
+    const previousWeekStart = new Date(lastWeekStart);
+    previousWeekStart.setDate(lastWeekStart.getDate() - 7);
+    const previousWeekEnd = new Date(lastWeekStart);
+    previousWeekEnd.setDate(lastWeekStart.getDate() - 1);
+    
+    const lastWeekStartStr = lastWeekStart.toISOString().split('T')[0] + 'T00:00:00.000Z';
+    const lastWeekEndStr = lastWeekEnd.toISOString().split('T')[0] + 'T23:59:59.000Z';
+    const previousWeekStartStr = previousWeekStart.toISOString().split('T')[0] + 'T00:00:00.000Z';
+    const previousWeekEndStr = previousWeekEnd.toISOString().split('T')[0] + 'T23:59:59.000Z';
+    
+    // Fetch data for both weeks
+    const lastWeekData = await fetchUtilizationData(lastWeekStartStr, lastWeekEndStr, resultsLimit, 0, 16);
+    const previousWeekData = await fetchUtilizationData(previousWeekStartStr, previousWeekEndStr, resultsLimit, 8, 16);
+    
+    // Process comparison data
+    weeklyComparisonData = {
+      lastWeek: lastWeekData,
+      previousWeek: previousWeekData,
+      periods: {
+        lastWeek: `${lastWeekStart.toLocaleDateString()} - ${lastWeekEnd.toLocaleDateString()}`,
+        previousWeek: `${previousWeekStart.toLocaleDateString()} - ${previousWeekEnd.toLocaleDateString()}`
+      }
+    };
+    
+    // Set utilizationData to last week for table display
+    utilizationData = lastWeekData.map(asset => {
+      const previousAsset = previousWeekData.find(p => p.deviceId === asset.deviceId);
+      return {
+        ...asset,
+        previousUtilization: previousAsset ? previousAsset.utilization : 0,
+        previousDistance: previousAsset ? previousAsset.totalDistance : 0,
+        previousEmissions: previousAsset ? previousAsset.emissions : 0,
+        utilizationChange: previousAsset ? asset.utilization - previousAsset.utilization : asset.utilization,
+        distanceChange: previousAsset ? asset.totalDistance - previousAsset.totalDistance : asset.totalDistance,
+        emissionsChange: previousAsset ? asset.emissions - previousAsset.emissions : asset.emissions
+      };
+    });
+    
+    // Update summary statistics and show weekly comparison
+    updateSummaryStats();
+    updateWeeklyComparison();
+    
+    // Render the utilization table with comparisons
+    renderUtilizationTable(true);
+    
+    // Create charts including comparison chart
+    document.getElementById('chartsSection').style.display = 'block';
+    createUtilizationChart();
+    createEmissionsChart();
+    createComparisonChart();
+    
+    const activeAssets = utilizationData.length;
+    const avgUtilChange = utilizationData.length > 0 ? 
+      Math.round(utilizationData.reduce((sum, d) => sum + d.utilizationChange, 0) / utilizationData.length * 100) / 100 : 0;
+    
+    showMessage('reportBanner', 
+      `✅ Weekly comparison complete! ${activeAssets} assets analyzed with ${avgUtilChange > 0 ? '+' : ''}${avgUtilChange}% avg utilization change`, 
+      'success');
+    
+    document.getElementById('exportCsv').disabled = false;
+    document.getElementById('exportDetailedReport').disabled = false;
+    
+  } catch (error) {
+    showMessage('reportBanner', `Failed to generate weekly report: ${error.message}`, 'error');
+  }
+};
 let selectedZoneIds = new Set();
 let availableZones = [];
+
+// Carbon emission factors (kg CO2 per liter)
+const EMISSION_FACTORS = {
+  diesel: 2.68,    // kg CO2/L for diesel
+  gasoline: 2.31,  // kg CO2/L for gasoline
+  default: 2.68    // Default to diesel
+};
 
 function setDefaultDates(){
   const today = new Date();
@@ -200,6 +317,29 @@ function setDefaultDates(){
   document.getElementById('fromDate').value = lastMonth.toISOString().split('T')[0];
 }
 setDefaultDates();
+
+// Handle report type changes
+document.getElementById('reportType').onchange = function() {
+  const reportType = this.value;
+  const customInputs = document.getElementById('customDateInputs');
+  const weeklyInputs = document.getElementById('weeklyInputs');
+  const generateReport = document.getElementById('generateReport');
+  const generateWeeklyReport = document.getElementById('generateWeeklyReport');
+  
+  if (reportType === 'weekly') {
+    customInputs.style.display = 'none';
+    weeklyInputs.style.display = 'block';
+    generateReport.style.display = 'none';
+    generateWeeklyReport.style.display = 'inline-block';
+    generateWeeklyReport.disabled = selectedZoneIds.size === 0;
+  } else {
+    customInputs.style.display = 'block';
+    weeklyInputs.style.display = 'none';
+    generateReport.style.display = 'inline-block';
+    generateWeeklyReport.style.display = 'none';
+    generateReport.disabled = selectedZoneIds.size === 0;
+  }
+};
 
 function showMessage(elId, msg, type='info'){
   const el = document.getElementById(elId);
@@ -252,6 +392,33 @@ function extractId(data){
 function calculateUtilization(engineHours, totalHours) {
   if (!totalHours || totalHours === 0) return 0;
   return Math.min(100, Math.round((engineHours / totalHours) * 100 * 100) / 100);
+}
+
+function calculateEmissions(fuelUsed, fuelType = 'diesel') {
+  if (!fuelUsed || fuelUsed === 0) return 0;
+  const factor = EMISSION_FACTORS[fuelType] || EMISSION_FACTORS.default;
+  return Math.round(fuelUsed * factor * 100) / 100; // kg CO2
+}
+
+function getEmissionsClass(emissionsPerKm) {
+  if (emissionsPerKm <= 800) return 'emissions-low';    // Low emissions < 800g/km
+  if (emissionsPerKm <= 1200) return 'emissions-medium'; // Medium 800-1200g/km
+  return 'emissions-high'; // High > 1200g/km
+}
+
+function formatComparison(current, previous, unit = '', isPercentage = false) {
+  if (previous === 0) return `<span class="comparison-same">N/A</span>`;
+  
+  const diff = current - previous;
+  const percentChange = ((diff / previous) * 100).toFixed(1);
+  const arrow = diff > 0 ? '↗' : diff < 0 ? '↘' : '→';
+  const className = diff > 0 ? 'comparison-up' : diff < 0 ? 'comparison-down' : 'comparison-same';
+  
+  if (isPercentage) {
+    return `<span class="${className}">${arrow} ${Math.abs(diff).toFixed(1)}${unit} (${percentChange}%)</span>`;
+  } else {
+    return `<span class="${className}">${arrow} ${Math.abs(diff).toFixed(1)}${unit} (${percentChange}%)</span>`;
+  }
 }
 
 function getUtilizationClass(utilization) {
@@ -320,6 +487,140 @@ document.getElementById('loadZones').onclick = async function(){
   }
 };
 
+// Enhanced data fetching with fuel usage for emissions
+async function fetchUtilizationData(fromDateTime, toDateTime, resultsLimit, progressOffset = 0, totalSteps = 8) {
+  const totalHours = (new Date(toDateTime) - new Date(fromDateTime)) / (1000 * 60 * 60);
+  
+  updateProgress(progressOffset + 1, totalSteps, 'Getting devices...');
+  
+  // Get all devices
+  const devices = await callGeotabAPI('Get', {
+    typeName: 'Device',
+    resultsLimit: resultsLimit
+  });
+  
+  if (!devices.length) {
+    throw new Error('No devices found');
+  }
+  
+  updateProgress(progressOffset + 2, totalSteps, 'Getting engine hours...');
+  
+  // Get engine hours data
+  const engineHoursData = await callGeotabAPI('Get', {
+    typeName: 'StatusData',
+    search: {
+      fromDate: fromDateTime,
+      toDate: toDateTime,
+      diagnosticSearch: { id: 'DiagnosticEngineHoursId' }
+    },
+    resultsLimit: 5000
+  });
+  
+  updateProgress(progressOffset + 3, totalSteps, 'Getting fuel usage data...');
+  
+  // Get fuel usage data for emissions calculation
+  const fuelUsageData = await callGeotabAPI('Get', {
+    typeName: 'StatusData',
+    search: {
+      fromDate: fromDateTime,
+      toDate: toDateTime,
+      diagnosticSearch: { id: 'DiagnosticFuelUsedId' }
+    },
+    resultsLimit: 5000
+  });
+  
+  updateProgress(progressOffset + 4, totalSteps, 'Getting trip data...');
+  
+  // Get trip data
+  const trips = await callGeotabAPI('Get', {
+    typeName: 'Trip',
+    search: {
+      fromDate: fromDateTime,
+      toDate: toDateTime
+    },
+    resultsLimit: 5000
+  });
+  
+  updateProgress(progressOffset + 5, totalSteps, 'Getting zone stops...');
+  
+  // Get zone stops for selected zones
+  const zoneStops = [];
+  for (const zoneId of selectedZoneIds) {
+    try {
+      const stops = await callGeotabAPI('Get', {
+        typeName: 'ZoneStop',
+        search: {
+          fromDate: fromDateTime,
+          toDate: toDateTime,
+          zoneSearch: { id: zoneId }
+        },
+        resultsLimit: 1000
+      });
+      zoneStops.push(...stops);
+    } catch (e) {
+      console.warn(`Failed to get zone stops for zone ${zoneId}:`, e);
+    }
+  }
+  
+  updateProgress(progressOffset + 6, totalSteps, 'Processing utilization data...');
+  
+  // Process utilization data with emissions
+  const processedData = devices.map(device => {
+    const deviceId = device.id;
+    const deviceName = device.name || `Device ${deviceId}`;
+    
+    // Get engine hours for this device
+    const deviceEngineData = engineHoursData.filter(s => extractId(s.device) === deviceId);
+    const engineHours = deviceEngineData.length > 0 ? 
+      Math.max(...deviceEngineData.map(s => s.data || 0)) / 3600 : 0;
+    
+    // Get fuel usage for this device
+    const deviceFuelData = fuelUsageData.filter(s => extractId(s.device) === deviceId);
+    const fuelUsed = deviceFuelData.length > 0 ? 
+      Math.max(...deviceFuelData.map(s => s.data || 0)) : 0; // in liters
+    
+    // Get trips for this device
+    const deviceTrips = trips.filter(t => extractId(t.device) === deviceId);
+    const totalDistance = deviceTrips.reduce((sum, trip) => sum + (trip.distance || 0), 0) / 1000; // Convert to km
+    const tripCount = deviceTrips.length;
+    
+    // Get zone stops for this device
+    const deviceZoneStops = zoneStops.filter(s => extractId(s.device) === deviceId);
+    const zoneTimeHours = deviceZoneStops.reduce((sum, stop) => {
+      const duration = stop.duration || 0;
+      return sum + (duration / 3600); // Convert seconds to hours
+    }, 0);
+    
+    const utilization = calculateUtilization(engineHours, totalHours);
+    const emissions = calculateEmissions(fuelUsed); // kg CO2
+    const emissionsPerKm = totalDistance > 0 ? Math.round((emissions * 1000) / totalDistance) : 0; // g CO2/km
+    
+    return {
+      deviceId,
+      deviceName,
+      engineHours: Math.round(engineHours * 100) / 100,
+      fuelUsed: Math.round(fuelUsed * 100) / 100,
+      emissions: emissions,
+      emissionsPerKm: emissionsPerKm,
+      emissionsClass: getEmissionsClass(emissionsPerKm),
+      totalDistance: Math.round(totalDistance * 100) / 100,
+      tripCount,
+      zoneTimeHours: Math.round(zoneTimeHours * 100) / 100,
+      zoneStops: deviceZoneStops.length,
+      utilization,
+      utilizationClass: getUtilizationClass(utilization),
+      lastActivity: deviceTrips.length > 0 ? 
+        new Date(Math.max(...deviceTrips.map(t => new Date(t.stop || t.start)))).toLocaleDateString() : 
+        'No activity'
+    };
+  }).filter(d => d.engineHours > 0 || d.tripCount > 0 || d.zoneStops > 0)
+    .sort((a, b) => b.utilization - a.utilization);
+  
+  updateProgress(progressOffset + 7, totalSteps, 'Complete!');
+  
+  return processedData;
+}
+
 // Zone selection handling
 document.getElementById('zoneSelect').onchange = function() {
   const select = this;
@@ -330,6 +631,7 @@ document.getElementById('zoneSelect').onchange = function() {
     selectedZoneIds.add(selectedId);
     updateSelectedZonesDisplay();
     document.getElementById('generateReport').disabled = selectedZoneIds.size === 0;
+    document.getElementById('generateWeeklyReport').disabled = selectedZoneIds.size === 0;
   }
   
   select.value = ''; // Reset selection
@@ -351,6 +653,7 @@ function removeZone(zoneId) {
   selectedZoneIds.delete(zoneId);
   updateSelectedZonesDisplay();
   document.getElementById('generateReport').disabled = selectedZoneIds.size === 0;
+  document.getElementById('generateWeeklyReport').disabled = selectedZoneIds.size === 0;
 }
 
 // Generate utilization report
@@ -364,117 +667,18 @@ document.getElementById('generateReport').onclick = async function(){
   if(!fromDate || !toDate){ showMessage('reportBanner','Please select both from and to dates','error'); return; }
 
   try {
-    showMessage('reportBanner','🔄 Generating comprehensive utilization report...','info');
+    showMessage('reportBanner','🔄 Generating comprehensive utilization report with emissions data...','info');
     document.getElementById('exportCsv').disabled = true;
     document.getElementById('exportDetailedReport').disabled = true;
     
     const fromDateTime = fromDate + 'T00:00:00.000Z';
     const toDateTime = toDate + 'T23:59:59.000Z';
-    const totalHours = (new Date(toDateTime) - new Date(fromDateTime)) / (1000 * 60 * 60);
     
-    updateProgress(1, 6, 'Getting devices...');
+    utilizationData = await fetchUtilizationData(fromDateTime, toDateTime, resultsLimit);
     
-    // Get all devices
-    const devices = await callGeotabAPI('Get', {
-      typeName: 'Device',
-      resultsLimit: resultsLimit
-    });
-    
-    if (!devices.length) {
-      showMessage('reportBanner', 'No devices found', 'warning');
-      return;
-    }
-    
-    updateProgress(2, 6, 'Getting status data...');
-    
-    // Get device status data for the date range
-    const statusData = await callGeotabAPI('Get', {
-      typeName: 'StatusData',
-      search: {
-        fromDate: fromDateTime,
-        toDate: toDateTime,
-        diagnosticSearch: { id: 'DiagnosticEngineHoursId' }
-      },
-      resultsLimit: 5000
-    });
-    
-    updateProgress(3, 6, 'Getting trip data...');
-    
-    // Get trip data
-    const trips = await callGeotabAPI('Get', {
-      typeName: 'Trip',
-      search: {
-        fromDate: fromDateTime,
-        toDate: toDateTime
-      },
-      resultsLimit: 5000
-    });
-    
-    updateProgress(4, 6, 'Getting zone stops...');
-    
-    // Get zone stops for selected zones
-    const zoneStops = [];
-    for (const zoneId of selectedZoneIds) {
-      try {
-        const stops = await callGeotabAPI('Get', {
-          typeName: 'ZoneStop',
-          search: {
-            fromDate: fromDateTime,
-            toDate: toDateTime,
-            zoneSearch: { id: zoneId }
-          },
-          resultsLimit: 1000
-        });
-        zoneStops.push(...stops);
-      } catch (e) {
-        console.warn(`Failed to get zone stops for zone ${zoneId}:`, e);
-      }
-    }
-    
-    updateProgress(5, 6, 'Processing utilization data...');
-    
-    // Process utilization data
-    utilizationData = devices.map(device => {
-      const deviceId = device.id;
-      const deviceName = device.name || `Device ${deviceId}`;
-      
-      // Get engine hours for this device
-      const deviceStatusData = statusData.filter(s => extractId(s.device) === deviceId);
-      const engineHours = deviceStatusData.length > 0 ? 
-        Math.max(...deviceStatusData.map(s => s.data || 0)) / 3600 : 0;
-      
-      // Get trips for this device
-      const deviceTrips = trips.filter(t => extractId(t.device) === deviceId);
-      const totalDistance = deviceTrips.reduce((sum, trip) => sum + (trip.distance || 0), 0) / 1000; // Convert to km
-      const tripCount = deviceTrips.length;
-      
-      // Get zone stops for this device
-      const deviceZoneStops = zoneStops.filter(s => extractId(s.device) === deviceId);
-      const zoneTimeHours = deviceZoneStops.reduce((sum, stop) => {
-        const duration = stop.duration || 0;
-        return sum + (duration / 3600); // Convert seconds to hours
-      }, 0);
-      
-      const utilization = calculateUtilization(engineHours, totalHours);
-      
-      return {
-        deviceId,
-        deviceName,
-        engineHours: Math.round(engineHours * 100) / 100,
-        totalDistance: Math.round(totalDistance * 100) / 100,
-        tripCount,
-        zoneTimeHours: Math.round(zoneTimeHours * 100) / 100,
-        zoneStops: deviceZoneStops.length,
-        utilization,
-        utilizationClass: getUtilizationClass(utilization),
-        lastActivity: deviceTrips.length > 0 ? 
-          new Date(Math.max(...deviceTrips.map(t => new Date(t.stop || t.start)))).toLocaleDateString() : 
-          'No activity'
-      };
-    }).filter(d => d.engineHours > 0 || d.tripCount > 0 || d.zoneStops > 0)
-      .sort((a, b) => b.utilization - a.utilization);
-    
-    updateProgress(6, 6, 'Complete!');
+    // Hide weekly comparison for custom reports
+    document.getElementById('weeklyComparison').style.display = 'none';
+    document.getElementById('comparisonChartContainer').style.display = 'none';
     
     // Update summary statistics
     updateSummaryStats();
@@ -482,12 +686,18 @@ document.getElementById('generateReport').onclick = async function(){
     // Render the utilization table
     renderUtilizationTable();
     
+    // Create charts
+    document.getElementById('chartsSection').style.display = 'block';
+    createUtilizationChart();
+    createEmissionsChart();
+    
     const activeAssets = utilizationData.length;
     const avgUtil = utilizationData.length > 0 ? 
       Math.round(utilizationData.reduce((sum, d) => sum + d.utilization, 0) / utilizationData.length) : 0;
+    const totalEmissions = Math.round(utilizationData.reduce((sum, d) => sum + d.emissions, 0));
     
     showMessage('reportBanner', 
-      `✅ Report generated! Found ${activeAssets} active assets with ${avgUtil}% average utilization`, 
+      `✅ Report generated! Found ${activeAssets} active assets with ${avgUtil}% avg utilization and ${totalEmissions} kg CO₂ emissions`, 
       'success');
     
     document.getElementById('exportCsv').disabled = false;
@@ -504,43 +714,110 @@ function updateSummaryStats() {
     Math.round(utilizationData.reduce((sum, d) => sum + d.utilization, 0) / totalAssets) : 0;
   const totalDistance = Math.round(utilizationData.reduce((sum, d) => sum + d.totalDistance, 0));
   const totalEngineHours = Math.round(utilizationData.reduce((sum, d) => sum + d.engineHours, 0));
+  const totalEmissions = Math.round(utilizationData.reduce((sum, d) => sum + (d.emissions || 0), 0));
+  const avgEmissionsPerKm = totalDistance > 0 ? 
+    Math.round((totalEmissions * 1000) / totalDistance) : 0; // g CO2/km
   
   document.getElementById('totalAssets').textContent = totalAssets;
   document.getElementById('avgUtilization').textContent = avgUtilization + '%';
   document.getElementById('totalDistance').textContent = totalDistance.toLocaleString() + ' km';
   document.getElementById('totalEngineHours').textContent = totalEngineHours.toLocaleString() + ' hrs';
+  document.getElementById('totalEmissions').textContent = totalEmissions.toLocaleString() + ' kg';
+  document.getElementById('avgEmissionsPerKm').textContent = avgEmissionsPerKm + ' g/km';
   
   document.getElementById('summaryStats').style.display = 'block';
 }
 
-function renderUtilizationTable() {
+function updateWeeklyComparison() {
+  if (!weeklyComparisonData.lastWeek || !weeklyComparisonData.previousWeek) return;
+  
+  const lastWeekStats = {
+    utilization: weeklyComparisonData.lastWeek.reduce((sum, d) => sum + d.utilization, 0) / weeklyComparisonData.lastWeek.length,
+    distance: weeklyComparisonData.lastWeek.reduce((sum, d) => sum + d.totalDistance, 0),
+    emissions: weeklyComparisonData.lastWeek.reduce((sum, d) => sum + (d.emissions || 0), 0)
+  };
+  
+  const previousWeekStats = {
+    utilization: weeklyComparisonData.previousWeek.reduce((sum, d) => sum + d.utilization, 0) / weeklyComparisonData.previousWeek.length,
+    distance: weeklyComparisonData.previousWeek.reduce((sum, d) => sum + d.totalDistance, 0),
+    emissions: weeklyComparisonData.previousWeek.reduce((sum, d) => sum + (d.emissions || 0), 0)
+  };
+  
+  document.getElementById('comparisonPeriods').innerHTML = `
+    <strong>Last Week:</strong> ${weeklyComparisonData.periods.lastWeek} | 
+    <strong>Previous Week:</strong> ${weeklyComparisonData.periods.previousWeek}
+  `;
+  
+  document.getElementById('utilizationChange').innerHTML = formatComparison(
+    lastWeekStats.utilization, previousWeekStats.utilization, '%', true
+  );
+  
+  document.getElementById('distanceChange').innerHTML = formatComparison(
+    lastWeekStats.distance, previousWeekStats.distance, ' km'
+  );
+  
+  document.getElementById('emissionsChange').innerHTML = formatComparison(
+    lastWeekStats.emissions, previousWeekStats.emissions, ' kg'
+  );
+  
+  document.getElementById('weeklyComparison').style.display = 'block';
+}
+
+function renderUtilizationTable(showComparison = false) {
   const resultDiv = document.getElementById('utilizationResult');
   
-  let html = `<table class="utilization-table"><thead><tr>
+  let headerHtml = `<table class="utilization-table"><thead><tr>
     <th>Asset Name</th>
     <th>Utilization %</th>
     <th>Engine Hours</th>
     <th>Distance (km)</th>
+    <th>CO₂ Emissions</th>
+    <th>CO₂/km</th>
     <th>Trip Count</th>
     <th>Zone Time (hrs)</th>
     <th>Zone Stops</th>
-    <th>Last Activity</th>
-  </tr></thead><tbody>`;
+    <th>Last Activity</th>`;
   
+  if (showComparison) {
+    headerHtml += `
+    <th>Utilization Change</th>
+    <th>Distance Change</th>
+    <th>Emissions Change</th>`;
+  }
+  
+  headerHtml += `</tr></thead><tbody>`;
+  
+  let bodyHtml = '';
   utilizationData.forEach(asset => {
-    html += `<tr>
+    bodyHtml += `<tr>
       <td><strong>${asset.deviceName}</strong></td>
-      <td><span class="${asset.utilizationClass}">${asset.utilization}%</span></td>
+      <td><span class="${asset.utilizationClass}">${asset.utilization}%</span>
+          ${asset.previousUtilization !== undefined ? 
+            `<span class="period-label">Prev: ${asset.previousUtilization}%</span>` : ''}</td>
       <td>${asset.engineHours}</td>
-      <td>${asset.totalDistance.toLocaleString()}</td>
+      <td>${asset.totalDistance.toLocaleString()}
+          ${asset.previousDistance !== undefined ? 
+            `<span class="period-label">Prev: ${asset.previousDistance.toLocaleString()}</span>` : ''}</td>
+      <td><span class="${asset.emissionsClass || 'emissions-low'}">${(asset.emissions || 0).toFixed(1)} kg</span>
+          ${asset.previousEmissions !== undefined ? 
+            `<span class="period-label">Prev: ${asset.previousEmissions.toFixed(1)} kg</span>` : ''}</td>
+      <td><span class="${asset.emissionsClass || 'emissions-low'}">${asset.emissionsPerKm || 0} g/km</span></td>
       <td>${asset.tripCount}</td>
       <td>${asset.zoneTimeHours}</td>
       <td>${asset.zoneStops}</td>
-      <td class="muted">${asset.lastActivity}</td>
-    </tr>`;
+      <td class="muted">${asset.lastActivity}</td>`;
+    
+    if (showComparison) {
+      bodyHtml += `
+      <td>${formatComparison(asset.utilization, asset.previousUtilization, '%', true)}</td>
+      <td>${formatComparison(asset.totalDistance, asset.previousDistance, ' km')}</td>
+      <td>${formatComparison(asset.emissions || 0, asset.previousEmissions || 0, ' kg')}</td>`;
+    }
+    
+    bodyHtml += `</tr>`;
   });
   
-  html += `</tbody></table>`;
+  const html = headerHtml + bodyHtml + `</tbody></table>`;
   resultDiv.innerHTML = html;
 }
 
@@ -548,26 +825,48 @@ function renderUtilizationTable() {
 document.getElementById('exportCsv').onclick = function(){
   if(!utilizationData || utilizationData.length===0){ showMessage('reportBanner','No utilization data to export','warning'); return; }
   
-  const headers = ['Asset_Name','Asset_ID','Utilization_Percent','Engine_Hours','Distance_KM','Trip_Count','Zone_Time_Hours','Zone_Stops','Last_Activity'];
+  const isWeeklyComparison = weeklyComparisonData.lastWeek && weeklyComparisonData.previousWeek;
+  
+  let headers = ['Asset_Name','Asset_ID','Utilization_Percent','Engine_Hours','Distance_KM','CO2_Emissions_KG','CO2_Per_KM_G','Fuel_Used_L','Trip_Count','Zone_Time_Hours','Zone_Stops','Last_Activity'];
+  
+  if (isWeeklyComparison) {
+    headers.push('Previous_Utilization_Percent', 'Previous_Distance_KM', 'Previous_CO2_Emissions_KG', 'Utilization_Change', 'Distance_Change_KM', 'Emissions_Change_KG');
+  }
+  
   let csv = headers.join(',') + '\n';
   
   utilizationData.forEach(asset => {
-    const row = [
+    let row = [
       `"${asset.deviceName}"`,
       `"${asset.deviceId}"`,
       asset.utilization,
       asset.engineHours,
       asset.totalDistance,
+      asset.emissions || 0,
+      asset.emissionsPerKm || 0,
+      asset.fuelUsed || 0,
       asset.tripCount,
       asset.zoneTimeHours,
       asset.zoneStops,
       `"${asset.lastActivity}"`
-    ].join(',');
-    csv += row + '\n';
+    ];
+    
+    if (isWeeklyComparison) {
+      row.push(
+        asset.previousUtilization || 0,
+        asset.previousDistance || 0,
+        asset.previousEmissions || 0,
+        asset.utilizationChange || 0,
+        asset.distanceChange || 0,
+        asset.emissionsChange || 0
+      );
+    }
+    
+    csv += row.join(',') + '\n';
   });
   
   const ts = new Date().toISOString().slice(0,19).replace(/[:.]/g,'-');
-  const filename = `Asset_Utilization_Report_${ts}.csv`;
+  const filename = `Asset_Utilization_${isWeeklyComparison ? 'Weekly_Comparison_' : ''}Report_${ts}.csv`;
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   const a = document.createElement('a');
   const url = URL.createObjectURL(blob);
@@ -585,33 +884,57 @@ document.getElementById('exportDetailedReport').onclick = function(){
     return zone ? zone.name : id;
   });
   
+  const isWeeklyComparison = weeklyComparisonData.lastWeek && weeklyComparisonData.previousWeek;
+  
   const totalAssets = utilizationData.length;
   const avgUtilization = Math.round(utilizationData.reduce((sum, d) => sum + d.utilization, 0) / totalAssets);
   const totalDistance = Math.round(utilizationData.reduce((sum, d) => sum + d.totalDistance, 0));
   const totalEngineHours = Math.round(utilizationData.reduce((sum, d) => sum + d.engineHours, 0));
+  const totalEmissions = Math.round(utilizationData.reduce((sum, d) => sum + (d.emissions || 0), 0));
+  const avgEmissionsPerKm = totalDistance > 0 ? Math.round((totalEmissions * 1000) / totalDistance) : 0;
   
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Asset Utilization Report</title>
+  let reportTitle = 'Asset Utilization Report';
+  let dateRange = '';
+  
+  if (isWeeklyComparison) {
+    reportTitle += ' - Weekly Comparison';
+    dateRange = `<strong>Last Week:</strong> ${weeklyComparisonData.periods.lastWeek}<br>
+                <strong>Previous Week:</strong> ${weeklyComparisonData.periods.previousWeek}`;
+  } else {
+    dateRange = `${document.getElementById('fromDate').value} to ${document.getElementById('toDate').value}`;
+  }
+  
+  let tableHeaders = `<th>Asset Name</th><th>Utilization</th><th>Engine Hours</th><th>Distance (km)</th><th>CO₂ Emissions</th><th>CO₂/km</th><th>Trips</th><th>Zone Time (hrs)</th><th>Zone Stops</th><th>Last Activity</th>`;
+  
+  if (isWeeklyComparison) {
+    tableHeaders += `<th>Utilization Δ</th><th>Distance Δ</th><th>Emissions Δ</th>`;
+  }
+  
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${reportTitle}</title>
   <style>
     body{font-family:Arial,sans-serif;margin:20px;color:#333}
     h1{color:#2d5016;margin:0 0 10px 0} 
     .meta{color:#666;margin-bottom:20px}
     .summary{background:#f8f9fa;padding:15px;border-radius:8px;margin:20px 0}
     .summary h3{margin:0 0 10px 0;color:#2d5016}
-    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin:20px 0}
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:20px;margin:20px 0}
     .stat{text-align:center;padding:15px;background:#fff;border-radius:8px;border-left:4px solid #2d5016}
-    .stat-number{font-size:2em;font-weight:700;color:#2d5016}
+    .stat-number{font-size:1.8em;font-weight:700;color:#2d5016}
     .stat-label{color:#666;font-size:0.9em}
-    table{width:100%;border-collapse:collapse;margin-top:16px}
-    th,td{border:1px solid #ddd;padding:8px;font-size:12px;text-align:left}
+    table{width:100%;border-collapse:collapse;margin-top:16px;font-size:11px}
+    th,td{border:1px solid #ddd;padding:6px;text-align:left}
     th{background:#2d5016;color:#fff}
     tr:nth-child(even){background:#f9f9f9}
-    .util-high{background:#c6f6d5;color:#22543d;padding:2px 6px;border-radius:3px;font-weight:600}
-    .util-medium{background:#fefcbf;color:#744210;padding:2px 6px;border-radius:3px;font-weight:600}
-    .util-low{background:#fed7d7;color:#742a2a;padding:2px 6px;border-radius:3px;font-weight:600}
+    .util-high,.emissions-low{background:#c6f6d5;color:#22543d;padding:2px 6px;border-radius:3px;font-weight:600}
+    .util-medium,.emissions-medium{background:#fefcbf;color:#744210;padding:2px 6px;border-radius:3px;font-weight:600}
+    .util-low,.emissions-high{background:#fed7d7;color:#742a2a;padding:2px 6px;border-radius:3px;font-weight:600}
+    .comparison-up{color:#28a745;font-weight:700}
+    .comparison-down{color:#dc3545;font-weight:700}
+    .comparison-same{color:#6c757d;font-weight:500}
   </style></head><body>
-  <h1>🚛 Asset Utilization Report</h1>
+  <h1>🚛 ${reportTitle}</h1>
   <div class="meta">Generated: ${new Date().toLocaleString()}<br>
-  Date Range: ${document.getElementById('fromDate').value} to ${document.getElementById('toDate').value}<br>
+  Date Range: ${dateRange}<br>
   Selected Zones: ${selectedZoneNames.join(', ')}</div>
   
   <div class="summary">
@@ -621,27 +944,43 @@ document.getElementById('exportDetailedReport').onclick = function(){
       <div class="stat"><div class="stat-number">${avgUtilization}%</div><div class="stat-label">Average Utilization</div></div>
       <div class="stat"><div class="stat-number">${totalDistance.toLocaleString()}</div><div class="stat-label">Total Distance (km)</div></div>
       <div class="stat"><div class="stat-number">${totalEngineHours.toLocaleString()}</div><div class="stat-label">Total Engine Hours</div></div>
+      <div class="stat"><div class="stat-number">${totalEmissions.toLocaleString()}</div><div class="stat-label">Total CO₂ (kg)</div></div>
+      <div class="stat"><div class="stat-number">${avgEmissionsPerKm}</div><div class="stat-label">Avg CO₂/km (g)</div></div>
     </div>
   </div>
   
-  <table><thead><tr>
-    <th>Asset Name</th><th>Utilization</th><th>Engine Hours</th><th>Distance (km)</th><th>Trips</th><th>Zone Time (hrs)</th><th>Zone Stops</th><th>Last Activity</th>
-  </tr></thead><tbody>
-  ${utilizationData.map(asset => `<tr>
+  <table><thead><tr>${tableHeaders}</tr></thead><tbody>
+  ${utilizationData.map(asset => {
+    let row = `<tr>
     <td><strong>${asset.deviceName}</strong></td>
     <td><span class="util-${asset.utilization >= 70 ? 'high' : asset.utilization >= 40 ? 'medium' : 'low'}">${asset.utilization}%</span></td>
     <td>${asset.engineHours}</td>
     <td>${asset.totalDistance.toLocaleString()}</td>
+    <td><span class="${asset.emissionsClass || 'emissions-low'}">${(asset.emissions || 0).toFixed(1)} kg</span></td>
+    <td><span class="${asset.emissionsClass || 'emissions-low'}">${asset.emissionsPerKm || 0} g/km</span></td>
     <td>${asset.tripCount}</td>
     <td>${asset.zoneTimeHours}</td>
     <td>${asset.zoneStops}</td>
-    <td>${asset.lastActivity}</td>
-  </tr>`).join('')}
+    <td>${asset.lastActivity}</td>`;
+    
+    if (isWeeklyComparison) {
+      const utilizationChange = asset.utilizationChange || 0;
+      const distanceChange = asset.distanceChange || 0;
+      const emissionsChange = asset.emissionsChange || 0;
+      
+      row += `
+      <td><span class="comparison-${utilizationChange > 0 ? 'up' : utilizationChange < 0 ? 'down' : 'same'}">${utilizationChange > 0 ? '+' : ''}${utilizationChange.toFixed(1)}%</span></td>
+      <td><span class="comparison-${distanceChange > 0 ? 'up' : distanceChange < 0 ? 'down' : 'same'}">${distanceChange > 0 ? '+' : ''}${distanceChange.toFixed(1)} km</span></td>
+      <td><span class="comparison-${emissionsChange > 0 ? 'up' : emissionsChange < 0 ? 'down' : 'same'}">${emissionsChange > 0 ? '+' : ''}${emissionsChange.toFixed(1)} kg</span></td>`;
+    }
+    
+    return row + `</tr>`;
+  }).join('')}
   </tbody></table>
   </body></html>`;
   
   const ts = new Date().toISOString().slice(0,19).replace(/[:.]/g,'-');
-  const filename = `Detailed_Asset_Utilization_Report_${ts}.html`;
+  const filename = `Detailed_Asset_Utilization_${isWeeklyComparison ? 'Weekly_Comparison_' : ''}Report_${ts}.html`;
   const blob = new Blob([html], {type:'text/html;charset=utf-8;'});
   const a = document.createElement('a');
   const url = URL.createObjectURL(blob);
@@ -655,11 +994,23 @@ document.getElementById('logout').onclick = function(){
   credentials = null; 
   serverUsed = null; 
   utilizationData = [];
+  weeklyComparisonData = {};
   selectedZoneIds.clear();
+  
+  // Destroy all charts
+  Object.values(charts).forEach(chart => {
+    if (chart && chart.destroy) {
+      chart.destroy();
+    }
+  });
+  charts = {};
+  
   document.getElementById('reportSection').style.display = 'none';
   document.getElementById('authResult').innerHTML = '';
   document.getElementById('utilizationResult').innerHTML = '';
   document.getElementById('summaryStats').style.display = 'none';
+  document.getElementById('weeklyComparison').style.display = 'none';
+  document.getElementById('chartsSection').style.display = 'none';
   showMessage('reportBanner','Logged out','info');
 };
 
