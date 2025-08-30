@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>MyAdmin Geotab Device Status Dashboard</title>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #333; min-height: 100vh; }
+    .container { max-width: 1100px; margin: 40px auto; background: #fff; border-radius: 15px; box-shadow: 0 10px 40px #0002; padding: 32px;}
+    h1 { font-size: 2em; color: #2d3748; margin-bottom: 10px;}
+    .auth-section, .device-section { margin-bottom: 32px; }
+    .form-row { display: flex; gap: 20px; margin-bottom: 16px;}
+    .form-control { padding: 12px; border-radius: 8px; border: 2px solid #e2e8f0; font-size: 1em; width: 100%;}
+    .btn { padding: 12px 22px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; margin: 0 2px;}
+    .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff;}
+    .btn-status { background: linear-gradient(135deg, #4299e1, #3182ce); color: #fff;}
+    .btn-activate { background: linear-gradient(135deg, #48bb78, #38a169); color: #fff;}
+    .btn-suspend { background: linear-gradient(135deg, #f56565, #e53e3e); color: #fff;}
+    table { width: 100%; border-collapse: collapse; margin-top: 18px;}
+    th, td { border-bottom: 1px solid #e2e8f0; padding: 10px; text-align: left;}
+    th { background: #f7fafc;}
+    tr.suspended td { color: #e53e3e; }
+    tr.activated td { color: #38a169; }
+    .msg { margin-top: 12px; font-size: 1em;}
+    .status-label { font-weight: 600;}
+    .status-value { color: #2d3748; font-family: monospace; background: #f7fafc; padding: 4px 8px; border-radius: 4px; }
+    .hidden { display: none !important;}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>MyAdmin Geotab Device Status Dashboard</h1>
+    <div class="auth-section">
+      <div class="form-row">
+        <input id="server" class="form-control" placeholder="Server (e.g. myadmin.geotab.com)" value="myadmin.geotab.com">
+        <input id="database" class="form-control" placeholder="Database" value="">
+        <input id="username" class="form-control" placeholder="Username" value="">
+        <input id="password" class="form-control" type="password" placeholder="Password" value="">
+        <button id="authBtn" class="btn btn-primary">Authenticate</button>
+      </div>
+      <div id="authMsg" class="msg"></div>
+      <div id="authStatus" class="msg"></div>
+    </div>
+
+    <div class="device-section hidden">
+      <div style="display:flex;align-items:center;gap:20px;">
+        <span class="status-label">Server:</span><span class="status-value" id="connectedServer"></span>
+        <span class="status-label">Database:</span><span class="status-value" id="connectedDB"></span>
+        <span class="status-label">User:</span><span class="status-value" id="connectedUser"></span>
+        <button id="refreshBtn" class="btn btn-status">Refresh</button>
+      </div>
+      <div id="deviceMsg" class="msg"></div>
+      <table id="deviceTable">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Serial Number</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Device rows here -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <script>
+    let credentials = null;
+    let serverUsed = null;
+    let userName = null;
+    let database = null;
+
+    function showMsg(id, msg, color='black') {
+      document.getElementById(id).innerHTML = `<span style="color:${color}">${msg}</span>`;
+    }
+
+    async function callGeotabAPI(method, params = {}) {
+      // If inside Geotab, use internal API
+      if (window.geotab && typeof window.geotab.call === 'function') {
+        return new Promise((resolve, reject) => {
+          window.geotab.call(method, params, resolve, reject);
+        });
+      }
+
+      // Otherwise, use external API
+      const body = {
+        method,
+        params: credentials ? { ...params, credentials } : params
+      };
+      const response = await fetch(`https://${serverUsed}/apiv1`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message || data.error.name);
+      return data.result;
+    }
+
+    document.getElementById('authBtn').onclick = async function() {
+      serverUsed = document.getElementById('server').value.trim();
+      database = document.getElementById('database').value.trim();
+      userName = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      showMsg('authMsg', 'Authenticating...', '#888');
+      try {
+        const result = await callGeotabAPI('Authenticate', {
+          userName: userName,
+          password: password,
+          database: database
+        });
+        // Handle server redirect
+        if (result.path && result.path !== 'ThisServer') {
+          serverUsed = result.path;
+          showMsg('authMsg', `Redirecting to ${result.path}...`, '#888');
+          const redirectResult = await callGeotabAPI('Authenticate', {
+            userName: userName,
+            password: password,
+            database: database
+          });
+          credentials = redirectResult.credentials;
+        } else {
+          credentials = result.credentials;
+        }
+        showMsg('authMsg', 'Authentication successful!', 'green');
+        // Get user info
+        const users = await callGeotabAPI('Get', {
+          typeName: 'User',
+          search: { name: userName }
+        });
+        document.getElementById('connectedServer').textContent = serverUsed;
+        document.getElementById('connectedDB').textContent = database;
+        document.getElementById('connectedUser').textContent = users.length > 0 ? users[0].name : userName;
+        document.querySelector('.device-section').classList.remove('hidden');
+        loadDevices();
+      } catch (e) {
+        showMsg('authMsg', `Authentication failed: ${e.message}`, 'red');
+      }
+    };
+
+    async function loadDevices() {
+      showMsg('deviceMsg', 'Loading devices...', '#888');
+      const tbody = document.getElementById('deviceTable').querySelector('tbody');
+      tbody.innerHTML = '';
+      try {
+        const devices = await callGeotabAPI('Get', {
+          typeName: 'Device',
+          resultsLimit: 1000
+        });
+        devices.forEach(device => {
+          const status = device.active ? 'Activated' : 'Suspended';
+          const statusClass = device.active ? 'activated' : 'suspended';
+          const toggleBtn = device.active
+            ? `<button class="btn btn-suspend" onclick="toggleDeviceStatus('${device.id}', false)">Suspend</button>`
+            : `<button class="btn btn-activate" onclick="toggleDeviceStatus('${device.id}', true)">Activate</button>`;
+          const row = `<tr class="${statusClass}">
+            <td>${device.name || ''}</td>
+            <td>${device.serialNumber || ''}</td>
+            <td>${status}</td>
+            <td>${toggleBtn}</td>
+          </tr>`;
+          tbody.innerHTML += row;
+        });
+        showMsg('deviceMsg', `Loaded ${devices.length} devices.`, 'green');
+      } catch (e) {
+        showMsg('deviceMsg', `Error loading devices: ${e.message}`, 'red');
+      }
+    }
+
+    window.toggleDeviceStatus = async function(deviceId, activate) {
+      showMsg('deviceMsg', (activate ? 'Activating' : 'Suspending') + ' device...', '#888');
+      try {
+        // Get device object first
+        const devices = await callGeotabAPI('Get', {
+          typeName: 'Device',
+          search: { id: deviceId },
+          resultsLimit: 1
+        });
+        if (devices.length === 0) throw new Error('Device not found');
+        const device = devices[0];
+        device.active = activate;
+        await callGeotabAPI('Set', { entity: device });
+        showMsg('deviceMsg', `Device ${activate ? 'activated' : 'suspended'} successfully.`, 'green');
+        loadDevices();
+      } catch (e) {
+        showMsg('deviceMsg', `Error: ${e.message}`, 'red');
+      }
+    };
+
+    document.getElementById('refreshBtn').onclick = loadDevices;
+  </script>
+</body>
+</html>
