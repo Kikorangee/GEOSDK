@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>UCCL Advanced Fleet Idling Analysis</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 16px; }
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; margin-bottom: 8px; }
+  input, select { padding: 8px; font-size: 14px; width: 100%; }
+  button { padding: 8px 12px; margin-right: 6px; }
+  .section { border: 1px solid #ddd; padding: 12px; margin-top: 12px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; font-size: 13px; }
+  th { background: #f0f0f0; }
+  .muted { color: #666; font-size: 12px; }
+  .progress { height: 12px; background: #eee; border-radius: 6px; overflow:hidden; }
+  .progress > div { height:100%; background:#ff4979; color:#fff; font-size:11px; text-align:center; white-space:nowrap; }
+  .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 8px; margin: 8px 0; }
+  .info { background: #d1ecf1; border-left: 4px solid #17a2b8; padding: 8px; margin: 8px 0; }
+  .settings { background: #f8f9fa; border: 1px solid #dee2e6; padding: 12px; margin: 8px 0; border-radius: 4px; }
+  .checkbox-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+  .diagnostic-detail { font-size: 11px; color: #666; }
+  .pto-active { background-color: #fff3cd; }
+  .true-idle { background-color: #f8d7da; }
+</style>
+</head>
+<body>
+<h1>United Construction Ltd - Advanced Fleet Idling Analysis</h1>
+
+<div class="row">
+  <input id="server" placeholder="Server (e.g. my.geotab.com)" value="my.geotab.com" />
+  <input id="database" placeholder="Database (case-sensitive)" value="uccnz" />
+</div>
+<div class="row">
+  <input id="username" placeholder="Username" value="francis@directt.co.nz" />
+  <input id="password" type="password" placeholder="Password" value="@fr4nc1sWynn5" />
+</div>
+<div>
+  <button id="authBtn">Authenticate</button>
+  <button id="logout">Logout</button>
+</div>
+<div id="authResult"></div>
+
+<div class="section">
+  <h2>Advanced Idling Analysis Settings</h2>
+  <div class="row">
+    <input id="fromDate" type="date" />
+    <input id="toDate" type="date" />
+    <input id="limit" type="number" min="1" value="50" placeholder="Max vehicles" />
+  </div>
+  
+  <div class="settings">
+    <h4>Vehicle & Zone Filters</h4>
+    <div class="row">
+      <div>
+        <label>Select Vehicle:</label>
+        <select id="vehicleFilter">
+          <option value="all">All Vehicles</option>
+        </select>
+      </div>
+      <div>
+        <label>Select Zone:</label>
+        <select id="zoneFilter">
+          <option value="all">All Zones</option>
+        </select>
+      </div>
+      <div>
+        <label>Zone Radius (km):</label>
+        <input id="zoneRadius" type="number" min="0.1" max="50" value="2" step="0.5" />
+      </div>
+    </div>
+    <div class="checkbox-row">
+      <input id="enableZoneFilter" type="checkbox" />
+      <label for="enableZoneFilter">Only analyze vehicles within selected zone</label>
+    </div>
+  </div>
+
+  <div class="settings">
+    <h4>Basic Detection Parameters</h4>
+    <div class="row">
+      <div>
+        <label>Min Idling Duration (minutes):</label>
+        <input id="minIdlingMinutes" type="number" min="1" max="60" value="5" />
+      </div>
+      <div>
+        <label>Max Speed Threshold (km/h):</label>
+        <input id="maxSpeedKmh" type="number" min="0" max="10" value="2" step="0.5" />
+      </div>
+      <div>
+        <label>Idling Fuel Rate (L/hour):</label>
+        <input id="idlingFuelRate" type="number" min="0.5" max="5" value="1.5" step="0.1" />
+      </div>
+    </div>
+  </div>
+
+  <div class="settings">
+    <h4>Engine Diagnostic Parameters</h4>
+    <div class="row">
+      <div>
+        <label>Min RPM for Idling:</label>
+        <input id="minRPM" type="number" min="300" max="1000" value="500" />
+      </div>
+      <div>
+        <label>Max RPM for Idling:</label>
+        <input id="maxRPM" type="number" min="800" max="2000" value="1200" />
+      </div>
+      <div>
+        <label>Max Engine Load (%):</label>
+        <input id="maxEngineLoad" type="number" min="5" max="30" value="15" />
+      </div>
+    </div>
+    <div class="checkbox-row">
+      <input id="requireEngineOn" type="checkbox" checked />
+      <label for="requireEngineOn">Require engine ignition ON for idling detection</label>
+    </div>
+    <div class="checkbox-row">
+      <input id="excludePTO" type="checkbox" checked />
+      <label for="excludePTO">Exclude PTO (Power Take-Off) active periods</label>
+    </div>
+  </div>
+
+  <div class="settings">
+    <h4>Time Filters</h4>
+    <div class="checkbox-row">
+      <input id="excludeWeekends" type="checkbox" />
+      <label for="excludeWeekends">Exclude weekends from analysis</label>
+    </div>
+    <div class="checkbox-row">
+      <input id="businessHoursOnly" type="checkbox" />
+      <label for="businessHoursOnly">Business hours only (6 AM - 6 PM)</label>
+    </div>
+  </div>
+  
+  <div>
+    <button id="runBtn" disabled>Run Advanced Analysis</button>
+    <button id="downloadBtn" disabled>Download Report (CSV)</button>
+  </div>
+  <div style="margin:8px 0;">
+    <div class="progress"><div id="progressFill" style="width:0%">0%</div></div>
+  </div>
+  <div id="banner" class="muted"></div>
+</div>
+
+<div class="section" id="reportCard" style="display:none;">
+  <h3>Advanced Fleet Idling Report</h3>
+  <div class="info">
+    <strong>Legend:</strong> 
+    <span style="background-color: #f8d7da; padding: 2px 4px;">True Idling</span> - 
+    <span style="background-color: #fff3cd; padding: 2px 4px;">PTO/Work Mode</span> - 
+    Normal operation
+  </div>
+  <div id="tableWrap"></div>
+</div>
+
+<div class="section" id="summaryCard" style="display:none;">
+  <h3>Summary</h3>
+  <div id="summaryContent"></div>
+</div>
+
+<div class="section" id="alertsCard" style="display:none;">
+  <h3>High Idling Alerts</h3>
+  <div id="alertsContent"></div>
+</div>
+
+<div class="section" id="diagnosticsCard" style="display:none;">
+  <h3>Diagnostic Data Quality</h3>
+  <div id="diagnosticsContent"></div>
+</div>
+
+<div class="section" id="legendCard" style="display:none;">
+  <h3>Analysis Details</h3>
+  <div id="legendText"></div>
+</div>
+
+<script>
+// ===== CLEAN IMPLEMENTATION FOR GEOTAB =====
+(function() {
+'use strict';
+
+// ===== CONFIGURATION DATA =====
+const AUTH_CONFIG = {
+  server: "my.geotab.com",
+  database: "uccnz", 
+  username: "francis@directt.co.nz",
+  password: "@fr4nc1sWynn5"
+};
+
+const ZONES = [
+  { id: 'b140', name: 'Channel Infrastructure', lat: -35.84166865, lon: 174.4928981 },
+  { id: 'b141', name: 'Maungaturoto Solar Farm', lat: -36.08750065, lon: 174.3546467 },
+  { id: 'b142', name: 'Port Road Site Office', lat: -35.73915967, lon: 174.3363262 },
+  { id: 'b143', name: 'Ruakaka BESS', lat: -35.8487939, lon: 174.4769919 },
+  { id: 'b144', name: 'Donald Road', lat: -35.09854319, lon: 173.2623673 },
+  { id: 'b145', name: 'Northpower Dargaville', lat: -35.93301535, lon: 173.8798765 }
+];
+
+const VEHICLES = [
+  { description: "Transport Trailers 4A 2002", fleetNumber: 1, regPlate: "589AT" },
+  { description: "Transfleet 4TDH-27 2004", fleetNumber: 4, regPlate: "E560P" },
+  { description: "Morgan Lowloader 1996", fleetNumber: 7, regPlate: "5578C" },
+  { description: "Toyota Hiace 2009", fleetNumber: 445, regPlate: "FDT602" },
+  { description: "Toyota Hiace 2013", fleetNumber: 448, regPlate: "GUR891" },
+  { description: "Ford Ranger 2010 4x2 XLT D/C W/S", fleetNumber: 463, regPlate: "FQC642" },
+  { description: "Ford Ranger 2015 4x2 XLT D/C W/S", fleetNumber: 465, regPlate: "JBB745" },
+  { description: "Ford Ranger 2011 4x2 XLT D/C W/S", fleetNumber: 469, regPlate: "GBP609" },
+  { description: "Ford Ranger 2011 4x2 XLT D/C W/S", fleetNumber: 470, regPlate: "FUB380" },
+  { description: "Ford Ranger 2010 4x2 XLT D/C W/S", fleetNumber: 471, regPlate: "FRM776" },
+  { description: "Toyota Hilux 2011 4x2 D/C W/S", fleetNumber: 476, regPlate: "GBN844" },
+  { description: "Ford Ranger 2018 4x2 XLT D/C W/S", fleetNumber: 486, regPlate: "LER932" },
+  { description: "Ford Ranger 2018 4x2 XLT D/C W/S", fleetNumber: 487, regPlate: "LER933" },
+  { description: "Ford Ranger 2018 4x2 XLT D/C W/S", fleetNumber: 488, regPlate: "LER937" },
+  { description: "Ford Ranger 2018 4x4 XLT D/C W/S", fleetNumber: 489, regPlate: "LER940" },
+  { description: "Ford Ranger 2018 4x4 XLT D/C W/S", fleetNumber: 490, regPlate: "LER936" },
+  { description: "Ford Ranger 2018 4x4 XLT D/C W/S", fleetNumber: 491, regPlate: "LGJ618" },
+  { description: "Ford Ranger 2018 4x2 XLT D/C W/S", fleetNumber: 492, regPlate: "LKZ964" },
+  { description: "Ford Ranger 2018 4x2 XLT D/C W/S", fleetNumber: 493, regPlate: "LJJ940" },
+  { description: "Ford Ranger 2013 4x2 XL D/C W/S", fleetNumber: 494, regPlate: "GSN851" },
+  { description: "Mazda BT-50 2013 4x2 GSX D/C W/S", fleetNumber: 495, regPlate: "GTH864" },
+  { description: "Ford Ranger 2015 4x4 Cabplus F/D", fleetNumber: 496, regPlate: "JYY52" },
+  { description: "Ford Ranger 2018 4x4 D/C W/S", fleetNumber: 499, regPlate: "LNW704" },
+  { description: "Mazda BT-50 2012 4x2 GLX Cabplus W/S", fleetNumber: 500, regPlate: "GNA826" },
+  { description: "Mazda BT-50 2012 4x2 GLX D/C W/S", fleetNumber: 501, regPlate: "GPR852" },
+  { description: "Ford Ranger 2019 4x2 XLT D/C W/S", fleetNumber: 502, regPlate: "MBF560" },
+  { description: "Ford Ranger 2014 4x2 XL D/C W/S", fleetNumber: 503, regPlate: "HHS395" },
+  { description: "Toyota Hilux 2014 4x2 D/C W/S", fleetNumber: 505, regPlate: "HQL909" },
+  { description: "Ford Ranger 2016 4x2 XL D/C W/S", fleetNumber: 508, regPlate: "JSC564" },
+  { description: "Ford Ranger 2020 4x2 XLT D/C W/S", fleetNumber: 509, regPlate: "MTZ279" },
+  { description: "Ford Ranger 2020 4x2 XLT D/C W/S", fleetNumber: 510, regPlate: "MTZ278" },
+  { description: "Ford Ranger 2016 4x2 XL D/C W/S", fleetNumber: 511, regPlate: "KCU68" },
+  { description: "Ford Ranger 2015 4x2 XL D/C W/S", fleetNumber: 512, regPlate: "HYN614" },
+  { description: "Ford Ranger 2020 4x2 XLT D/C W/S", fleetNumber: 513, regPlate: "MWR962" },
+  { description: "Mazda BT-50 2018 4x2 GLX Cabplus F/D", fleetNumber: 514, regPlate: "LFW259" },
+  { description: "Ford Ranger 2020 4x4 XLT D/C W/S", fleetNumber: 515, regPlate: "NAJ997" },
+  { description: "Toyota Corolla 2020 SX Hybrid", fleetNumber: 516, regPlate: "NHQ894" },
+  { description: "Ford Ranger 2021 4x2 XLT D/C W/S", fleetNumber: 517, regPlate: "NNM799" },
+  { description: "Ford Ranger 2021 4x2 XLT D/C W/S", fleetNumber: 518, regPlate: "NQS995" },
+  { description: "Ford Ranger 2021 4x2 XLT D/C W/S", fleetNumber: 519, regPlate: "NQS996" },
+  { description: "Ford Ranger 2021 4x4 XLT D/C W/S", fleetNumber: 520, regPlate: "NRJ849" },
+  { description: "Ford Ranger 2021 4x4 XLT D/C W/S", fleetNumber: 521, regPlate: "NRJ851" },
+  { description: "Ford Ranger 2021 4x2 XLT D/C W/S", fleetNumber: 522, regPlate: "NSR530" },
+  { description: "Ford Ranger 2021 4x2 XLT D/C W/S", fleetNumber: 523, regPlate: "NSR531" },
+  { description: "Toyota Hilux 2022 4x2 SR D/C W/S", fleetNumber: 524, regPlate: "NZF473" },
+  { description: "Toyota Hilux 2022 4x2 SR D/C W/S", fleetNumber: 525, regPlate: "NZW104" },
+  { description: "Toyota Hilux 2022 4x2 SR D/C W/S", fleetNumber: 526, regPlate: "NZW118" },
+  { description: "Toyota Hilux 2022 4x2 SR D/C W/S", fleetNumber: 527, regPlate: "PAP496" },
+  { description: "Toyota Hilux 2022 4x2 SR D/C W/S", fleetNumber: 528, regPlate: "PCE760" },
+  { description: "Tesla Model X 2020 4WD", fleetNumber: 529, regPlate: "PCQ1" },
+  { description: "Toyota Hilux 2019 4x2 SR D/C W/S", fleetNumber: 530, regPlate: "MAR717" },
+  { description: "Isuzu D-Max 2013 4X2 LS D/C W/S", fleetNumber: 531, regPlate: "GUJ411" },
+  { description: "BYD Atto 3 2023 Extended Range", fleetNumber: 532, regPlate: "QAJ980" },
+  { description: "BYD Atto 3 2023 Extended Range", fleetNumber: 533, regPlate: "QAU621" },
+  { description: "Tesla Model Y 2023", fleetNumber: 534, regPlate: "QFC57" },
+  { description: "Tesla Model Y 2023", fleetNumber: 535, regPlate: "QFC58" },
+  { description: "Tesla Model Y 2023", fleetNumber: 536, regPlate: "QFC71" },
+  { description: "Toyota Hilux 2024 4x2 SR D/C W/S", fleetNumber: 537, regPlate: "QJZ870" },
+  { description: "Toyota Hilux 2024 4x2 SR D/C W/S", fleetNumber: 538, regPlate: "QJZ871" },
+  { description: "Toyota Hilux 2024 4x2 SR D/C W/S", fleetNumber: 539, regPlate: "QJZ872" },
+  { description: "Toyota Hilux 2024 4x2 SR D/C W/S", fleetNumber: 540, regPlate: "QJZ873" },
+  { description: "Tesla Model Y 2024", fleetNumber: 541, regPlate: "QJG431" },
+  { description: "Toyota Hilux 2024 SR 2.8DT 6MT 4WD", fleetNumber: 542, regPlate: "QTB354" },
+  { description: "Tesla Model Y 2024", fleetNumber: 543, regPlate: "QMT235" },
+  { description: "Tesla Model Y 2024", fleetNumber: 544, regPlate: "QMT236" },
+  { description: "BYD Atto 3 2023 Extended Range", fleetNumber: 545, regPlate: "QHD437" },
+  { description: "BYD Shark 6 2025 AWD D/C W/S", fleetNumber: 546, regPlate: "RBL829" },
+  { description: "BYD Shark 6 2025 AWD D/C W/S", fleetNumber: 547, regPlate: "RBL830" },
+  { description: "Tesla Model Y 2022", fleetNumber: 548, regPlate: "PPU192" },
+  { description: "Toyota Hilux 2025 4x2 SR D/C W/S", fleetNumber: 549, regPlate: "RET187" },
+  { description: "Toyota Hilux 2025 4x2 SR D/C W/S", fleetNumber: 550, regPlate: "RET188" },
+  { description: "Toyota Hilux 2025 4x2 SR D/C W/S", fleetNumber: 551, regPlate: "RET189" },
+  { description: "BYD Shark 6 2025 AWD D/C W/S", fleetNumber: 552, regPlate: "RFN414" },
+  { description: "Isuzu CYZ 460 Giga 2008", fleetNumber: 601, regPlate: "PWG214" },
+  { description: "Hino GD 2003", fleetNumber: 602, regPlate: "BHR201" },
+  { description: "Isuzu Elf NRR 1999", fleetNumber: 603, regPlate: "DYJ738" },
+  { description: "Isuzu CYZ400 2015", fleetNumber: 607, regPlate: "JHU122" },
+  { description: "Isuzu FVZ1400M 2015", fleetNumber: 608, regPlate: "JHU139" },
+  { description: "Isuzu FVZ1400A 2016", fleetNumber: 609, regPlate: "JRT503" },
+  { description: "Hino 300 2009", fleetNumber: 610, regPlate: "LDM30" },
+  { description: "Isuzu Forward FRR90S1 2016 Tipper", fleetNumber: 611, regPlate: "LWM567" },
+  { description: "Isuzu NPR450 2019 Crew Tipper", fleetNumber: 612, regPlate: "MDP124" },
+  { description: "Isuzu NPR325 4x2 2020", fleetNumber: 613, regPlate: "NBP791" },
+  { description: "Isuzu CYZ400 2022", fleetNumber: 615, regPlate: "PHE415" },
+  { description: "Isuzu CYZ420 2023", fleetNumber: 616, regPlate: "QFD256" },
+  { description: "Mitsubishi Fuso Fighter FK200K6 2007", fleetNumber: 3414, regPlate: "DUB352" }
+];
+
+// ===== GLOBAL STATE =====
+let userCredentials = null;
+let apiEndpoint = null;
+let lastResults = null;
+
+// ===== UTILITY FUNCTIONS =====
+const $ = (id) => document.getElementById(id);
+
+function updateMessage(id, text) {
+  const el = $(id);
+  if (el) el.textContent = text;
+}
+
+function setProgress(pct, label) {
+  const fill = $('progressFill');
+  if (fill) {
+    fill.style.width = pct + '%';
+    fill.textContent = label || pct + '%';
+  }
+}
+
+// ===== AUTHENTICATION =====
+async function authenticate() {
+  try {
+    apiEndpoint = `https://${AUTH_CONFIG.server}/apiv1`;
+    updateMessage('authResult', 'Authenticating...');
+    
+    const response = await fetch(apiEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        method: 'Authenticate',
+        params: {
+          userName: AUTH_CONFIG.username,
+          password: AUTH_CONFIG.password,
+          database: AUTH_CONFIG.database
+        }
+      })
+    });
+    
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    
+    userCredentials = data.result.credentials;
+    updateMessage('authResult', 'Connected successfully!');
+    $('runBtn').disabled = false;
+    console.log('Authentication successful');
+    
+  } catch (error) {
+    console.error('Authentication failed:', error);
+    updateMessage('authResult', 'Authentication failed: ' + error.message);
+    userCredentials = null;
+    $('runBtn').disabled = true;
+  }
+}
+
+// ===== API CALLS =====
+async function callAPI(method, params = {}) {
+  if (!userCredentials) throw new Error('Not authenticated');
+  
+  const requestParams = { ...params, credentials: userCredentials };
+  
+  const response = await fetch(apiEndpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ method, params: requestParams })
+  });
+  
+  const data = await response.json();
+  if (data.error) throw new Error(data.error.message);
+  
+  return data.result;
+}
+
+// ===== DROPDOWN INITIALIZATION =====
+function initializeDropdowns() {
+  console.log('Initializing dropdowns...');
+  
+  // Initialize vehicle dropdown
+  const vehicleSelect = $('vehicleFilter');
+  if (vehicleSelect) {
+    console.log('Populating vehicle dropdown with', VEHICLES.length, 'vehicles');
+    vehicleSelect.innerHTML = '<option value="all">All Vehicles</option>';
+    
+    VEHICLES
+      .sort((a, b) => a.fleetNumber - b.fleetNumber)
+      .forEach(vehicle => {
+        const option = document.createElement('option');
+        option.value = vehicle.fleetNumber;
+        option.textContent = `Fleet ${vehicle.fleetNumber} - ${vehicle.description} (${vehicle.regPlate})`;
+        vehicleSelect.appendChild(option);
+      });
+    
+    console.log('Vehicle dropdown populated successfully');
+  }
+  
+  // Initialize zone dropdown
+  const zoneSelect = $('zoneFilter');
+  if (zoneSelect) {
+    console.log('Populating zone dropdown with', ZONES.length, 'zones');
+    zoneSelect.innerHTML = '<option value="all">All Zones</option>';
+    
+    ZONES.forEach(zone => {
+      const option = document.createElement('option');
+      option.value = zone.id;
+      option.textContent = zone.name;
+      zoneSelect.appendChild(option);
+    });
+    
+    console.log('Zone dropdown populated successfully');
+  }
+}
+
+// ===== VEHICLE/ZONE FILTERING =====
+function getSelectedVehicle() {
+  const selected = $('vehicleFilter').value;
+  if (selected === 'all') return null;
+  return VEHICLES.find(v => v.fleetNumber == selected);
+}
+
+function getSelectedZone() {
+  const selected = $('zoneFilter').value;
+  if (selected === 'all') return null;
+  return ZONES.find(z => z.id === selected);
+}
+
+function filterDevicesByVehicle(devices, selectedVehicle) {
+  if (!selectedVehicle) return devices;
+  
+  console.log(`Filtering devices for Fleet ${selectedVehicle.fleetNumber} - ${selectedVehicle.regPlate}`);
+  
+  // Try multiple matching strategies
+  const filtered = devices.filter(device => {
+    const deviceName = (device.name || '').toLowerCase();
+    const fleetStr = selectedVehicle.fleetNumber.toString();
+    const regPlate = selectedVehicle.regPlate.toLowerCase();
+    
+    return deviceName.includes(fleetStr) || 
+           deviceName.includes(regPlate) ||
+           deviceName.includes(selectedVehicle.description.split(' ')[0].toLowerCase());
+  });
+  
+  console.log(`Vehicle filter: ${devices.length} -> ${filtered.length} devices`);
+  return filtered;
+}
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + 
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+            Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// ===== REAL IDLING ANALYSIS =====
+async function runRealAnalysis() {
+  try {
+    const selectedVehicle = getSelectedVehicle();
+    const selectedZone = getSelectedZone();
+    const enableZoneFilter = $('enableZoneFilter').checked;
+    
+    updateMessage('banner', 'Starting analysis...');
+    setProgress(10, 'Fetching devices');
+    
+    let devices = [];
+    
+    if (selectedVehicle) {
+      // When a specific vehicle is selected, get ALL devices first to find the match
+      console.log(`Looking for Fleet ${selectedVehicle.fleetNumber} - ${selectedVehicle.regPlate}`);
+      updateMessage('banner', `Searching for Fleet ${selectedVehicle.fleetNumber}...`);
+      
+      const allDevices = await callAPI('Get', { 
+        typeName: 'Device', 
+        resultsLimit: 1000  // Get more devices to ensure we find the match
+      });
+      
+      // Filter to find the specific vehicle
+      const matchedDevices = filterDevicesByVehicle(allDevices, selectedVehicle);
+      
+      if (matchedDevices.length === 0) {
+        updateMessage('banner', `ERROR: Could not find any Geotab device matching Fleet ${selectedVehicle.fleetNumber} (${selectedVehicle.regPlate}). Available devices: ${allDevices.slice(0,5).map(d => d.name).join(', ')}...`);
+        console.log('Available device names:', allDevices.map(d => d.name));
+        return;
+      }
+      
+      devices = matchedDevices;
+      console.log(`Found ${devices.length} device(s) matching Fleet ${selectedVehicle.fleetNumber}`);
+      updateMessage('banner', `Found device: ${devices[0].name}`);
+      
+    } else {
+      // When "All Vehicles" is selected, get the specified limit
+      devices = await callAPI('Get', { 
+        typeName: 'Device', 
+        resultsLimit: parseInt($('limit').value) || 50 
+      });
+      console.log(`Analyzing all vehicles: ${devices.length} devices`);
+    }
+    
+    setProgress(20, `Processing ${devices.length} device(s)`);
+    
+    const fromDate = $('fromDate').value + 'T00:00:00.000Z';
+    const toDate = $('toDate').value + 'T23:59:59.999Z';
+    const results = [];
+    
+    for (let i = 0; i < devices.length; i++) {
+      const device = devices[i];
+      setProgress(20 + (i / devices.length) * 60, `Analyzing ${device.name || device.id}`);
+      
+      try {
+        // Get GPS data for this device
+        const logRecords = await callAPI('Get', {
+          typeName: 'LogRecord',
+          search: {
+            fromDate: fromDate,
+            toDate: toDate,
+            deviceSearch: { id: device.id }
+          },
+          resultsLimit: 5000
+        });
+        
+        if (!logRecords || logRecords.length < 2) {
+          console.log(`No GPS data for device ${device.name}`);
+          continue;
+        }
+        
+        console.log(`Got ${logRecords.length} GPS records for ${device.name}`);
+        
+        // Apply zone filter if enabled
+        if (enableZoneFilter && selectedZone) {
+          const radius = parseFloat($('zoneRadius').value) || 2;
+          const inZone = logRecords.some(record => {
+            const lat = record.latitude || record.y;
+            const lon = record.longitude || record.x;
+            if (lat && lon) {
+              const distance = calculateDistance(lat, lon, selectedZone.lat, selectedZone.lon);
+              return distance <= radius;
+            }
+            return false;
+          });
+          
+          if (!inZone) {
+            console.log(`Device ${device.name} not found in zone ${selectedZone.name}`);
+            continue;
+          }
+        }
+        
+        // Analyze idling for this device
+        const analysis = analyzeIdling(logRecords);
+        
+        // Always add results, even if no idling found (for individual vehicle analysis)
+        results.push({
+          deviceId: device.id,
+          deviceName: device.name || device.id,
+          totalIdlingMinutes: analysis.totalIdlingMinutes,
+          totalIdlingHours: analysis.totalIdlingMinutes / 60,
+          idlingEvents: analysis.idlingEvents,
+          idlingFuelLiters: (analysis.totalIdlingMinutes / 60) * parseFloat($('idlingFuelRate').value || 1.5),
+          co2Emissions: ((analysis.totalIdlingMinutes / 60) * parseFloat($('idlingFuelRate').value || 1.5)) * 2.68,
+          fuelCostEstimate: ((analysis.totalIdlingMinutes / 60) * parseFloat($('idlingFuelRate').value || 1.5)) * 1.50,
+          selectedVehicle: selectedVehicle,
+          gpsRecords: logRecords.length
+        });
+        
+      } catch (error) {
+        console.error(`Error analyzing device ${device.name}:`, error);
+      }
+    }
+    
+    setProgress(90, 'Generating report');
+    
+    if (results.length === 0) {
+      updateMessage('banner', 'No devices could be analyzed (no GPS data found)');
+      return;
+    }
+    
+    renderRealResults(results);
+    setProgress(100, 'Complete');
+    
+    let message = `Analysis complete: ${results.length} vehicle(s)`;
+    if (selectedVehicle) message += ` | Vehicle: Fleet ${selectedVehicle.fleetNumber}`;
+    if (enableZoneFilter && selectedZone) message += ` | Zone: ${selectedZone.name}`;
+    updateMessage('banner', message);
+    
+  } catch (error) {
+    console.error('Analysis failed:', error);
+    updateMessage('banner', 'Analysis failed: ' + error.message);
+  }
+}
+
+function analyzeIdling(logRecords) {
+  const minIdlingMinutes = parseInt($('minIdlingMinutes').value) || 5;
+  const maxSpeedKmh = parseFloat($('maxSpeedKmh').value) || 2;
+  
+  // Sort records by time
+  const records = logRecords.map(r => ({
+    lat: r.latitude || r.y,
+    lon: r.longitude || r.x,
+    time: new Date(r.dateTime || r.time),
+    speed: r.speed || 0
+  })).filter(r => r.lat && r.lon && r.time)
+    .sort((a, b) => a.time - b.time);
+  
+  if (records.length < 2) {
+    return { idlingEvents: [], totalIdlingMinutes: 0 };
+  }
+  
+  const idlingEvents = [];
+  let currentIdlingStart = null;
+  
+  for (let i = 1; i < records.length; i++) {
+    const prev = records[i - 1];
+    const curr = records[i];
+    const timeDiffSeconds = (curr.time - prev.time) / 1000;
+    
+    if (timeDiffSeconds <= 0 || timeDiffSeconds > 3600) continue;
+    
+    // Calculate speed
+    const speedKmh = curr.speed * 3.6; // Convert m/s to km/h if needed
+    const isStationary = speedKmh <= maxSpeedKmh;
+    
+    if (isStationary) {
+      if (!currentIdlingStart) {
+        currentIdlingStart = prev.time;
+      }
+    } else {
+      if (currentIdlingStart) {
+        const durationMinutes = (prev.time - currentIdlingStart) / (1000 * 60);
+        if (durationMinutes >= minIdlingMinutes) {
+          idlingEvents.push({
+            startTime: currentIdlingStart,
+            endTime: prev.time,
+            durationMinutes: durationMinutes,
+            location: { lat: prev.lat, lon: prev.lon }
+          });
+        }
+        currentIdlingStart = null;
+      }
+    }
+  }
+  
+  // Check final idling period
+  if (currentIdlingStart) {
+    const lastRecord = records[records.length - 1];
+    const durationMinutes = (lastRecord.time - currentIdlingStart) / (1000 * 60);
+    if (durationMinutes >= minIdlingMinutes) {
+      idlingEvents.push({
+        startTime: currentIdlingStart,
+        endTime: lastRecord.time,
+        durationMinutes: durationMinutes,
+        location: { lat: lastRecord.lat, lon: lastRecord.lon }
+      });
+    }
+  }
+  
+  const totalIdlingMinutes = idlingEvents.reduce((sum, event) => sum + event.durationMinutes, 0);
+  return { idlingEvents, totalIdlingMinutes };
+}
+
+function renderRealResults(results) {
+  let html = '<table><thead><tr><th>Vehicle</th><th>Events</th><th>Total Hours</th><th>Fuel Wasted (L)</th><th>CO2 (kg)</th><th>Cost ($)</th>';
+  
+  // Add vehicle info column for individual vehicle analysis
+  if (results.length === 1 && results[0].selectedVehicle) {
+    html += '<th>Fleet Info</th>';
+  }
+  
+  html += '</tr></thead><tbody>';
+  
+  results.forEach(r => {
+    html += `<tr>
+      <td>${r.deviceName}</td>
+      <td>${r.idlingEvents.length}</td>
+      <td>${r.totalIdlingHours.toFixed(1)}</td>
+      <td>${r.idlingFuelLiters.toFixed(1)}</td>
+      <td>${r.co2Emissions.toFixed(1)}</td>
+      <td>${r.fuelCostEstimate.toFixed(2)}</td>`;
+    
+    // Add fleet info for individual vehicle
+    if (results.length === 1 && r.selectedVehicle) {
+      html += `<td>Fleet ${r.selectedVehicle.fleetNumber}<br>${r.selectedVehicle.regPlate}<br><small>${r.selectedVehicle.description}</small></td>`;
+    }
+    
+    html += '</tr>';
+  });
+  
+  html += '</tbody></table>';
+  
+  // Add individual vehicle event details
+  if (results.length === 1) {
+    const vehicle = results[0];
+    html += '<h4>Idling Events Detail</h4>';
+    if (vehicle.idlingEvents.length > 0) {
+      html += '<table><thead><tr><th>Start Time</th><th>Duration (min)</th><th>Location</th></tr></thead><tbody>';
+      vehicle.idlingEvents.slice(0, 10).forEach(event => {
+        html += `<tr>
+          <td>${new Date(event.startTime).toLocaleString()}</td>
+          <td>${Math.round(event.durationMinutes)}</td>
+          <td>${event.location.lat.toFixed(5)}, ${event.location.lon.toFixed(5)}</td>
+        </tr>`;
+      });
+      if (vehicle.idlingEvents.length > 10) {
+        html += `<tr><td colspan="3"><em>... and ${vehicle.idlingEvents.length - 10} more events</em></td></tr>`;
+      }
+      html += '</tbody></table>';
+    }
+  }
+  
+  $('tableWrap').innerHTML = html;
+  $('reportCard').style.display = 'block';
+  
+  // Render summary
+  renderSummary(results);
+  
+  lastResults = results;
+  $('downloadBtn').disabled = false;
+}
+
+function renderSummary(results) {
+  const totalHours = results.reduce((sum, r) => sum + r.totalIdlingHours, 0);
+  const totalFuel = results.reduce((sum, r) => sum + r.idlingFuelLiters, 0);
+  const totalCost = results.reduce((sum, r) => sum + r.fuelCostEstimate, 0);
+  const totalCO2 = results.reduce((sum, r) => sum + r.co2Emissions, 0);
+  const totalEvents = results.reduce((sum, r) => sum + r.idlingEvents.length, 0);
+  
+  let html = '<div class="row"><div>';
+  
+  if (results.length === 1) {
+    const vehicle = results[0];
+    html += '<strong>Individual Vehicle Analysis</strong><br>';
+    if (vehicle.selectedVehicle) {
+      html += `<strong>Vehicle:</strong> Fleet ${vehicle.selectedVehicle.fleetNumber} - ${vehicle.selectedVehicle.description} (${vehicle.selectedVehicle.regPlate})<br>`;
+    }
+    html += `<strong>Device:</strong> ${vehicle.deviceName}<br>`;
+  } else {
+    html += '<strong>Fleet Summary</strong><br>';
+    html += `<strong>Vehicles with Idling:</strong> ${results.length}<br>`;
+  }
+  
+  html += `<strong>Total Events:</strong> ${totalEvents}<br>
+    <strong>Total Idling:</strong> ${Math.round(totalHours)} hours<br>
+    <strong>Fuel Wasted:</strong> ${Math.round(totalFuel)} L<br>
+    <strong>CO2 Emissions:</strong> ${Math.round(totalCO2)} kg<br>
+    <strong>Total Cost:</strong> ${Math.round(totalCost)}<br>
+    <strong>Analysis Period:</strong> ${$('fromDate').value} to ${$('toDate').value}
+  </div></div>`;
+  
+  $('summaryContent').innerHTML = html;
+  $('summaryCard').style.display = 'block';
+}
+
+function renderBasicResults(results) {
+  // Legacy function - redirect to real results
+  renderRealResults(results);
+}
+
+// ===== EVENT HANDLERS =====
+function setupEventHandlers() {
+  $('authBtn').onclick = authenticate;
+  
+  $('logout').onclick = () => {
+    userCredentials = null;
+    apiEndpoint = null;
+    $('runBtn').disabled = true;
+    updateMessage('authResult', 'Logged out');
+  };
+  
+  $('runBtn').onclick = runRealAnalysis;
+  
+  $('downloadBtn').onclick = () => {
+    if (!lastResults) {
+      alert('No results to download');
+      return;
+    }
+    
+    const headers = 'Vehicle,Events,Idling Hours,Fuel Wasted (L),CO2 (kg),Cost ($)';
+    const rows = lastResults.map(r => 
+      `"${r.deviceName}",${r.idlingEvents.length},${r.totalIdlingHours.toFixed(1)},${r.idlingFuelLiters.toFixed(1)},${r.co2Emissions.toFixed(1)},${r.fuelCostEstimate.toFixed(2)}`
+    );
+    
+    const csv = headers + '\n' + rows.join('\n');
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `idling_analysis_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+}
+
+// ===== INITIALIZATION =====
+function setDefaultDates() {
+  const today = new Date();
+  const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+  
+  $('toDate').value = today.toISOString().split('T')[0];
+  $('fromDate').value = lastWeek.toISOString().split('T')[0];
+}
+
+// ===== STARTUP =====
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM loaded - initializing application');
+  setDefaultDates();
+  setupEventHandlers();
+  initializeDropdowns();
+  
+  // Auto-authenticate after a short delay
+  setTimeout(() => {
+    console.log('Starting auto-authentication');
+    authenticate();
+  }, 1000);
+});
+
+})();
+</script>
+</body>
+</html>
