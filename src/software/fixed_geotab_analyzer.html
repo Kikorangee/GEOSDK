@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>UCCL Advanced Fleet Idling Analysis</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 16px; }
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; margin-bottom: 8px; }
+  input, select { padding: 8px; font-size: 14px; width: 100%; }
+  button { padding: 8px 12px; margin-right: 6px; }
+  .section { border: 1px solid #ddd; padding: 12px; margin-top: 12px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; font-size: 13px; }
+  th { background: #f0f0f0; }
+  .muted { color: #666; font-size: 12px; }
+  .progress { height: 12px; background: #eee; border-radius: 6px; overflow:hidden; }
+  .progress > div { height:100%; background:#ff4979; color:#fff; font-size:11px; text-align:center; white-space:nowrap; }
+  .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 8px; margin: 8px 0; }
+  .info { background: #d1ecf1; border-left: 4px solid #17a2b8; padding: 8px; margin: 8px 0; }
+  .settings { background: #f8f9fa; border: 1px solid #dee2e6; padding: 12px; margin: 8px 0; border-radius: 4px; }
+  .checkbox-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+  .diagnostic-detail { font-size: 11px; color: #666; }
+  .pto-active { background-color: #fff3cd; }
+  .true-idle { background-color: #f8d7da; }
+
+  /* Hide manual auth fields + Logout; keep Authenticate button */
+  body > .row:nth-of-type(1),
+  body > .row:nth-of-type(2),
+  #logout {
+    display: none !important;
+  }
+</style>
+</head>
+<body>
+<h1>United Construction Ltd - Advanced Fleet Idling Analysis</h1>
+
+<div class="row">
+  <input id="server" placeholder="Server (e.g. my.geotab.com)" value="my.geotab.com" />
+  <input id="database" placeholder="Database (case-sensitive)" />
+</div>
+<div class="row">
+  <input id="username" placeholder="Username" />
+  <input id="password" type="password" placeholder="Password" />
+</div>
+<div>
+  <button id="authBtn">Authenticate</button>
+  <button id="logout">Logout</button>
+</div>
+<div id="authResult"></div>
+
+<div class="section">
+  <h2>Advanced Idling Analysis Settings</h2>
+  <div class="row">
+    <input id="fromDate" type="date" />
+    <input id="toDate" type="date" />
+    <input id="limit" type="number" min="1" value="50" placeholder="Max vehicles" />
+  </div>
+  
+  <div class="settings">
+    <h4>Basic Detection Parameters</h4>
+    <div class="row">
+      <div>
+        <label>Min Idling Duration (minutes):</label>
+        <input id="minIdlingMinutes" type="number" min="1" max="60" value="5" />
+      </div>
+      <div>
+        <label>Max Speed Threshold (km/h):</label>
+        <input id="maxSpeedKmh" type="number" min="0" max="10" value="2" step="0.5" />
+      </div>
+      <div>
+        <label>Idling Fuel Rate (L/hour):</label>
+        <input id="idlingFuelRate" type="number" min="0.5" max="5" value="1.5" step="0.1" />
+      </div>
+    </div>
+  </div>
+
+  <div class="settings">
+    <h4>Engine Diagnostic Parameters</h4>
+    <div class="row">
+      <div>
+        <label>Min RPM for Idling:</label>
+        <input id="minRPM" type="number" min="300" max="1000" value="500" />
+      </div>
+      <div>
+        <label>Max RPM for Idling:</label>
+        <input id="maxRPM" type="number" min="800" max="2000" value="1200" />
+      </div>
+      <div>
+        <label>Max Engine Load (%):</label>
+        <input id="maxEngineLoad" type="number" min="5" max="30" value="15" />
+      </div>
+    </div>
+    <div class="checkbox-row">
+      <input id="requireEngineOn" type="checkbox" checked />
+      <label for="requireEngineOn">Require engine ignition ON for idling detection</label>
+    </div>
+    <div class="checkbox-row">
+      <input id="excludePTO" type="checkbox" checked />
+      <label for="excludePTO">Exclude PTO (Power Take-Off) active periods</label>
+    </div>
+    <div class="checkbox-row">
+      <input id="requireParkingBrake" type="checkbox" />
+      <label for="requireParkingBrake">Require parking brake OFF for true idling (optional)</label>
+    </div>
+    <div class="checkbox-row">
+      <input id="excludeNeutralGear" type="checkbox" />
+      <label for="excludeNeutralGear">Exclude periods in neutral/park gear</label>
+    </div>
+  </div>
+
+  <div class="settings">
+    <h4>Time Filters</h4>
+    <div class="checkbox-row">
+      <input id="excludeWeekends" type="checkbox" />
+      <label for="excludeWeekends">Exclude weekends from analysis</label>
+    </div>
+    <div class="checkbox-row">
+      <input id="businessHoursOnly" type="checkbox" />
+      <label for="businessHoursOnly">Business hours only (6 AM - 6 PM)</label>
+    </div>
+  </div>
+  
+  <div>
+    <button id="runBtn" disabled>Run Advanced Analysis</button>
+    <button id="downloadBtn" disabled>Download Report (CSV)</button>
+  </div>
+  <div style="margin:8px 0;">
+    <div class="progress"><div id="progressFill" style="width:0%">0%</div></div>
+  </div>
+  <div id="banner" class="muted"></div>
+</div>
+
+<div class="section" id="reportCard" style="display:none;">
+  <h3>Advanced Fleet Idling Report</h3>
+  <div class="info">
+    <strong>Legend:</strong> 
+    <span style="background-color: #f8d7da; padding: 2px 4px;">True Idling</span> - 
+    <span style="background-color: #fff3cd; padding: 2px 4px;">PTO/Work Mode</span> - 
+    Normal operation
+  </div>
+  <div id="tableWrap"></div>
+</div>
+
+<div class="section" id="summaryCard" style="display:none;">
+  <h3>Summary</h3>
+  <div id="summaryContent"></div>
+</div>
+
+<div class="section" id="alertsCard" style="display:none;">
+  <h3>High Idling Alerts</h3>
+  <div id="alertsContent"></div>
+</div>
+
+<div class="section" id="diagnosticsCard" style="display:none;">
+  <h3>Diagnostic Data Quality</h3>
+  <div id="diagnosticsContent"></div>
+</div>
+
+<div class="section" id="legendCard" style="display:none;">
+  <h3>Analysis Details</h3>
+  <div id="legendText"></div>
+</div>
+
+<script>
+// Wrap everything in an IIFE to avoid global variable conflicts
+(function() {
+'use strict';
+
+// ===== PERFORMANCE & CACHING =====
+let performanceStart = 0;
+let apiCallCount = 0;
+const apiCache = new Map();
+
+function logPerformance(message) {
+  const elapsed = Date.now() - performanceStart;
+  console.log(`[${elapsed}ms] ${message}`);
+}
+
+function clearPerformanceStats() {
+  performanceStart = Date.now();
+  apiCallCount = 0;
+}
+
+// ===== AUTH CORE ===== 
+// Renamed to avoid conflicts with Geotab's globals
+let geotabCredentials = null; 
+let apiUrl = null;
+const $ = (id) => document.getElementById(id);
+const EMISSION_FACTOR = 2.68; // kg CO2 per liter of fuel
+
+// Diagnostic IDs for Geotab
+const DIAGNOSTICS = {
+  ENGINE_RPM: 'DiagnosticEngineSpeedId',
+  IGNITION: 'DiagnosticIgnitionId',
+  PTO_STATUS: 'DiagnosticPowerTakeoffId',
+  PARKING_BRAKE: 'DiagnosticParkingBrakeId',
+  ENGINE_LOAD: 'DiagnosticEngineLoadId',
+  TRANSMISSION_GEAR: 'DiagnosticTransmissionGearId',
+  FUEL_RATE: 'DiagnosticInstantaneousFuelEconomyId',
+  THROTTLE_POSITION: 'DiagnosticThrottlePositionId'
+};
+
+function msg(id, text) { 
+  const el = $(id); 
+  if (el) el.textContent = text; 
+}
+
+function toApiUrl(hostOrPath) {
+  const s = (hostOrPath || '').trim();
+  if (!s) return '';
+  if (/^https?:\/\//i.test(s)) return s.endsWith('/apiv1') ? s : s.replace(/\/+$/, '') + '/apiv1';
+  return 'https://' + s.replace(/\/+$/, '') + '/apiv1';
+}
+
+async function callGeotabAPI(method, params = {}, useCache = true) {
+  if (!apiUrl) throw new Error('Not authenticated');
+  
+  const cacheKey = `${method}_${JSON.stringify(params)}`;
+  if (useCache && apiCache.has(cacheKey)) {
+    return apiCache.get(cacheKey);
+  }
+  
+  const p = geotabCredentials ? { ...params, credentials: geotabCredentials } : params;
+  apiCallCount++;
+  
+  let retries = 2;
+  while (retries >= 0) {
+    try {
+      const res = await fetch(apiUrl, {
+        method: 'POST', 
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ method, params: p })
+      });
+      
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      
+      const json = await res.json();
+      if (json.error) throw new Error(json.error.message || 'API Error');
+      
+      const result = (json.result !== undefined) ? json.result : json;
+      
+      if (useCache && method === 'Get') {
+        apiCache.set(cacheKey, result);
+        setTimeout(() => apiCache.delete(cacheKey), 300000); // Cache for 5 minutes
+      }
+      
+      return result;
+    } catch (err) {
+      if (retries === 0) throw err;
+      retries--;
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+}
+
+async function batchApiCalls(calls, maxConcurrent = 5) {
+  const results = [];
+  const batches = [];
+  
+  for (let i = 0; i < calls.length; i += maxConcurrent) {
+    batches.push(calls.slice(i, i + maxConcurrent));
+  }
+  
+  for (const batch of batches) {
+    const batchPromises = batch.map(call => 
+      callGeotabAPI(call.method, call.params).catch(err => ({ error: err.message }))
+    );
+    const batchResults = await Promise.all(batchPromises);
+    results.push(...batchResults);
+  }
+  
+  return results;
+}
+
+// ===== HARDCODED AUTH =====
+const HARDCODED = {
+  server: "my.geotab.com",
+  database: "uccnz",
+  username: "francis@directt.co.nz",
+  password: "@fr4nc1sWynn5"
+};
+
+// ===== AUTH SETUP =====
+document.getElementById('authBtn').onclick = async () => {
+  try {
+    clearPerformanceStats();
+    apiUrl = toApiUrl(HARDCODED.server);
+    msg('authResult', 'Authenticating...');
+    logPerformance('Starting authentication');
+
+    const auth = await callGeotabAPI('Authenticate', { 
+      userName: HARDCODED.username, 
+      password: HARDCODED.password, 
+      database: HARDCODED.database
+    }, false);
+    
+    geotabCredentials = auth.credentials; 
+    if (!geotabCredentials) throw new Error('No credentials returned');
+    
+    logPerformance('Authentication completed');
+    msg('authResult', 'Connected. You can now run advanced idling analysis.');
+    $('runBtn').disabled = false;
+    
+    // Test connection and check available diagnostics
+    const devices = await callGeotabAPI('Get', {typeName: 'Device', resultsLimit: 1});
+    msg('authResult', `Connected successfully. Found ${devices.length} device(s) available.`);
+    logPerformance('Connection test completed');
+  } catch (err) { 
+    console.error('Authentication error:', err);
+    msg('authResult', 'Auth failed: ' + (err && err.message ? err.message : err)); 
+    geotabCredentials = null; 
+    $('runBtn').disabled = true;
+  }
+};
+
+document.getElementById('logout').onclick = () => { 
+  geotabCredentials = null; 
+  apiUrl = null; 
+  $('runBtn').disabled = true;
+  msg('authResult', 'Logged out.'); 
+};
+
+// ===== UI HELPERS =====
+function setProgress(done, total, label) { 
+  const p = total ? Math.round(done / total * 100) : 0; 
+  const f = $('progressFill'); 
+  if (f) { 
+    f.style.width = p + '%'; 
+    f.textContent = label || p + '%'; 
+  } 
+}
+
+// Set default dates
+(function setDateDefaults() { 
+  const t = new Date(); 
+  const l = new Date(t.getTime() - 7 * 24 * 3600 * 1000); // Last 7 days
+  $('toDate').value = t.toISOString().split('T')[0]; 
+  $('fromDate').value = l.toISOString().split('T')[0]; 
+})();
+
+// Auto-login on page load with delay to avoid conflicts
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const btn = document.getElementById('authBtn');
+    if (btn) btn.click();
+  }, 1000);
+});
+
+// ===== DIAGNOSTIC DATA FUNCTIONS =====
+async function fetchDiagnosticData(deviceId, fromISO, toISO, diagnosticId) {
+  try {
+    const result = await callGeotabAPI('Get', {
+      typeName: 'StatusData',
+      search: {
+        fromDate: fromISO,
+        toDate: toISO,
+        deviceSearch: { id: deviceId },
+        diagnosticSearch: { id: diagnosticId }
+      },
+      resultsLimit: 10000
+    });
+    return Array.isArray(result) ? result : [];
+  } catch (error) {
+    console.warn(`Failed to fetch diagnostic ${diagnosticId} for device ${deviceId}:`, error.message);
+    return [];
+  }
+}
+
+async function fetchAllDiagnosticsForDevice(deviceId, fromISO, toISO) {
+  const diagnosticCalls = Object.entries(DIAGNOSTICS).map(([name, id]) => ({
+    method: 'Get',
+    params: {
+      typeName: 'StatusData',
+      search: {
+        fromDate: fromISO,
+        toDate: toISO,
+        deviceSearch: { id: deviceId },
+        diagnosticSearch: { id: id }
+      },
+      resultsLimit: 5000
+    },
+    name: name
+  }));
+
+  const results = await batchApiCalls(diagnosticCalls, 3);
+  const diagnosticData = {};
+  
+  Object.keys(DIAGNOSTICS).forEach((name, index) => {
+    const result = results[index];
+    if (!result.error && Array.isArray(result)) {
+      diagnosticData[name] = result.map(d => ({
+        time: new Date(d.dateTime || d.time),
+        value: d.data,
+        diagnostic: name
+      })).sort((a, b) => a.time - b.time);
+    } else {
+      diagnosticData[name] = [];
+    }
+  });
+
+  return diagnosticData;
+}
+
+async function fetchLogRecordsForDevice(deviceId, fromISO, toISO) {
+  const hoursPerChunk = 24;
+  const start = new Date(fromISO);
+  const end = new Date(toISO);
+  const chunks = [];
+  let chunkStart = new Date(start);
+  
+  while (chunkStart < end) { 
+    const chunkEnd = new Date(Math.min(end.getTime(), chunkStart.getTime() + hoursPerChunk * 3600 * 1000));
+    chunks.push({
+      method: 'Get',
+      params: { 
+        typeName: 'LogRecord', 
+        search: { 
+          fromDate: chunkStart.toISOString(), 
+          toDate: chunkEnd.toISOString(), 
+          deviceSearch: { id: deviceId } 
+        }, 
+        resultsLimit: 10000 
+      }
+    });
+    chunkStart = new Date(chunkEnd.getTime() + 1);
+  }
+  
+  const out = [];
+  for (const chunk of chunks) {
+    const res = await callGeotabAPI(chunk.method, chunk.params);
+    if (Array.isArray(res) && res.length) out.push(...res);
+  }
+  
+  return out;
+}
+
+// ===== ENHANCED IDLING ANALYSIS =====
+function isBusinessDay(date) {
+  const day = date.getDay();
+  return day >= 1 && day <= 5; // Monday to Friday
+}
+
+function isBusinessHours(date) {
+  const hour = date.getHours();
+  return hour >= 6 && hour < 18; // 6 AM to 6 PM
+}
+
+function calculateSpeed(lat1, lon1, lat2, lon2, timeDiffSeconds) {
+  if (timeDiffSeconds <= 0) return 0;
+  
+  const R = 6371; // Earth radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  const distance = 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  
+  const speedKmh = (distance / timeDiffSeconds) * 3600;
+  return isFinite(speedKmh) ? speedKmh : 0;
+}
+
+function getDiagnosticValueAtTime(diagnosticArray, targetTime, toleranceMs = 60000) {
+  if (!diagnosticArray || !diagnosticArray.length) return null;
+  
+  // Find closest diagnostic reading within tolerance
+  let closest = null;
+  let minDiff = Infinity;
+  
+  for (const reading of diagnosticArray) {
+    const diff = Math.abs(reading.time - targetTime);
+    if (diff <= toleranceMs && diff < minDiff) {
+      minDiff = diff;
+      closest = reading;
+    }
+  }
+  
+  return closest ? closest.value : null;
+}
+
+function analyzeAdvancedIdling(logRecords, diagnosticData, settings) {
+  if (!logRecords || !logRecords.length) return { 
+    idlingEvents: [], 
+    totalIdlingMinutes: 0, 
+    totalIdlingFuel: 0,
+    trueIdlingMinutes: 0,
+    ptoActiveMinutes: 0,
+    diagnosticQuality: {}
+  };
+  
+  const {
+    minIdlingMinutes,
+    maxSpeedKmh,
+    minRPM,
+    maxRPM,
+    maxEngineLoad,
+    requireEngineOn,
+    excludePTO,
+    requireParkingBrake,
+    excludeNeutralGear,
+    excludeWeekends,
+    businessHoursOnly
+  } = settings;
+  
+  // Sort GPS records by time
+  const records = logRecords.map(r => ({
+    lat: r.latitude ?? r.y,
+    lon: r.longitude ?? r.x,
+    time: new Date(r.dateTime || r.time || r.date),
+    speed: r.speed || 0
+  })).filter(r => r.lat != null && r.lon != null && r.time != null)
+    .sort((a, b) => a.time - b.time);
+  
+  if (records.length < 2) return { 
+    idlingEvents: [], 
+    totalIdlingMinutes: 0, 
+    totalIdlingFuel: 0,
+    trueIdlingMinutes: 0,
+    ptoActiveMinutes: 0,
+    diagnosticQuality: {}
+  };
+  
+  // Calculate diagnostic data quality
+  const diagnosticQuality = {};
+  Object.keys(DIAGNOSTICS).forEach(key => {
+    const data = diagnosticData[key] || [];
+    diagnosticQuality[key] = {
+      available: data.length > 0,
+      count: data.length,
+      coverage: data.length > 0 ? ((data.length / records.length) * 100).toFixed(1) + '%' : '0%'
+    };
+  });
+  
+  const idlingEvents = [];
+  let currentIdlingStart = null;
+  let idlingStartRecord = null;
+  let totalTrueIdling = 0;
+  let totalPTOActive = 0;
+  
+  for (let i = 1; i < records.length; i++) {
+    const prev = records[i - 1];
+    const curr = records[i];
+    const timeDiffSeconds = (curr.time - prev.time) / 1000;
+    
+    if (timeDiffSeconds <= 0 || timeDiffSeconds > 3600) continue; // Skip invalid time gaps
+    
+    // Filter by day/time if requested
+    if (excludeWeekends && !isBusinessDay(curr.time)) continue;
+    if (businessHoursOnly && !isBusinessHours(curr.time)) continue;
+    
+    const calculatedSpeed = calculateSpeed(prev.lat, prev.lon, curr.lat, curr.lon, timeDiffSeconds);
+    const actualSpeed = Math.max(curr.speed * 3.6, calculatedSpeed); // Convert m/s to km/h if needed
+    
+    // Get diagnostic values at this time
+    const rpm = getDiagnosticValueAtTime(diagnosticData.ENGINE_RPM, curr.time);
+    const ignition = getDiagnosticValueAtTime(diagnosticData.IGNITION, curr.time);
+    const pto = getDiagnosticValueAtTime(diagnosticData.PTO_STATUS, curr.time);
+    const parkingBrake = getDiagnosticValueAtTime(diagnosticData.PARKING_BRAKE, curr.time);
+    const engineLoad = getDiagnosticValueAtTime(diagnosticData.ENGINE_LOAD, curr.time);
+    const gear = getDiagnosticValueAtTime(diagnosticData.TRANSMISSION_GEAR, curr.time);
+    
+    // Check if this qualifies as potential idling based on speed
+    const isStationary = actualSpeed <= maxSpeedKmh;
+    
+    // Enhanced diagnostic checks
+    let isEngineIdling = true;
+    let idlingReason = 'Basic (speed/time)';
+    let isPTOActive = false;
+    
+    if (requireEngineOn && ignition !== null && ignition !== 1) {
+      isEngineIdling = false;
+      idlingReason = 'Engine OFF';
+    }
+    
+    if (isEngineIdling && rpm !== null) {
+      if (rpm < minRPM || rpm > maxRPM) {
+        isEngineIdling = false;
+        idlingReason = `RPM out of range (${rpm})`;
+      } else {
+        idlingReason = `RPM idling (${rpm})`;
+      }
+    }
+    
+    if (isEngineIdling && engineLoad !== null && engineLoad > maxEngineLoad) {
+      isEngineIdling = false;
+      idlingReason = `High engine load (${engineLoad}%)`;
+    }
+    
+    if (excludePTO && pto !== null && pto === 1) {
+      isPTOActive = true;
+      if (isEngineIdling) {
+        idlingReason = 'PTO Active';
+      }
+    }
+    
+    if (requireParkingBrake && parkingBrake !== null && parkingBrake !== 1) {
+      isEngineIdling = false;
+      idlingReason = 'Parking brake OFF';
+    }
+    
+    if (excludeNeutralGear && gear !== null && (gear === 0 || gear === 999)) {
+      isEngineIdling = false;
+      idlingReason = 'Neutral/Park gear';
+    }
+    
+    const finalIdlingCondition = isStationary && isEngineIdling;
+    
+    if (finalIdlingCondition) {
+      // Vehicle is idling
+      if (!currentIdlingStart) {
+        currentIdlingStart = prev.time;
+        idlingStartRecord = {
+          ...prev,
+          diagnostics: { rpm, ignition, pto, parkingBrake, engineLoad, gear },
+          reason: idlingReason,
+          isPTOActive
+        };
+      }
+      
+      // Track PTO time separately
+      if (isPTOActive) {
+        totalPTOActive += timeDiffSeconds / 60;
+      } else {
+        totalTrueIdling += timeDiffSeconds / 60;
+      }
+    } else {
+      // Vehicle is not idling - end any current idling period
+      if (currentIdlingStart) {
+        const idlingDurationMinutes = (prev.time - currentIdlingStart) / (1000 * 60);
+        if (idlingDurationMinutes >= minIdlingMinutes) {
+          const event = {
+            startTime: currentIdlingStart,
+            endTime: prev.time,
+            durationMinutes: idlingDurationMinutes,
+            location: { lat: idlingStartRecord.lat, lon: idlingStartRecord.lon },
+            diagnostics: idlingStartRecord.diagnostics,
+            reason: idlingStartRecord.reason,
+            isPTOActive: idlingStartRecord.isPTOActive,
+            category: idlingStartRecord.isPTOActive ? 'PTO/Work' : 'True Idling'
+          };
+          idlingEvents.push(event);
+        }
+        currentIdlingStart = null;
+        idlingStartRecord = null;
+      }
+    }
+  }
+  
+  // Check if there's an ongoing idling period at the end
+  if (currentIdlingStart) {
+    const lastRecord = records[records.length - 1];
+    const idlingDurationMinutes = (lastRecord.time - currentIdlingStart) / (1000 * 60);
+    if (idlingDurationMinutes >= minIdlingMinutes) {
+      const event = {
+        startTime: currentIdlingStart,
+        endTime: lastRecord.time,
+        durationMinutes: idlingDurationMinutes,
+        location: { lat: idlingStartRecord.lat, lon: idlingStartRecord.lon },
+        diagnostics: idlingStartRecord.diagnostics,
+        reason: idlingStartRecord.reason,
+        isPTOActive: idlingStartRecord.isPTOActive,
+        category: idlingStartRecord.isPTOActive ? 'PTO/Work' : 'True Idling'
+      };
+      idlingEvents.push(event);
+    }
+  }
+  
+  const totalIdlingMinutes = idlingEvents.reduce((sum, event) => sum + event.durationMinutes, 0);
+  const totalIdlingFuel = (totalIdlingMinutes / 60) * settings.idlingFuelRate;
+  
+  return { 
+    idlingEvents, 
+    totalIdlingMinutes, 
+    totalIdlingFuel,
+    trueIdlingMinutes: totalTrueIdling,
+    ptoActiveMinutes: totalPTOActive,
+    diagnosticQuality
+  };
+}
+
+async function processDeviceForAdvancedIdling(device, fromISO, toISO, settings) {
+  const deviceId = device.id;
+  
+  try {
+    // Fetch both GPS and diagnostic data
+    const [logRecords, diagnosticData] = await Promise.all([
+      fetchLogRecordsForDevice(deviceId, fromISO, toISO),
+      fetchAllDiagnosticsForDevice(deviceId, fromISO, toISO)
+    ]);
+    
+    const analysis = analyzeAdvancedIdling(logRecords, diagnosticData, settings);
+    
+    if (analysis.totalIdlingMinutes <= 0) return null;
+    
+    const trueIdlingEvents = analysis.idlingEvents.filter(e => !e.isPTOActive);
+    const ptoEvents = analysis.idlingEvents.filter(e => e.isPTOActive);
+    
+    const co2Emissions = analysis.totalIdlingFuel * EMISSION_FACTOR;
+    const avgIdlingDuration = analysis.idlingEvents.length > 0 ? 
+      (analysis.totalIdlingMinutes / analysis.idlingEvents.length) : 0;
+    
+    return {
+      deviceId,
+      deviceName: device.name || deviceId,
+      totalIdlingEvents: analysis.idlingEvents.length,
+      trueIdlingEvents: trueIdlingEvents.length,
+      ptoEvents: ptoEvents.length,
+      totalIdlingMinutes: Math.round(analysis.totalIdlingMinutes * 10) / 10,
+      trueIdlingMinutes: Math.round(analysis.trueIdlingMinutes * 10) / 10,
+      ptoActiveMinutes: Math.round(analysis.ptoActiveMinutes * 10) / 10,
+      totalIdlingHours: Math.round(analysis.totalIdlingMinutes / 60 * 10) / 10,
+      trueIdlingHours: Math.round(analysis.trueIdlingMinutes / 60 * 10) / 10,
+      avgIdlingMinutes: Math.round(avgIdlingDuration * 10) / 10,
+      idlingFuelLiters: Math.round(analysis.totalIdlingFuel * 10) / 10,
+      co2Emissions: Math.round(co2Emissions * 100) / 100,
+      fuelCostEstimate: Math.round(analysis.totalIdlingFuel * 1.50 * 100) / 100,
+      diagnosticQuality: analysis.diagnosticQuality,
+      details: analysis.idlingEvents
+    };
+  } catch (error) {
+    console.error(`Error processing device ${deviceId}:`, error);
+    return null;
+  }
+}
+
+async function processDevicesForAdvancedIdling(devices, fromISO, toISO, settings) {
+  const results = [];
+  const batchSize = 5; // Reduced batch size due to diagnostic data complexity
+  
+  for (let i = 0; i < devices.length; i += batchSize) {
+    const batch = devices.slice(i, i + batchSize);
+    const batchPromises = batch.map(device => processDeviceForAdvancedIdling(device, fromISO, toISO, settings));
+    const batchResults = await Promise.all(batchPromises);
+    const validResults = batchResults.filter(r => r !== null);
+    results.push(...validResults);
+    
+    setProgress(20 + (i / devices.length) * 70, 100, `Processed ${i + batch.length}/${devices.length} devices`);
+    logPerformance(`Completed batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(devices.length / batchSize)}`);
+  }
+  
+  return results;
+}
+
+// ===== ENHANCED RENDERING =====
+let __lastResults = null;
+
+function renderAdvancedIdlingTable(results) {
+  let s = '<table><thead><tr><th>Vehicle</th><th>Total Events</th><th>True Idling</th><th>PTO/Work</th><th>True Hours</th><th>Total Hours</th><th>Fuel Wasted (L)</th><th>CO₂ (kg)</th><th>Cost ($)</th><th>Diagnostics</th></tr></thead><tbody>';
+  
+  results.forEach(r => {
+    const diagnosticStatus = Object.values(r.diagnosticQuality).filter(d => d.available).length;
+    const totalDiagnostics = Object.keys(r.diagnosticQuality).length;
+    const diagnosticPercent = Math.round((diagnosticStatus / totalDiagnostics) * 100);
+    
+    const rowClass = r.trueIdlingHours > r.totalIdlingHours * 0.7 ? 'true-idle' : 
+                    r.ptoActiveMinutes > r.trueIdlingMinutes ? 'pto-active' : '';
+    
+    s += `<tr class="${rowClass}">
+      <td>${r.deviceName}</td>
+      <td>${r.totalIdlingEvents}</td>
+      <td>${r.trueIdlingEvents}</td>
+      <td>${r.ptoEvents}</td>
+      <td>${r.trueIdlingHours}</td>
+      <td>${r.totalIdlingHours}</td>
+      <td>${r.idlingFuelLiters}</td>
+      <td>${r.co2Emissions}</td>
+      <td>$${r.fuelCostEstimate}</td>
+      <td class="diagnostic-detail">${diagnosticStatus}/${totalDiagnostics} (${diagnosticPercent}%)</td>
+    </tr>`; 
+  });
+  s += '</tbody></table>'; 
+  
+  document.getElementById('tableWrap').innerHTML = s; 
+  document.getElementById('reportCard').style.display = 'block';
+  
+  __lastResults = results; 
+  document.getElementById('downloadBtn').disabled = !results.length;
+}
+
+function renderAdvancedSummary(results) {
+  const totalIdlingHours = results.reduce((s, r) => s + r.totalIdlingHours, 0);
+  const totalTrueIdlingHours = results.reduce((s, r) => s + r.trueIdlingHours, 0);
+  const totalPTOHours = results.reduce((s, r) => s + (r.ptoActiveMinutes / 60), 0);
+  const totalFuelWasted = results.reduce((s, r) => s + r.idlingFuelLiters, 0);
+  const totalCO2 = results.reduce((s, r) => s + r.co2Emissions, 0);
+  const totalCost = results.reduce((s, r) => s + r.fuelCostEstimate, 0);
+  const totalEvents = results.reduce((s, r) => s + r.totalIdlingEvents, 0);
+  
+  const topTrueIdlers = results.filter(r => r.trueIdlingHours > 0)
+    .sort((a, b) => b.trueIdlingHours - a.trueIdlingHours).slice(0, 5);
+  
+  let html = '<div class="row">';
+  html += `<div>
+    <strong>Fleet Summary</strong><br>
+    <strong>Vehicles with Idling:</strong> ${results.length}<br>
+    <strong>Total Events:</strong> ${totalEvents}<br>
+    <strong>Total Idling:</strong> ${Math.round(totalIdlingHours)} hours<br>
+    <strong>True Idling:</strong> ${Math.round(totalTrueIdlingHours)} hours<br>
+    <strong>PTO/Work Time:</strong> ${Math.round(totalPTOHours)} hours<br>
+    <strong>Fuel Wasted:</strong> ${Math.round(totalFuelWasted)} L<br>
+    <strong>CO₂ Emissions:</strong> ${Math.round(totalCO2)} kg<br>
+    <strong>Total Cost:</strong> $${Math.round(totalCost)}<br>
+    <strong>True Idling %:</strong> ${totalIdlingHours > 0 ? Math.round((totalTrueIdlingHours / totalIdlingHours) * 100) : 0}%
+  </div>`;
+  
+  html += `<div>
+    <strong>Top True Idling Vehicles</strong>
+    <table><thead><tr><th>Vehicle</th><th>True Hours</th><th>Cost</th></tr></thead><tbody>`;
+  topTrueIdlers.forEach(v => { 
+    html += `<tr><td>${v.deviceName}</td><td>${v.trueIdlingHours}</td><td>$${v.fuelCostEstimate}</td></tr>`; 
+  });
+  html += '</tbody></table></div></div>';
+  
+  document.getElementById('summaryContent').innerHTML = html; 
+  document.getElementById('summaryCard').style.display = 'block';
+}
+
+function renderDiagnosticQuality(results) {
+  if (results.length === 0) return;
+  
+  // Aggregate diagnostic availability across all vehicles
+  const diagnosticSummary = {};
+  Object.keys(DIAGNOSTICS).forEach(key => {
+    diagnosticSummary[key] = {
+      available: 0,
+      total: results.length
+    };
+  });
+  
+  results.forEach(r => {
+    Object.keys(r.diagnosticQuality).forEach(key => {
+      if (r.diagnosticQuality[key].available) {
+        diagnosticSummary[key].available++;
+      }
+    });
+  });
+  
+  let html = '<p>Diagnostic data availability across the fleet:</p>';
+  html += '<table><thead><tr><th>Diagnostic</th><th>Available Vehicles</th><th>Coverage</th></tr></thead><tbody>';
+  
+  Object.entries(diagnosticSummary).forEach(([key, data]) => {
+    const percent = Math.round((data.available / data.total) * 100);
+    const status = percent >= 80 ? 'Good' : percent >= 50 ? 'Fair' : 'Poor';
+    html += `<tr>
+      <td>${key.replace(/_/g, ' ')}</td>
+      <td>${data.available}/${data.total}</td>
+      <td>${percent}% (${status})</td>
+    </tr>`;
+  });
+  
+  html += '</tbody></table>';
+  document.getElementById('diagnosticsContent').innerHTML = html;
+  document.getElementById('diagnosticsCard').style.display = 'block';
+}
+
+function renderHighIdlingAlerts(results) {
+  // Enhanced alerts with diagnostic context
+  const alerts = results.filter(r => 
+    r.trueIdlingHours > 2 || 
+    r.avgIdlingMinutes > 30 || 
+    (r.totalIdlingHours > 1 && r.trueIdlingHours / r.totalIdlingHours > 0.8)
+  );
+  
+  if (alerts.length === 0) {
+    document.getElementById('alertsContent').innerHTML = '<p>No high idling alerts for this period.</p>';
+  } else {
+    let html = '<div class="warning">The following vehicles have concerning idling patterns:</div>';
+    html += '<table><thead><tr><th>Vehicle</th><th>Issue</th><th>Impact</th><th>Diagnostic Coverage</th></tr></thead><tbody>';
+    
+    alerts.forEach(r => {
+      let issue = '';
+      if (r.trueIdlingHours > 2) issue += `High true idling (${r.trueIdlingHours}h). `;
+      if (r.avgIdlingMinutes > 30) issue += `Long events (${r.avgIdlingMinutes} min). `;
+      if (r.trueIdlingHours / r.totalIdlingHours > 0.8) issue += `Mostly unproductive idling. `;
+      
+      const diagnosticCount = Object.values(r.diagnosticQuality).filter(d => d.available).length;
+      const totalDiagnostics = Object.keys(r.diagnosticQuality).length;
+      const coverage = Math.round((diagnosticCount / totalDiagnostics) * 100);
+      
+      html += `<tr>
+        <td>${r.deviceName}</td>
+        <td>${issue}</td>
+        <td>$${r.fuelCostEstimate} cost, ${r.co2Emissions} kg CO₂</td>
+        <td>${coverage}% (${diagnosticCount}/${totalDiagnostics})</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    document.getElementById('alertsContent').innerHTML = html;
+  }
+  
+  document.getElementById('alertsCard').style.display = 'block';
+}
+
+function renderLegend(settings) {
+  const text = `
+    <ul>
+      <li><strong>Advanced Detection:</strong> Speed ≤ ${settings.maxSpeedKmh} km/h, RPM ${settings.minRPM}-${settings.maxRPM}, Engine load ≤ ${settings.maxEngineLoad}%, Duration ≥ ${settings.minIdlingMinutes} min</li>
+      <li><strong>True Idling:</strong> Unproductive engine running while stationary</li>
+      <li><strong>PTO/Work Mode:</strong> Engine running for legitimate work purposes (hydraulics, etc.)</li>
+      <li><strong>Fuel Rate:</strong> ${settings.idlingFuelRate} L/hour during idling</li>
+      <li><strong>CO₂ Factor:</strong> ${EMISSION_FACTOR} kg per liter of fuel</li>
+      <li><strong>Diagnostic Filters:</strong> ${settings.requireEngineOn ? 'Engine ON required' : 'Any ignition state'}, ${settings.excludePTO ? 'PTO excluded' : 'PTO included'}</li>
+      <li><strong>Time Filters:</strong> ${settings.excludeWeekends ? 'Weekdays only' : 'All days'}, ${settings.businessHoursOnly ? '6 AM - 6 PM only' : 'All hours'}</li>
+    </ul>
+  `;
+  document.getElementById('legendText').innerHTML = text; 
+  document.getElementById('legendCard').style.display = 'block';
+}
+
+function resultsToCSV(rows, settings) {
+  const headers = [
+    "Vehicle", "Total Events", "True Idling Events", "PTO Events", "True Idling Hours", 
+    "Total Idling Hours", "Fuel Wasted (L)", "CO2 Emissions (kg)", "Estimated Cost ($)",
+    "RPM Available", "PTO Available", "Engine Load Available", "Diagnostic Coverage %"
+  ];
+  const lines = [headers.join(",")];
+  
+  rows.forEach(r => { 
+    const diagnosticCount = Object.values(r.diagnosticQuality).filter(d => d.available).length;
+    const totalDiagnostics = Object.keys(r.diagnosticQuality).length;
+    const coverage = Math.round((diagnosticCount / totalDiagnostics) * 100);
+    
+    const arr = [
+      r.deviceName, r.totalIdlingEvents, r.trueIdlingEvents, r.ptoEvents,
+      r.trueIdlingHours, r.totalIdlingHours, r.idlingFuelLiters, r.co2Emissions, 
+      r.fuelCostEstimate,
+      r.diagnosticQuality.ENGINE_RPM?.available ? 'Yes' : 'No',
+      r.diagnosticQuality.PTO_STATUS?.available ? 'Yes' : 'No',
+      r.diagnosticQuality.ENGINE_LOAD?.available ? 'Yes' : 'No',
+      coverage
+    ]; 
+    lines.push(arr.map(v => {
+      const s = (v == null) ? '' : String(v); 
+      return /[",\n]/.test(s) ? ('"' + s.replace(/"/g, '""') + '"') : s;
+    }).join(",")); 
+  });
+  
+  return lines.join("\n");
+}
+
+function downloadCSV(filename, text) { 
+  const blob = new Blob([text], { type: "text/csv;charset=utf-8;" }); 
+  const url = URL.createObjectURL(blob); 
+  const a = document.createElement("a"); 
+  a.href = url; 
+  a.download = filename; 
+  document.body.appendChild(a); 
+  a.click(); 
+  document.body.removeChild(a); 
+  URL.revokeObjectURL(url); 
+}
+
+document.getElementById('downloadBtn').onclick = function() { 
+  if (!__lastResults || !__lastResults.length) { 
+    alert("No report to download yet. Run analysis first."); 
+    return; 
+  } 
+  const settings = getAnalysisSettings();
+  const csv = resultsToCSV(__lastResults, settings); 
+  const now = new Date().toISOString().split("T")[0]; 
+  downloadCSV("advanced_fleet_idling_report_" + now + ".csv", csv); 
+};
+
+// ===== MAIN ANALYSIS FUNCTION =====
+function getAnalysisSettings() {
+  return {
+    minIdlingMinutes: parseInt($('minIdlingMinutes').value) || 5,
+    maxSpeedKmh: parseFloat($('maxSpeedKmh').value) || 2,
+    idlingFuelRate: parseFloat($('idlingFuelRate').value) || 1.5,
+    minRPM: parseInt($('minRPM').value) || 500,
+    maxRPM: parseInt($('maxRPM').value) || 1200,
+    maxEngineLoad: parseInt($('maxEngineLoad').value) || 15,
+    requireEngineOn: $('requireEngineOn').checked,
+    excludePTO: $('excludePTO').checked,
+    requireParkingBrake: $('requireParkingBrake').checked,
+    excludeNeutralGear: $('excludeNeutralGear').checked,
+    excludeWeekends: $('excludeWeekends').checked,
+    businessHoursOnly: $('businessHoursOnly').checked
+  };
+}
+
+document.getElementById('runBtn').onclick = async function() {
+  try {
+    clearPerformanceStats();
+    
+    const settings = getAnalysisSettings();
+    msg('banner', 'Running advanced fleet idling analysis with diagnostics...');
+    setProgress(0, 100, 'Starting analysis');
+    logPerformance('Advanced idling analysis started');
+    
+    const fromISO = new Date(($('fromDate').value || '') + 'T00:00:00.000Z').toISOString();
+    const toISO = new Date(($('toDate').value || '') + 'T23:59:59.999Z').toISOString();
+    const limit = parseInt($('limit').value) || 50;
+    
+    logPerformance('Fetching devices');
+    const devices = await callGeotabAPI('Get', { typeName: 'Device', resultsLimit: limit });
+    setProgress(10, 100, 'Got ' + devices.length + ' devices');
+    logPerformance(`Retrieved ${devices.length} devices`);
+    
+    const results = await processDevicesForAdvancedIdling(devices, fromISO, toISO, settings);
+    results.sort((a, b) => b.trueIdlingHours - a.trueIdlingHours);
+    
+    setProgress(95, 100, 'Rendering...');
+    logPerformance('Rendering results');
+    
+    renderAdvancedIdlingTable(results);
+    renderAdvancedSummary(results);
+    renderHighIdlingAlerts(results);
+    renderDiagnosticQuality(results);
+    renderLegend(settings);
+    
+    const totalHours = results.reduce((sum, r) => sum + r.totalIdlingHours, 0);
+    const trueHours = results.reduce((sum, r) => sum + r.trueIdlingHours, 0);
+    const totalCost = results.reduce((sum, r) => sum + r.fuelCostEstimate, 0);
+    
+    const finalMessage = (results.length === 0) 
+      ? 'No significant idling detected in the selected period.'
+      : `Analysis complete: ${results.length} vehicles. Total: ${Math.round(totalHours)}h (${Math.round(trueHours)}h true), $${Math.round(totalCost)}`;
+    
+    msg('banner', finalMessage + ` | API calls: ${apiCallCount}`);
+    setProgress(100, 100, 'Done');
+    logPerformance(`Advanced analysis completed. Found ${results.length} vehicles with idling activity`);
+    
+  } catch (e) {
+    msg('banner', 'Advanced idling analysis failed: ' + (e.message || e));
+    logPerformance('Analysis failed: ' + (e.message || e));
+    console.error(e);
+  }
+};
+
+})(); // End IIFE
+</script>
+</body>
+</html>
