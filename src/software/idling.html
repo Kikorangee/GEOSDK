@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Geotab Idling Analysis Dashboard</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      margin: 0;
+      padding: 15px;
+      background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.98);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      backdrop-filter: blur(8px);
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
+      color: #fff;
+      padding: 24px;
+      margin: -20px -20px 24px;
+      border-radius: 12px 12px 0 0;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin: 20px 0;
+    }
+    
+    .stat-card {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    }
+    
+    .stat-number {
+      font-size: 2em;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    
+    .stat-label {
+      font-size: 0.9em;
+      opacity: 0.9;
+    }
+    
+    input, select, textarea {
+      margin: 8px 0;
+      padding: 12px 16px;
+      width: 100%;
+      box-sizing: border-box;
+      border: 2px solid #e1e8ed;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.2s ease;
+      background: #fff;
+    }
+    
+    input:focus, select:focus, textarea:focus {
+      border-color: #ff6b6b;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1);
+    }
+    
+    button {
+      cursor: pointer;
+      margin: 6px 3px;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .btn-primary { background: linear-gradient(135deg, #ff6b6b, #ff8e53); color: #fff; }
+    .btn-success { background: linear-gradient(135deg, #56ab2f, #76c893); color: #fff; }
+    .btn-info    { background: linear-gradient(135deg, #4dabf7, #74c0fc); color: #fff; }
+    .btn-danger  { background: linear-gradient(135deg, #dc3545, #c82333); color: #fff; }
+    
+    .error { color: #721c24; background: #f8d7da; padding: 12px; border-radius: 8px; margin: 12px 0; border-left: 4px solid #dc3545; }
+    .success { color: #155724; background: #d4edda; padding: 12px; border-radius: 8px; margin: 12px 0; border-left: 4px solid #28a745; }
+    .warning { color: #856404; background: #fff3cd; padding: 12px; border-radius: 8px; margin: 12px 0; border-left: 4px solid #ffc107; }
+    
+    .section { 
+      padding: 24px; 
+      margin: 16px 0; 
+      border-radius: 12px; 
+      background: #fff; 
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06); 
+      position: relative; 
+    }
+    
+    .section:before { 
+      content: ''; 
+      position: absolute; 
+      top: 0; 
+      left: 0; 
+      right: 0; 
+      height: 3px; 
+      background: linear-gradient(90deg, #ff6b6b, #ff8e53); 
+    }
+    
+    h3 { 
+      margin-top: 0; 
+      color: #2c3e50; 
+      font-size: 18px; 
+      font-weight: 700; 
+      display: flex; 
+      align-items: center; 
+      gap: 8px; 
+    }
+    
+    .filters-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin: 16px 0;
+    }
+    
+    .idling-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    }
+    
+    .idling-table th {
+      background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+      color: white;
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+    }
+    
+    .idling-table td {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .idling-table tr:hover {
+      background-color: #f8f9fa;
+    }
+    
+    .duration-high { background-color: #ffebee; color: #c62828; }
+    .duration-medium { background-color: #fff3e0; color: #ef6c00; }
+    .duration-low { background-color: #e8f5e8; color: #2e7d32; }
+    
+    .status-indicator { 
+      display: inline-block; 
+      width: 10px; 
+      height: 10px; 
+      border-radius: 50%; 
+      margin-right: 8px; 
+    }
+    
+    .status-connected { background: #28a745; box-shadow: 0 0 8px rgba(40,167,69,0.4); }
+    .status-disconnected { background: #dc3545; box-shadow: 0 0 8px rgba(220,53,69,0.4); }
+    
+    .button-group { 
+      display: flex; 
+      gap: 8px; 
+      flex-wrap: wrap; 
+      margin: 16px 0; 
+    }
+    
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+    
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #ff6b6b;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .chart-container {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      margin: 16px 0;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    }
+    
+    .demo-mode {
+      background: #e8f4fd;
+      border-left: 4px solid #2196F3;
+      padding: 12px;
+      border-radius: 8px;
+      margin: 12px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🚗 Idling Analysis Dashboard</h1>
+      <p>Complete idling monitoring • Vehicle-specific analysis • Duration tracking</p>
+    </div>
+
+    <!-- Quick Auth Section -->
+    <div class="section" id="authSection">
+      <h3>🔐 Authentication</h3>
+      <div class="warning"><strong>Note:</strong> Browser security restrictions prevent direct API connections from file:// URLs.</div>
+      <div class="demo-mode">
+        <strong>Demo Mode Activated:</strong> Using sample data to demonstrate functionality.
+      </div>
+      <input id="server" value="my.geotab.com" readonly style="background: #f8f9fa;" />
+      <div class="filters-grid">
+        <input id="database" value="uccnz" readonly style="background: #f8f9fa;" />
+        <input id="username" value="francis@directt.co.nz" readonly style="background: #f8f9fa;" />
+        <input id="password" type="password" value="@fr4nc1sWynn5" readonly style="background: #f8f9fa;" />
+      </div>
+      <button id="authButton" class="btn-primary">
+        <span class="status-indicator status-disconnected"></span> Authenticate
+      </button>
+      <div id="authResult"></div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboardSection" style="display:none;">
+      
+      <!-- Stats Overview -->
+      <div class="section">
+        <h3>📊 Idling Overview</h3>
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-card">
+            <div class="stat-number" id="totalEvents">0</div>
+            <div class="stat-label">Total Idling Events</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="totalDuration">0h 0m</div>
+            <div class="stat-label">Total Idle Time</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="avgDuration">0m</div>
+            <div class="stat-label">Average Duration</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="worstVehicle">-</div>
+            <div class="stat-label">Most Idling Vehicle</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filters & Controls -->
+      <div class="section">
+        <h3>🔍 Filters & Controls</h3>
+        
+        <!-- Date Range -->
+        <div class="filters-grid">
+          <div>
+            <label style="display:block;margin-bottom:4px;font-weight:600;color:#495057;">From Date & Time</label>
+            <input type="datetime-local" id="fromDateTime" />
+          </div>
+          <div>
+            <label style="display:block;margin-bottom:4px;font-weight:600;color:#495057;">To Date & Time</label>
+            <input type="datetime-local" id="toDateTime" />
+          </div>
+        </div>
+        
+        <!-- Vehicle & Filters -->
+        <div class="filters-grid">
+          <div>
+            <label style="display:block;margin-bottom:4px;font-weight:600;color:#495057;">🚗 Select Vehicle</label>
+            <select id="vehicleSelect">
+              <option value="">All Vehicles</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;margin-bottom:4px;font-weight:600;color:#495057;">⏱️ Minimum Duration (minutes)</label>
+            <input type="number" id="minDuration" value="5" min="1" max="60" />
+          </div>
+        </div>
+        
+        <!-- Quick Date Buttons -->
+        <div style="margin: 16px 0;">
+          <button onclick="setTimeRange('today')" class="btn-info">Today</button>
+          <button onclick="setTimeRange('yesterday')" class="btn-info">Yesterday</button>
+          <button onclick="setTimeRange('last7d')" class="btn-info">Last 7 Days</button>
+          <button onclick="setTimeRange('last30d')" class="btn-info">Last 30 Days</button>
+        </div>
+        
+        <!-- Action Buttons -->
+        <div class="button-group">
+          <button id="loadVehicles" class="btn-success">🔄 Load Vehicles</button>
+          <button id="analyzeIdling" class="btn-primary">🚗 Analyze Idling</button>
+          <button id="exportData" class="btn-info">📊 Export CSV</button>
+          <button id="refreshData" class="btn-success">🔄 Refresh</button>
+        </div>
+        
+        <div id="analysisResult"></div>
+      </div>
+
+      <!-- Loading Indicator -->
+      <div class="loading" id="loadingIndicator">
+        <div class="spinner"></div>
+        <p>Analyzing idling data...</p>
+      </div>
+
+      <!-- Idling Data Table -->
+      <div class="section" id="dataSection" style="display:none;">
+        <h3>🚗 Detailed Idling Events</h3>
+        <div style="overflow-x: auto;">
+          <table class="idling-table" id="idlingTable">
+            <thead>
+              <tr>
+                <th>🚗 Vehicle</th>
+                <th>📅 Date/Time</th>
+                <th>⏱️ Duration</th>
+                <th>📍 Location</th>
+                <th>🚙 Ignition</th>
+                <th>🏃 Speed (km/h)</th>
+                <th>🔧 PTO Status</th>
+              </tr>
+            </thead>
+            <tbody id="idlingTableBody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let credentials = null;
+    let serverUsed = null;
+    let vehiclesData = [];
+    let idlingData = [];
+
+    function showMessage(elementId, message, type = 'info') {
+      const el = document.getElementById(elementId);
+      el.innerHTML = `<div class="${type}">${message}</div>`;
+    }
+
+    function showLoading(show = true) {
+      document.getElementById('loadingIndicator').style.display = show ? 'block' : 'none';
+    }
+
+    // Simulate API calls with demo data
+    async function callGeotabAPI(method, params = {}) {
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Handle authentication
+      if (method === 'Authenticate') {
+        return {
+          credentials: 'demo-credentials-' + Math.random().toString(36).substring(2),
+          path: 'my.geotab.com'
+        };
+      }
+      
+      // Handle getting vehicles
+      if (method === 'Get' && params.typeName === 'Device') {
+        return [
+          { id: 'v1', name: 'Ford Transit', serialNumber: 'SN001', deviceType: 'GO6' },
+          { id: 'v2', name: 'Toyota Hilux', serialNumber: 'SN002', deviceType: 'GO7' },
+          { id: 'v3', name: 'Nissan Navara', serialNumber: 'SN003', deviceType: 'GO8' },
+          { id: 'v4', name: 'Isuzu D-Max', serialNumber: 'SN004', deviceType: 'GO9' }
+        ];
+      }
+      
+      // Handle getting exception events (idling)
+      if (method === 'Get' && params.typeName === 'ExceptionEvent') {
+        const events = [];
+        const vehicleIds = params.search.deviceSearch ? 
+          [params.search.deviceSearch.id] : 
+          ['v1', 'v2', 'v3', 'v4'];
+        
+        const fromDate = new Date(params.search.fromDate);
+        const toDate = new Date(params.search.toDate);
+        const timeDiff = toDate - fromDate;
+        
+        // Generate sample idling events
+        vehicleIds.forEach(vehicleId => {
+          const eventCount = Math.floor(Math.random() * 5) + 2;
+          for (let i = 0; i < eventCount; i++) {
+            const eventTime = new Date(fromDate.getTime() + Math.random() * timeDiff);
+            const durationMs = (Math.floor(Math.random() * 45) + 5) * 60 * 1000; // 5-50 minutes
+            
+            events.push({
+              device: { id: vehicleId },
+              activeFrom: eventTime.toISOString(),
+              activeTo: new Date(eventTime.getTime() + durationMs).toISOString(),
+              duration: durationMs,
+              rule: { name: 'Idling Violation' }
+            });
+          }
+        });
+        
+        return events;
+      }
+      
+      // Handle multicall for diagnostics
+      if (method === 'ExecuteMultiCall') {
+        return params.calls.map(call => {
+          // Return empty arrays for diagnostic calls in demo mode
+          return [];
+        });
+      }
+      
+      return [];
+    }
+
+    // Authentication
+    document.getElementById('authButton').onclick = async function () {
+      const server = document.getElementById('server').value.trim();
+      const database = document.getElementById('database').value.trim();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      
+      try {
+        showMessage('authResult', '🔐 Authenticating...', 'warning');
+        serverUsed = server;
+        
+        // Try to authenticate
+        const authResult = await callGeotabAPI('Authenticate', { 
+          userName: username, 
+          password, 
+          database 
+        });
+        
+        credentials = authResult.credentials;
+        
+        showMessage('authResult', '✅ Authentication successful! Loading dashboard...', 'success');
+        document.getElementById('dashboardSection').style.display = 'block';
+        const btn = document.getElementById('authButton');
+        btn.innerHTML = '<span class="status-indicator status-connected"></span> Connected';
+        btn.className = 'btn-success';
+        
+        initializeDatePickers();
+        loadVehicles();
+        
+      } catch (err) {
+        console.error(err);
+        showMessage('authResult', `⚠ Authentication failed: ${err.message}`, 'error');
+      }
+    };
+
+    // Date helpers
+    function formatForInput(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth()+1).padStart(2,'0');
+      const d = String(date.getDate()).padStart(2,'0');
+      const h = String(date.getHours()).padStart(2,'0');
+      const min = String(date.getMinutes()).padStart(2,'0');
+      return `${y}-${m}-${d}T${h}:${min}`;
+    }
+
+    function initializeDatePickers() {
+      const now = new Date();
+      const yesterday = new Date(now.getTime() - 24*60*60*1000);
+      document.getElementById('fromDateTime').value = formatForInput(yesterday);
+      document.getElementById('toDateTime').value = formatForInput(now);
+    }
+
+    function setTimeRange(range) {
+      const now = new Date();
+      let fromDate, toDate = now;
+      
+      switch(range) {
+        case 'today':
+          fromDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+          break;
+        case 'yesterday':
+          const y = new Date(now.getTime() - 24*60*60*1000);
+          fromDate = new Date(y.getFullYear(), y.getMonth(), y.getDate(), 0, 0, 0);
+          toDate = new Date(y.getFullYear(), y.getMonth(), y.getDate(), 23, 59, 59);
+          break;
+        case 'last7d':
+          fromDate = new Date(now.getTime() - 7*24*60*60*1000);
+          break;
+        case 'last30d':
+          fromDate = new Date(now.getTime() - 30*24*60*60*1000);
+          break;
+        default:
+          fromDate = new Date(now.getTime() - 24*60*60*1000);
+      }
+      
+      document.getElementById('fromDateTime').value = formatForInput(fromDate);
+      document.getElementById('toDateTime').value = formatForInput(toDate);
+    }
+
+    function getDateRange() {
+      const f = document.getElementById('fromDateTime').value;
+      const t = document.getElementById('toDateTime').value;
+      if (!f || !t) {
+        const now = new Date();
+        const yesterday = new Date(now.getTime() - 24*60*60*1000);
+        return { fromDate: yesterday.toISOString(), toDate: now.toISOString() };
+      }
+      return { fromDate: new Date(f).toISOString(), toDate: new Date(t).toISOString() };
+    }
+
+    // Load vehicles
+    async function loadVehicles() {
+      try {
+        showMessage('analysisResult', '🔄 Loading vehicles...', 'warning');
+        const vehicles = await callGeotabAPI('Get', { typeName: 'Device', resultsLimit: 500 });
+        vehiclesData = vehicles.filter(v => v.deviceType === 'GO4' || v.deviceType === 'GO6' || v.deviceType === 'GO7' || v.deviceType === 'GO8' || v.deviceType === 'GO9' || !v.deviceType);
+        
+        const select = document.getElementById('vehicleSelect');
+        select.innerHTML = '<option value="">All Vehicles</option>';
+        
+        vehiclesData.forEach(vehicle => {
+          const option = document.createElement('option');
+          option.value = vehicle.id;
+          option.textContent = `${vehicle.name} (${vehicle.serialNumber || 'No Serial'})`;
+          select.appendChild(option);
+        });
+        
+        showMessage('analysisResult', `✅ Loaded ${vehiclesData.length} vehicles`, 'success');
+      } catch (err) {
+        console.error(err);
+        showMessage('analysisResult', `⚠ Failed to load vehicles: ${err.message}`, 'error');
+      }
+    }
+
+    document.getElementById('loadVehicles').onclick = loadVehicles;
+
+    // Analyze idling
+    async function analyzeIdling() {
+      try {
+        showLoading(true);
+        showMessage('analysisResult', '🔄 Analyzing idling events...', 'warning');
+        
+        const dateRange = getDateRange();
+        const selectedVehicle = document.getElementById('vehicleSelect').value;
+        const minDuration = parseInt(document.getElementById('minDuration').value) || 5;
+        
+        // Get idling exceptions/violations
+        let searchParams = {
+          fromDate: dateRange.fromDate,
+          toDate: dateRange.toDate,
+          ruleSearch: { name: '%idle%' }
+        };
+        
+        if (selectedVehicle) {
+          searchParams.deviceSearch = { id: selectedVehicle };
+        }
+        
+        const idlingViolations = await callGeotabAPI('Get', { 
+          typeName: 'ExceptionEvent', 
+          search: searchParams,
+          resultsLimit: 1000 
+        });
+        
+        // Process and display data
+        processIdlingData(idlingViolations, minDuration);
+        updateStats(idlingViolations);
+        
+        showLoading(false);
+        showMessage('analysisResult', `✅ Found ${idlingViolations.length} idling events`, 'success');
+        document.getElementById('dataSection').style.display = 'block';
+        
+      } catch (err) {
+        showLoading(false);
+        console.error(err);
+        showMessage('analysisResult', `⚠ Analysis failed: ${err.message}`, 'error');
+      }
+    }
+    
+    document.getElementById('analyzeIdling').onclick = analyzeIdling;
+
+    function processIdlingData(violations, minDuration) {
+      const tableBody = document.getElementById('idlingTableBody');
+      tableBody.innerHTML = '';
+      
+      // Filter by minimum duration
+      idlingData = violations.filter(v => {
+        const durationMs = v.duration || 0;
+        const durationMin = Math.round(durationMs / 1000 / 60);
+        return durationMin >= minDuration;
+      });
+      
+      // If no data, show message
+      if (idlingData.length === 0) {
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="7" style="text-align: center; padding: 20px; color: #666;">
+              No idling events found matching your criteria. Try adjusting your filters.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+      
+      // Process each event
+      idlingData.forEach(event => {
+        const vehicle = vehiclesData.find(v => v.id === event.device?.id);
+        const vehicleName = vehicle ? vehicle.name : 'Unknown Vehicle';
+        
+        const row = document.createElement('tr');
+        
+        // Calculate duration
+        const durationMs = event.duration || 0;
+        const durationMin = Math.round(durationMs / 1000 / 60);
+        const durationClass = durationMin > 30 ? 'duration-high' : durationMin > 10 ? 'duration-medium' : 'duration-low';
+        
+        // Generate sample data for demo
+        const eventTime = new Date(event.activeFrom || event.dateTime);
+        const ignitionStatus = Math.random() > 0.2 ? '🟢 On' : '🔴 Off';
+        const speed = Math.round(Math.random() * 5); // 0-5 km/h during idling
+        const ptoStatus = Math.random() > 0.7 ? '🟢 On' : '🔴 Off';
+        
+        // Generate Auckland-area coordinates
+        const lat = -36.84 + (Math.random() * 0.1 - 0.05);
+        const lng = 174.76 + (Math.random() * 0.1 - 0.05);
+        
+        row.innerHTML = `
+          <td><strong>${vehicleName}</strong><br><small>${vehicle?.serialNumber || 'N/A'}</small></td>
+          <td>${eventTime.toLocaleString()}</td>
+          <td class="${durationClass}"><strong>${durationMin}m</strong></td>
+          <td>${lat.toFixed(4)}, ${lng.toFixed(4)}</td>
+          <td>${ignitionStatus}</td>
+          <td>${speed}</td>
+          <td>${ptoStatus}</td>
+        `;
+        
+        tableBody.appendChild(row);
+      });
+    }
+    
+    function updateStats(violations) {
+      document.getElementById('totalEvents').textContent = violations.length;
+      
+      const totalDurationMs = violations.reduce((sum, v) => sum + (v.duration || 0), 0);
+      const totalHours = Math.floor(totalDurationMs / 1000 / 60 / 60);
+      const totalMins = Math.floor((totalDurationMs / 1000 / 60) % 60);
+      document.getElementById('totalDuration').textContent = `${totalHours}h ${totalMins}m`;
+      
+      const avgDurationMs = violations.length ? totalDurationMs / violations.length : 0;
+      const avgMins = Math.round(avgDurationMs / 1000 / 60);
+      document.getElementById('avgDuration').textContent = `${avgMins}m`;
+      
+      // Find worst vehicle
+      const vehicleViolations = {};
+      violations.forEach(v => {
+        const vehicleId = v.device?.id;
+        if (vehicleId) {
+          if (!vehicleViolations[vehicleId]) {
+            vehicleViolations[vehicleId] = { count: 0, duration: 0 };
+          }
+          vehicleViolations[vehicleId].count++;
+          vehicleViolations[vehicleId].duration += (v.duration || 0);
+        }
+      });
+      
+      let worstVehicleId = null;
+      let maxDuration = 0;
+      for (const [vehicleId, data] of Object.entries(vehicleViolations)) {
+        if (data.duration > maxDuration) {
+          maxDuration = data.duration;
+          worstVehicleId = vehicleId;
+        }
+      }
+      
+      if (worstVehicleId) {
+        const vehicle = vehiclesData.find(v => v.id === worstVehicleId);
+        document.getElementById('worstVehicle').textContent = vehicle ? vehicle.name : 'Unknown';
+      } else {
+        document.getElementById('worstVehicle').textContent = '-';
+      }
+    }
+
+    // Export CSV
+    document.getElementById('exportData').onclick = function() {
+      if (!idlingData.length) {
+        showMessage('analysisResult', '⚠️ No data to export. Run analysis first.', 'warning');
+        return;
+      }
+      
+      let csv = 'Vehicle_Name,Vehicle_Serial,Date_Time,Duration_Minutes,Location,Ignition_Status,Speed,PTO_Status\n';
+      
+      idlingData.forEach(event => {
+        const vehicle = vehiclesData.find(v => v.id === event.device?.id);
+        const vehicleName = vehicle ? vehicle.name : 'Unknown';
+        const vehicleSerial = vehicle ? vehicle.serialNumber : 'N/A';
+        const eventTime = new Date(event.activeFrom || event.dateTime);
+        const durationMin = Math.round((event.duration || 0) / 1000 / 60);
+        
+        // Generate sample data for export
+        const lat = -36.84 + (Math.random() * 0.1 - 0.05);
+        const lng = 174.76 + (Math.random() * 0.1 - 0.05);
+        const ignitionStatus = Math.random() > 0.2 ? 'On' : 'Off';
+        const speed = Math.round(Math.random() * 5);
+        const ptoStatus = Math.random() > 0.7 ? 'On' : 'Off';
+        
+        csv += `"${vehicleName}","${vehicleSerial}","${eventTime.toISOString()}",${durationMin},"${lat.toFixed(4)}, ${lng.toFixed(4)}","${ignitionStatus}",${speed},"${ptoStatus}"\n`;
+      });
+      
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      const timestamp = new Date().toISOString().slice(0,19).replace(/[:.]/g,'-');
+      const filename = `Idling_Analysis_${timestamp}.csv`;
+      
+      a.href = url;
+      a.download = filename;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      
+      showMessage('analysisResult', `✅ Data exported: ${filename}`, 'success');
+    };
+
+    // Refresh data
+    document.getElementById('refreshData').onclick = function() {
+      analyzeIdling();
+    };
+
+    // Initialize on load
+    window.addEventListener('load', () => {
+      console.log('Idling Analysis Dashboard loaded');
+    });
+  </script>
+</body>
+</html>
