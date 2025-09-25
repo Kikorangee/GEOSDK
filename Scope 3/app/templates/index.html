@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Scope 3 Trips</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <h1>Scope 3 Trips</h1>
+    <a target="_blank" rel="noopener" id="pbi" class="btn">Open Power BI Dashboard</a>
+  </header>
+  <section id="controls">
+    <button id="refresh">Refresh Files</button>
+    <select id="files"></select>
+    <button id="load">Load</button>
+  </section>
+  <section id="table"></section>
+  <script>
+    const PBI = {{ '"' + POWERBI_URL + '"' if POWERBI_URL else '""' }};
+    const pbiA = document.getElementById('pbi');
+    if (PBI) pbiA.href = PBI; else pbiA.style.display = 'none';
+
+    async function listFiles() {
+      const res = await fetch('/api/files');
+      const files = await res.json();
+      const sel = document.getElementById('files');
+      sel.innerHTML = '';
+      files.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f;
+        opt.textContent = f;
+        sel.appendChild(opt);
+      });
+    }
+    async function loadFile() {
+      const name = document.getElementById('files').value;
+      if (!name) return;
+      const res = await fetch('/api/file/' + encodeURIComponent(name));
+      const data = await res.json();
+      const tableDiv = document.getElementById('table');
+      tableDiv.innerHTML = '';
+      const table = document.createElement('table');
+      const thead = document.createElement('thead');
+      const trh = document.createElement('tr');
+      data.columns.forEach(c => {
+        const th = document.createElement('th'); th.textContent = c; trh.appendChild(th);
+      });
+      thead.appendChild(trh);
+      table.appendChild(thead);
+      const tbody = document.createElement('tbody');
+      data.rows.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.onclick = () => {
+          if (!PBI) return;
+          const rego = r['registration_plate'];
+          if (!rego) { window.open(PBI, '_blank'); return; }
+          const url = PBI + "&filter=" + encodeURIComponent("Trips/registration_plate eq '" + rego + "'");
+          window.open(url, '_blank');
+        };
+        data.columns.forEach(c => {
+          const td = document.createElement('td'); td.textContent = r[c] ?? ''; tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      tableDiv.appendChild(table);
+    }
+    document.getElementById('refresh').onclick = listFiles;
+    document.getElementById('load').onclick = loadFile;
+    listFiles();
+  </script>
+</body>
+</html>
