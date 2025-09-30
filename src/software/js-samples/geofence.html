@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Northland Geofence Monitoring</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#1e3c72 0%,#2a5298 100%);min-height:100vh;color:#333;padding:20px;font-size:16px}
+    .container{max-width:1400px;margin:0 auto}
+    .header,.card{background:rgba(255,255,255,.95);backdrop-filter:blur(10px);border-radius:15px;padding:30px;margin-bottom:30px;box-shadow:0 10px 30px rgba(0,0,0,.1)}
+    .header{text-align:center}
+    .header h1{color:#2d3748;font-size:2.5em;font-weight:700;margin-bottom:15px}
+    .header p{font-size:1.1em;color:#666}
+    .card-title{color:#2d3748;font-size:1.5em;font-weight:700;margin-bottom:25px;padding-bottom:15px;border-bottom:2px solid #e2e8f0}
+    .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin-bottom:20px}
+    .form-control{width:100%;padding:14px 18px;border:2px solid #e2e8f0;border-radius:8px;font-size:16px;transition:all .2s ease}
+    .form-control:focus{outline:none;border-color:#1e3c72;box-shadow:0 0 0 3px rgba(30,60,114,.1)}
+    .btn{padding:14px 28px;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s ease;margin:5px}
+    .btn:hover{transform:translateY(-1px);box-shadow:0 4px 15px rgba(0,0,0,.2)}
+    .btn-primary{background:linear-gradient(135deg,#1e3c72,#2a5298);color:#fff}
+    .btn-success{background:linear-gradient(135deg,#48bb78,#38a169);color:#fff}
+    .btn-warning{background:linear-gradient(135deg,#ed8936,#dd6b20);color:#fff}
+    .btn-danger{background:linear-gradient(135deg,#f56565,#e53e3e);color:#fff}
+    .btn-info{background:linear-gradient(135deg,#4299e1,#3182ce);color:#fff}
+    .btn[disabled]{opacity:.5;cursor:not-allowed}
+    .alert{padding:18px;border-radius:8px;margin:18px 0;font-weight:500;font-size:16px}
+    .alert-success{background:#c6f6d5;color:#22543d;border-left:4px solid #38a169}
+    .alert-error{background:#fed7d7;color:#742a2a;border-left:4px solid #e53e3e}
+    .alert-warning{background:#fefcbf;color:#744210;border-left:4px solid #d69e2e}
+    .alert-info{background:#ebf8ff;color:#2b6cb0;border-left:4px solid #4299e1}
+    .geofence-table{width:100%;border-collapse:collapse;margin-top:25px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,.1)}
+    .geofence-table th{background:linear-gradient(135deg,#1e3c72,#2a5298);color:#fff;padding:16px;text-align:left;font-weight:600;font-size:16px}
+    .geofence-table td{padding:14px 16px;border-bottom:1px solid #e2e8f0;font-size:15px;vertical-align:top;line-height:1.4}
+    .geofence-table tr:hover{background:#f7fafc}
+    .geofence-table tr:nth-child(even){background:#f8f9fa}
+    .status-inside{background:#c6f6d5;color:#22543d;padding:6px 12px;border-radius:6px;font-weight:600;font-size:14px}
+    .status-outside{background:#fed7d7;color:#742a2a;padding:6px 12px;border-radius:6px;font-weight:600;font-size:14px}
+    .status-unknown{background:#e2e8f0;color:#4a5568;padding:6px 12px;border-radius:6px;font-weight:600;font-size:14px}
+    .muted{color:#718096;font-size:14px}
+    .progress-bar{width:100%;background:#e2e8f0;border-radius:4px;overflow:hidden;margin:12px 0}
+    .progress-fill{height:24px;background:linear-gradient(90deg,#1e3c72,#2a5298);transition:width 0.3s ease;display:flex;align-items:center;justify-content:center;color:white;font-size:14px;font-weight:600}
+    .config-section{background:#f8f9fa;padding:20px;border-radius:8px;margin:20px 0}
+    .config-section h4{margin-bottom:15px;color:#2d3748}
+    .checkbox-group{margin:10px 0}
+    .checkbox-group label{display:flex;align-items:center;gap:8px;cursor:pointer}
+    .checkbox-group input[type="checkbox"]{width:18px;height:18px}
+    .time-settings{margin-top:15px;padding:15px;background:#e2e8f0;border-radius:8px}
+    .violation-item{background:#fff;padding:15px;margin:10px 0;border-radius:8px;border-left:4px solid #e53e3e;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+    .violation-item.warning{border-left-color:#ed8936}
+    .violation-item.info{border-left-color:#4299e1}
+    .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin:20px 0}
+    .stat-card{background:white;padding:20px;border-radius:10px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.1);border-top:4px solid #1e3c72}
+    .stat-number{font-size:2em;font-weight:700;color:#1e3c72;margin:5px 0}
+    .stat-label{color:#666;font-size:0.9em}
+    
+    /* Floating Alert Panel */
+    .alert-panel {
+      position: fixed;
+      top: 50%;
+      right: 20px;
+      transform: translateY(-50%);
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      z-index: 1000;
+      min-width: 300px;
+      border: 2px solid #e53e3e;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    
+    .alert-panel h4 {
+      color: #e53e3e;
+      margin-bottom: 15px;
+      text-align: center;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 10px;
+    }
+    
+    .alert-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    
+    .alert-btn {
+      padding: 12px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+    
+    /* Custom Rules Section */
+    .custom-rules-section {
+      background: #fff3cd;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+      border-left: 4px solid #ffc107;
+    }
+    
+    .rule-item {
+      background: white;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 8px;
+      border-left: 4px solid #1e3c72;
+    }
+    
+    .rule-header {
+      display: flex;
+      justify-content: between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .rule-actions {
+      display: flex;
+      gap: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🚨 Northland Geofence Monitoring</h1>
+      <p>Real-time unauthorized usage alerts and boundary monitoring</p>
+    </div>
+
+    <div class="card">
+      <h3 class="card-title">Authentication</h3>
+      <div class="form-row">
+        <input id="server" class="form-control" placeholder="Server" value="my.geotab.com" />
+        <input id="database" class="form-control" placeholder="Database" value="uccnz" />
+      </div>
+      <div class="form-row">
+        <input id="username" class="form-control" placeholder="Username" value="francis@directt.co.nz" />
+        <input id="password" class="form-control" type="password" placeholder="Password" value="@fr4nc1sWynn5" />
+      </div>
+      <button id="authButton" class="btn btn-primary">🔐 Authenticate</button>
+      <div id="authResult"></div>
+    </div>
+
+    <div id="monitoringSection" class="card" style="display:none;">
+      <h3 class="card-title">📍 Northland Boundary Monitoring</h3>
+      
+      <!-- Configuration Section -->
+      <div class="config-section">
+        <h4>⚙️ Monitoring Configuration</h4>
+        
+        <div class="form-row">
+          <div>
+            <label for="geofenceBoundary">Geofence Boundary:</label>
+            <select id="geofenceBoundary" class="form-control">
+              <option value="northland">Northland Region</option>
+              <option value="custom">Custom Boundary</option>
+            </select>
+          </div>
+          <div>
+            <label for="defaultTimeout">Default Timeout (minutes):</label>
+            <input id="defaultTimeout" class="form-control" type="number" value="30" min="1" />
+          </div>
+          <div>
+            <label for="checkInterval">Check Interval (minutes):</label>
+            <input id="checkInterval" class="form-control" type="number" value="5" min="1" />
+          </div>
+        </div>
+        
+        <div class="checkbox-group">
+          <label>
+            <input type="checkbox" id="enableRealTime" checked />
+            Enable Real-time Monitoring
+          </label>
+        </div>
+        
+        <div class="checkbox-group">
+          <label>
+            <input type="checkbox" id="enableEmailAlerts" />
+            Enable Email Alerts
+          </label>
+        </div>
+
+        <div class="checkbox-group">
+          <label>
+            <input type="checkbox" id="enableSMSAlerts" />
+            Enable SMS Alerts
+          </label>
+        </div>
+      </div>
+
+      <!-- Custom Rules Section -->
+      <div class="custom-rules-section">
+        <h4>🎯 Custom Time Rules</h4>
+        <p class="muted">Set different timeout rules for specific drivers, vehicles, or time periods</p>
+        
+        <div class="form-row">
+          <div>
+            <label for="ruleType">Rule Type:</label>
+            <select id="ruleType" class="form-control">
+              <option value="driver">Specific Driver</option>
+              <option value="vehicle">Specific Vehicle</option>
+              <option value="time">Time Period</option>
+              <option value="shift">Shift Pattern</option>
+            </select>
+          </div>
+          <div>
+            <label for="ruleTarget">Target:</label>
+            <select id="ruleTarget" class="form-control">
+              <option value="">Select target...</option>
+            </select>
+          </div>
+          <div>
+            <label for="ruleTimeout">Custom Timeout (minutes):</label>
+            <input id="ruleTimeout" class="form-control" type="number" value="60" min="1" />
+          </div>
+        </div>
+        
+        <!-- Time Period Settings -->
+        <div id="timePeriodSettings" style="display:none;">
+          <div class="form-row">
+            <div>
+              <label for="startTime">Start Time:</label>
+              <input id="startTime" class="form-control" type="time" value="18:00" />
+            </div>
+            <div>
+              <label for="endTime">End Time:</label>
+              <input id="endTime" class="form-control" type="time" value="06:00" />
+            </div>
+            <div>
+              <label for="daysOfWeek">Days of Week:</label>
+              <select id="daysOfWeek" class="form-control" multiple>
+                <option value="0">Sunday</option>
+                <option value="1">Monday</option>
+                <option value="2">Tuesday</option>
+                <option value="3">Wednesday</option>
+                <option value="4">Thursday</option>
+                <option value="5">Friday</option>
+                <option value="6">Saturday</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
+        <button id="addRule" class="btn btn-info">➕ Add Custom Rule</button>
+        
+        <div id="customRulesList"></div>
+      </div>
+      
+      <div id="infoBanner" class="alert alert-info" style="display:none;"></div>
+      
+      <div class="form-row">
+        <div>
+          <label for="fromDate">From Date:</label>
+          <input id="fromDate" class="form-control" type="date" />
+        </div>
+        <div>
+          <label for="toDate">To Date:</label>
+          <input id="toDate" class="form-control" type="date" />
+        </div>
+        <div>
+          <label for="resultsLimit">Assets Limit:</label>
+          <input id="resultsLimit" class="form-control" type="number" value="50" min="1" max="1000" />
+        </div>
+      </div>
+      
+      <!-- Action Buttons -->
+      <div style="display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap;">
+        <button id="startMonitoring" class="btn btn-success">🚀 Start Monitoring</button>
+        <button id="stopMonitoring" class="btn btn-danger" disabled>⏹️ Stop Monitoring</button>
+        <button id="checkViolations" class="btn btn-warning">🔍 Check Current Locations</button>
+        <button id="getLogs" class="btn btn-info">📋 Get Trip Logs</button>
+        <button id="logout" class="btn btn-danger">🚪 Logout</button>
+      </div>
+      
+      <!-- Statistics -->
+      <div id="monitoringStats" style="display:none;">
+        <h4>📊 Monitoring Statistics</h4>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div id="totalMonitored" class="stat-number">0</div>
+            <div class="stat-label">Total Monitored</div>
+          </div>
+          <div class="stat-card">
+            <div id="insideBoundary" class="stat-number">0</div>
+            <div class="stat-label">Inside Boundary</div>
+          </div>
+          <div class="stat-card">
+            <div id="outsideBoundary" class="stat-number">0</div>
+            <div class="stat-label">Outside Boundary</div>
+          </div>
+          <div class="stat-card">
+            <div id="violations" class="stat-number">0</div>
+            <div class="stat-label">Active Violations</div>
+          </div>
+        </div>
+      </div>
+      
+      <div id="monitoringResult"></div>
+    </div>
+  </div>
+
+  <!-- Floating Alert Panel -->
+  <div id="alertPanel" class="alert-panel" style="display:none;">
+    <h4>🚨 Active Violations</h4>
+    <div id="activeAlerts"></div>
+    <div class="alert-buttons">
+      <button id="exportViolations" class="alert-btn" style="background:#1e3c72;color:white;">📊 Export Violations</button>
+      <button id="acknowledgeAll" class="alert-btn" style="background:#48bb78;color:white;">✅ Acknowledge All</button>
+      <button id="silenceAlerts" class="alert-btn" style="background:#ed8936;color:white;">🔕 Silence for 1 Hour</button>
+    </div>
+  </div>
+
+<script>
+let credentials = null;
+let serverUsed = null;
+let monitoringInterval = null;
+let isMonitoring = false;
+let customRules = [];
+let activeViolations = [];
+
+// Northland boundary coordinates (approximate)
+const NORTHLAND_BOUNDARY = {
+  north: -35.0,   // Southern boundary
+  south: -36.5,   // Northern boundary  
+  east: 174.5,    // Western boundary
+  west: 173.0     // Eastern boundary
+};
+
+function setDefaultDates(){
+  const today = new Date();
+  const yesterday = new Date(today.getTime() - 24*60*60*1000);
+  document.getElementById('toDate').value = today.toISOString().split('T')[0];
+  document.getElementById('fromDate').value = yesterday.toISOString().split('T')[0];
+}
+setDefaultDates();
+
+function showMessage(elId, msg, type='info'){
+  const el = document.getElementById(elId);
+  const c = type==='error'?'alert-error':type==='success'?'alert-success':type==='warning'?'alert-warning':'alert-info';
+  el.style.display = '';
+  el.innerHTML = `<div class="alert ${c}">${msg}</div>`;
+}
+
+async function callGeotabAPI(method, params={}){
+  const requestBody = { method, params: credentials ? {...params, credentials} : params };
+  const res = await fetch(`https://${serverUsed}/apiv1`, {
+    method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify(requestBody)
+  });
+  if(!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+  const data = await res.json();
+  if(data.error) throw new Error(data.error.message || data.error.name);
+  return data.result;
+}
+
+function extractId(data){
+  if(!data) return null;
+  if(typeof data==='object' && data.id) return data.id;
+  if(typeof data==='string'){ try{ return JSON.parse(data).id || null }catch(e){ return data } }
+  return null;
+}
+
+// Check if location is within Northland boundary
+function isInNorthland(lat, lon) {
+  if (!lat || !lon) return false;
+  return lat >= NORTHLAND_BOUNDARY.south && 
+         lat <= NORTHLAND_BOUNDARY.north && 
+         lon >= NORTHLAND_BOUNDARY.west && 
+         lon <= NORTHLAND_BOUNDARY.east;
+}
+
+// Get timeout for specific driver/vehicle based on custom rules
+function getTimeoutForAsset(driverId, deviceId, currentTime) {
+  // Check custom rules first
+  for (const rule of customRules) {
+    if (rule.type === 'driver' && rule.target === driverId) {
+      return rule.timeout;
+    }
+    if (rule.type === 'vehicle' && rule.target === deviceId) {
+      return rule.timeout;
+    }
+    if (rule.type === 'time' || rule.type === 'shift') {
+      const currentHour = currentTime.getHours();
+      const currentMinute = currentTime.getMinutes();
+      const currentDay = currentTime.getDay();
+      
+      const startParts = rule.startTime.split(':');
+      const endParts = rule.endTime.split(':');
+      const startHour = parseInt(startParts[0]);
+      const startMinute = parseInt(startParts[1]);
+      const endHour = parseInt(endParts[0]);
+      const endMinute = parseInt(endParts[1]);
+      
+      const currentTotalMinutes = currentHour * 60 + currentMinute;
+      const startTotalMinutes = startHour * 60 + startMinute;
+      const endTotalMinutes = endHour * 60 + endMinute;
+      
+      // Handle overnight time periods
+      if (endTotalMinutes < startTotalMinutes) {
+        // Overnight period (e.g., 18:00 to 06:00)
+        if (currentTotalMinutes >= startTotalMinutes || currentTotalMinutes <= endTotalMinutes) {
+          if (!rule.days || rule.days.includes(currentDay.toString())) {
+            return rule.timeout;
+          }
+        }
+      } else {
+        // Normal daytime period
+        if (currentTotalMinutes >= startTotalMinutes && currentTotalMinutes <= endTotalMinutes) {
+          if (!rule.days || rule.days.includes(currentDay.toString())) {
+            return rule.timeout;
+          }
+        }
+      }
+    }
+  }
+  
+  // Return default timeout if no custom rule matches
+  return parseInt(document.getElementById('defaultTimeout').value) || 30;
+}
+
+// Load drivers and vehicles for rule targets
+async function loadRuleTargets() {
+  try {
+    const [drivers, devices] = await Promise.all([
+      callGeotabAPI('Get', { typeName: 'User', resultsLimit: 1000 }),
+      callGeotabAPI('Get', { typeName: 'Device', resultsLimit: 1000 })
+    ]);
+    
+    const targetSelect = document.getElementById('ruleTarget');
+    targetSelect.innerHTML = '<option value="">Select target...</option>';
+    
+    // Add drivers
+    drivers.forEach(driver => {
+      if (driver.name || (driver.firstName && driver.lastName)) {
+        const option = document.createElement('option');
+        option.value = driver.id;
+        option.textContent = driver.name || `${driver.firstName} ${driver.lastName}`;
+        option.dataset.type = 'driver';
+        targetSelect.appendChild(option);
+      }
+    });
+    
+    // Add vehicles
+    devices.forEach(device => {
+      if (device.name) {
+        const option = document.createElement('option');
+        option.value = device.id;
+        option.textContent = device.name;
+        option.dataset.type = 'vehicle';
+        targetSelect.appendChild(option);
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error loading rule targets:', error);
+  }
+}
+
+// Add custom rule
+document.getElementById('addRule').onclick = function() {
+  const ruleType = document.getElementById('ruleType').value;
+  const target = document.getElementById('ruleTarget').value;
+  const timeout = parseInt(document.getElementById('ruleTimeout').value);
+  const startTime = document.getElementById('startTime').value;
+  const endTime = document.getElementById('endTime').value;
+  const daysSelect = document.getElementById('daysOfWeek');
+  const days = Array.from(daysSelect.selectedOptions).map(opt => opt.value);
+  
+  if (!timeout || timeout < 1) {
+    showMessage('infoBanner', 'Please enter a valid timeout', 'error');
+    return;
+  }
+  
+  if ((ruleType === 'time' || ruleType === 'shift') && (!startTime || !endTime)) {
+    showMessage('infoBanner', 'Please set start and end times', 'error');
+    return;
+  }
+  
+  const rule = {
+    id: Date.now().toString(),
+    type: ruleType,
+    target: target,
+    timeout: timeout,
+    startTime: startTime,
+    endTime: endTime,
+    days: days
+  };
+  
+  customRules.push(rule);
+  renderCustomRules();
+  
+  // Reset form
+  document.getElementById('ruleTimeout').value = '60';
+  document.getElementById('startTime').value = '18:00';
+  document.getElementById('endTime').value = '06:00';
+  daysSelect.selectedIndex = -1;
+  
+  showMessage('infoBanner', `✅ Custom rule added (${timeout} minute timeout)`, 'success');
+};
+
+// Render custom rules
+function renderCustomRules() {
+  const container = document.getElementById('customRulesList');
+  
+  if (customRules.length === 0) {
+    container.innerHTML = '<div class="alert alert-info">No custom rules defined. Using default timeout for all assets.</div>';
+    return;
+  }
+  
+  let html = '<h5>Active Custom Rules:</h5>';
+  
+  customRules.forEach(rule => {
+    let ruleDescription = '';
+    
+    switch(rule.type) {
+      case 'driver':
+        ruleDescription = `Driver: ${rule.target}`;
+        break;
+      case 'vehicle':
+        ruleDescription = `Vehicle: ${rule.target}`;
+        break;
+      case 'time':
+        ruleDescription = `Time: ${rule.startTime} - ${rule.endTime}`;
+        if (rule.days.length > 0) {
+          ruleDescription += ` (${rule.days.length} days)`;
+        }
+        break;
+      case 'shift':
+        ruleDescription = `Shift: ${rule.startTime} - ${rule.endTime}`;
+        break;
+    }
+    
+    html += `
+      <div class="rule-item">
+        <div class="rule-header">
+          <strong>${ruleDescription}</strong>
+          <div class="rule-actions">
+            <span class="muted">${rule.timeout} min timeout</span>
+            <button onclick="removeRule('${rule.id}')" class="btn btn-danger" style="padding:5px 10px;font-size:12px;">❌ Remove</button>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+}
+
+// Remove custom rule
+function removeRule(ruleId) {
+  customRules = customRules.filter(rule => rule.id !== ruleId);
+  renderCustomRules();
+  showMessage('infoBanner', '✅ Rule removed', 'success');
+}
+
+// Show/hide time period settings based on rule type
+document.getElementById('ruleType').onchange = function() {
+  const timeSettings = document.getElementById('timePeriodSettings');
+  if (this.value === 'time' || this.value === 'shift') {
+    timeSettings.style.display = 'block';
+  } else {
+    timeSettings.style.display = 'none';
+  }
+};
+
+// Get current device locations - FIXED VERSION
+async function getCurrentLocations() {
+  try {
+    const resultsLimit = parseInt(document.getElementById('resultsLimit').value) || 50;
+    
+    // Get devices first
+    const devices = await callGeotabAPI('Get', {
+      typeName: 'Device',
+      resultsLimit: resultsLimit
+    });
+    
+    console.log('Found devices:', devices.length);
+    
+    const locations = [];
+    
+    // Get the most recent log records for each device
+    for (const device of devices) {
+      try {
+        // Get most recent log record which contains location data
+        const logRecords = await callGeotabAPI('Get', {
+          typeName: 'LogRecord',
+          search: {
+            deviceSearch: { id: device.id },
+            fromDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // Last 24 hours
+            toDate: new Date().toISOString()
+          },
+          resultsLimit: 1
+        });
+        
+        if (logRecords && logRecords.length > 0) {
+          const log = logRecords[0];
+          if (log.latitude && log.longitude) {
+            locations.push({
+              deviceId: device.id,
+              deviceName: device.name,
+              latitude: log.latitude,
+              longitude: log.longitude,
+              timestamp: new Date(log.dateTime)
+            });
+          }
+        }
+      } catch (error) {
+        console.warn(`Could not get location for device ${device.name}:`, error);
+      }
+    }
+    
+    console.log('Found locations:', locations.length);
+    return locations;
+    
+  } catch (error) {
+    console.error('Error getting locations:', error);
+    throw error;
+  }
+}
+
+// Get trip data for historical analysis
+async function getTripData() {
+  try {
+    const fromDate = document.getElementById('fromDate').value;
+    const toDate = document.getElementById('toDate').value;
+    const resultsLimit = parseInt(document.getElementById('resultsLimit').value) || 50;
+    
+    if (!fromDate || !toDate) {
+      showMessage('infoBanner', 'Please select date range', 'error');
+      return [];
+    }
+    
+    const trips = await callGeotabAPI('Get', {
+      typeName: 'Trip',
+      search: {
+        fromDate: fromDate + 'T00:00:00.000Z',
+        toDate: toDate + 'T23:59:59.999Z'
+      },
+      resultsLimit: resultsLimit * 10 // Get more trips to analyze
+    });
+    
+    console.log('Found trips:', trips.length);
+    return trips || [];
+    
+  } catch (error) {
+    console.error('Error getting trip data:', error);
+    throw error;
+  }
+}
+
+// Check for boundary violations - IMPROVED VERSION
+async function checkBoundaryViolations() {
+  try {
+    showMessage('infoBanner', 'Getting current asset locations...', 'info');
+    
+    // Get current locations
+    const locations = await getCurrentLocations();
+    
+    if (locations.length === 0) {
+      showMessage('infoBanner', 'No location data available. Trying trip data...', 'warning');
+      await checkHistoricalViolations();
+      return;
+    }
+    
+    // Get devices and drivers for additional info
+    const [devices, drivers] = await Promise.all([
+      callGeotabAPI('Get', { typeName: 'Device', resultsLimit: 1000 }),
+      callGeotabAPI('Get', { typeName: 'User', resultsLimit: 1000 })
+    ]);
+    
+    const deviceMap = {};
+    devices.forEach(device => {
+      deviceMap[device.id] = device;
+    });
+    
+    const currentTime = new Date();
+    const violations = [];
+    const monitoredAssets = [];
+    
+    let insideCount = 0;
+    let outsideCount = 0;
+    
+    // Process each location
+    locations.forEach(location => {
+      const isInside = isInNorthland(location.latitude, location.longitude);
+      
+      const assetInfo = {
+        deviceId: location.deviceId,
+        deviceName: location.deviceName,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        isInside: isInside,
+        lastUpdate: location.timestamp
+      };
+      
+      monitoredAssets.push(assetInfo);
+      
+      if (isInside) {
+        insideCount++;
+      } else {
+        outsideCount++;
+        
+        // This is outside Northland - create violation
+        const timeout = getTimeoutForAsset(null, location.deviceId, currentTime);
+        
+        violations.push({
+          deviceId: location.deviceId,
+          deviceName: location.deviceName,
+          driverName: 'Unknown Driver', // Would need trip data to get current driver
+          latitude: location.latitude,
+          longitude: location.longitude,
+          timeout: timeout,
+          timestamp: location.timestamp,
+          isNightShift: currentTime.getHours() >= 18 || currentTime.getHours() < 6
+        });
+      }
+    });
+    
+    // Update statistics
+    updateMonitoringStats(monitoredAssets.length, insideCount, outsideCount, violations.length);
+    
+    // Render results
+    renderMonitoringResults(monitoredAssets, violations);
+    
+    // Show alert panel if there are violations
+    if (violations.length > 0) {
+      showAlertPanel(violations);
+      showMessage('infoBanner', `🚨 Found ${violations.length} assets outside Northland boundary!`, 'error');
+    } else {
+      hideAlertPanel();
+      showMessage('infoBanner', `✅ All ${monitoredAssets.length} assets are within Northland boundary`, 'success');
+    }
+    
+  } catch (error) {
+    console.error('Error checking violations:', error);
+    showMessage('infoBanner', `Error: ${error.message}`, 'error');
+  }
+}
+
+// Check historical violations from trip data
+async function checkHistoricalViolations() {
+  try {
+    showMessage('infoBanner', 'Analyzing trip data for boundary violations...', 'info');
+    
+    const trips = await getTripData();
+    
+    if (trips.length === 0) {
+      showMessage('infoBanner', 'No trip data available', 'warning');
+      return;
+    }
+    
+    // Get devices and drivers
+    const [devices, drivers] = await Promise.all([
+      callGeotabAPI('Get', { typeName: 'Device', resultsLimit: 1000 }),
+      callGeotabAPI('Get', { typeName: 'User', resultsLimit: 1000 })
+    ]);
+    
+    const deviceMap = {};
+    devices.forEach(device => {
+      deviceMap[device.id] = device;
+    });
+    
+    const driverMap = {};
+    drivers.forEach(driver => {
+      driverMap[driver.id] = driver;
+    });
+    
+    const violations = [];
+    const monitoredAssets = new Set();
+    
+    // Analyze each trip for boundary violations
+    trips.forEach(trip => {
+      const deviceId = extractId(trip.device);
+      const driverId = extractId(trip.driver);
+      const device = deviceMap[deviceId];
+      
+      if (!device) return;
+      
+      monitoredAssets.add(deviceId);
+      
+      // Check if trip went outside Northland
+      if (trip.stopLocation) {
+        const stopLat = trip.stopLocation.latitude;
+        const stopLon = trip.stopLocation.longitude;
+        
+        if (stopLat && stopLon && !isInNorthland(stopLat, stopLon)) {
+          const driver = driverMap[driverId];
+          const driverName = driver ? (driver.name || `${driver.firstName} ${driver.lastName}`) : 'Unknown Driver';
+          const tripTime = new Date(trip.stopTime);
+          
+          violations.push({
+            deviceId: deviceId,
+            deviceName: device.name,
+            driverName: driverName,
+            latitude: stopLat,
+            longitude: stopLon,
+            timeout: 30, // Default timeout for historical data
+            timestamp: tripTime,
+            isNightShift: tripTime.getHours() >= 18 || tripTime.getHours() < 6,
+            isHistorical: true
+          });
+        }
+      }
+    });
+    
+    // Update statistics
+    updateMonitoringStats(monitoredAssets.size, monitoredAssets.size - violations.length, violations.length, violations.length);
+    
+    // Render results
+    renderHistoricalResults(Array.from(monitoredAssets).map(id => deviceMap[id]), violations);
+    
+    if (violations.length > 0) {
+      showMessage('infoBanner', `📋 Found ${violations.length} historical boundary violations in trip data`, 'warning');
+    } else {
+      showMessage('infoBanner', `✅ No boundary violations found in trip data`, 'success');
+    }
+    
+  } catch (error) {
+    console.error('Error checking historical violations:', error);
+    showMessage('infoBanner', `Error analyzing trip data: ${error.message}`, 'error');
+  }
+}
+
+// Update monitoring statistics
+function updateMonitoringStats(total, inside, outside, violations) {
+  document.getElementById('totalMonitored').textContent = total;
+  document.getElementById('insideBoundary').textContent = inside;
+  document.getElementById('outsideBoundary').textContent = outside;
+  document.getElementById('violations').textContent = violations;
+  document.getElementById('monitoringStats').style.display = 'block';
+}
+
+// Render monitoring results
+function renderMonitoringResults(assets, violations) {
+  const resultDiv = document.getElementById('monitoringResult');
+  
+  let html = `<h4>📍 Current Asset Locations (${assets.length} assets)</h4>`;
+  
+  html += `<table class="geofence-table">
+    <thead>
+      <tr>
+        <th>Asset</th>
+        <th>Status</th>
+        <th>Location</th>
+        <th>Last Update</th>
+        <th>Custom Timeout</th>
+      </tr>
+    </thead>
+    <tbody>`;
+  
+  assets.forEach(asset => {
+    const status = asset.isInside ? 
+      '<span class="status-inside">INSIDE</span>' : 
+      '<span class="status-outside">OUTSIDE</span>';
+    
+    const location = asset.latitude && asset.longitude ? 
+      `${asset.latitude.toFixed(4)}, ${asset.longitude.toFixed(4)}` : 
+      '<em class="muted">Unknown</em>';
+    
+    const currentTime = new Date();
+    const timeout = getTimeoutForAsset(null, asset.deviceId, currentTime);
+    
+    html += `
+      <tr>
+        <td><strong>${asset.deviceName}</strong></td>
+        <td>${status}</td>
+        <td>${location}</td>
+        <td>${asset.lastUpdate.toLocaleTimeString()}</td>
+        <td>${timeout} minutes</td>
+      </tr>
+    `;
+  });
+  
+  html += `</tbody></table>`;
+  
+  if (violations.length > 0) {
+    html += `<h4 style="margin-top:30px;color:#e53e3e;">🚨 Boundary Violations</h4>`;
+    html += `<div style="display:grid;gap:10px;">`;
+    
+    violations.forEach(violation => {
+      const nightShiftInfo = violation.isNightShift ? '<span style="color:#ed8936;">🌙 Night Shift</span>' : '';
+      
+      html += `
+        <div class="violation-item ${violation.isNightShift ? 'warning' : ''}">
+          <div><strong>${violation.deviceName}</strong></div>
+          <div>Location: ${violation.latitude.toFixed(4)}, ${violation.longitude.toFixed(4)}</div>
+          <div>Timeout: ${violation.timeout} minutes ${nightShiftInfo}</div>
+          <div class="muted">Detected: ${violation.timestamp.toLocaleTimeString()}</div>
+        </div>
+      `;
+    });
+    
+    html += `</div>`;
+  }
+  
+  resultDiv.innerHTML = html;
+}
+
+// Render historical results
+function renderHistoricalResults(assets, violations) {
+  const resultDiv = document.getElementById('monitoringResult');
+  
+  let html = `<h4>📋 Historical Trip Analysis (${assets.length} assets)</h4>`;
+  
+  html += `<table class="geofence-table">
+    <thead>
+      <tr>
+        <th>Asset</th>
+        <th>Trip Analysis</th>
+      </tr>
+    </thead>
+    <tbody>`;
+  
+  assets.forEach(asset => {
+    const assetViolations = violations.filter(v => v.deviceId === asset.id);
+    const status = assetViolations.length > 0 ? 
+      '<span class="status-outside">HAS VIOLATIONS</span>' : 
+      '<span class="status-inside">CLEAN</span>';
+    
+    html += `
+      <tr>
+        <td><strong>${asset.name}</strong></td>
+        <td>${status} - ${assetViolations.length} boundary violations found</td>
+      </tr>
+    `;
+  });
+  
+  html += `</tbody></table>`;
+  
+  if (violations.length > 0) {
+    html += `<h4 style="margin-top:30px;color:#e53e3e;">🚨 Historical Boundary Violations</h4>`;
+    html += `<div style="display:grid;gap:10px;">`;
+    
+    violations.forEach(violation => {
+      const nightShiftInfo = violation.isNightShift ? '<span style="color:#ed8936;">🌙 Night Shift</span>' : '';
+      
+      html += `
+        <div class="violation-item warning">
+          <div><strong>${violation.deviceName}</strong> - ${violation.driverName}</div>
+          <div>Location: ${violation.latitude.toFixed(4)}, ${violation.longitude.toFixed(4)}</div>
+          <div>Timeout: ${violation.timeout} minutes ${nightShiftInfo}</div>
+          <div class="muted">Trip ended: ${violation.timestamp.toLocaleString()}</div>
+        </div>
+      `;
+    });
+    
+    html += `</div>`;
+  }
+  
+  resultDiv.innerHTML = html;
+}
+
+// Show alert panel
+function showAlertPanel(violations) {
+  const alertPanel = document.getElementById('alertPanel');
+  const activeAlerts = document.getElementById('activeAlerts');
+  
+  let html = '';
+  violations.forEach(violation => {
+    html += `
+      <div class="violation-item">
+        <div><strong>${violation.deviceName}</strong></div>
+        <div>Outside Northland boundary</div>
+        <div class="muted">${violation.timestamp.toLocaleTimeString()}</div>
+      </div>
+    `;
+  });
+  
+  activeAlerts.innerHTML = html;
+  alertPanel.style.display = 'block';
+  activeViolations = violations;
+}
+
+// Hide alert panel
+function hideAlertPanel() {
+  document.getElementById('alertPanel').style.display = 'none';
+  activeViolations = [];
+}
+
+// Start continuous monitoring
+document.getElementById('startMonitoring').onclick = function() {
+  if (isMonitoring) return;
+  
+  const interval = parseInt(document.getElementById('checkInterval').value) || 5;
+  isMonitoring = true;
+  
+  document.getElementById('startMonitoring').disabled = true;
+  document.getElementById('stopMonitoring').disabled = false;
+  
+  // Initial check
+  checkBoundaryViolations();
+  
+  // Set up interval
+  monitoringInterval = setInterval(checkBoundaryViolations, interval * 60 * 1000);
+  
+  showMessage('infoBanner', `🔄 Started continuous monitoring (checking every ${interval} minutes)`, 'success');
+};
+
+// Stop monitoring
+document.getElementById('stopMonitoring').onclick = function() {
+  if (monitoringInterval) {
+    clearInterval(monitoringInterval);
+    monitoringInterval = null;
+  }
+  
+  isMonitoring = false;
+  document.getElementById('startMonitoring').disabled = false;
+  document.getElementById('stopMonitoring').disabled = true;
+  
+  showMessage('infoBanner', '⏹️ Monitoring stopped', 'warning');
+};
+
+// Check current violations
+document.getElementById('checkViolations').onclick = checkBoundaryViolations;
+
+// Get trip logs
+document.getElementById('getLogs').onclick = checkHistoricalViolations;
+
+// Export violations
+document.getElementById('exportViolations').onclick = function() {
+  if (activeViolations.length === 0) {
+    showMessage('infoBanner', 'No violations to export', 'warning');
+    return;
+  }
+  
+  let csv = 'Device,Driver,Latitude,Longitude,Timeout,Timestamp,NightShift\n';
+  
+  activeViolations.forEach(violation => {
+    csv += `"${violation.deviceName}","${violation.driverName}",${violation.latitude},${violation.longitude},${violation.timeout},"${violation.timestamp.toISOString()}","${violation.isNightShift}"\n`;
+  });
+  
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', `northland-violations-${new Date().toISOString().split('T')[0]}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  showMessage('infoBanner', `📊 Exported ${activeViolations.length} violations to CSV`, 'success');
+};
+
+// Acknowledge all alerts
+document.getElementById('acknowledgeAll').onclick = function() {
+  activeViolations = [];
+  hideAlertPanel();
+  showMessage('infoBanner', '✅ All alerts acknowledged', 'success');
+};
+
+// Silence alerts
+document.getElementById('silenceAlerts').onclick = function() {
+  showMessage('infoBanner', '🔕 Alerts silenced for 1 hour', 'warning');
+};
+
+// Authentication
+document.getElementById('authButton').onclick = async function(){
+  const server = document.getElementById('server').value.trim();
+  const database = document.getElementById('database').value.trim();
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  
+  if(!server || !database || !username || !password){ 
+    showMessage('authResult','Please fill in all fields','error'); 
+    return; 
+  }
+  
+  try{
+    showMessage('authResult','Authenticating...','warning');
+    serverUsed = server;
+    const res = await callGeotabAPI('Authenticate', { userName:username, password, database });
+    
+    if(res.path && res.path !== 'ThisServer'){
+      serverUsed = res.path;
+      const res2 = await callGeotabAPI('Authenticate', { userName:username, password, database });
+      credentials = res2.credentials;
+    } else {
+      credentials = res.credentials;
+    }
+    
+    showMessage('authResult','Authentication successful!','success');
+    document.getElementById('monitoringSection').style.display = '';
+    
+    // Load rule targets after authentication
+    await loadRuleTargets();
+    
+  }catch(e){
+    showMessage('authResult',`Authentication failed: ${e.message}`,'error');
+  }
+};
+
+// Logout
+document.getElementById('logout').onclick = function(){
+  if (monitoringInterval) {
+    clearInterval(monitoringInterval);
+  }
+  
+  credentials = null;
+  serverUsed = null;
+  isMonitoring = false;
+  customRules = [];
+  activeViolations = [];
+  
+  document.getElementById('monitoringSection').style.display = 'none';
+  document.getElementById('authResult').innerHTML = '';
+  document.getElementById('monitoringResult').innerHTML = '';
+  document.getElementById('monitoringStats').style.display = 'none';
+  hideAlertPanel();
+  
+  showMessage('authResult','Logged out successfully','success');
+};
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+  // Set up event listeners for rule type changes
+  document.getElementById('ruleType').dispatchEvent(new Event('change'));
+  
+  // Check if we're in a Geotab environment
+  if (window.geotab || window.api) {
+    document.getElementById('server').value = window.location.hostname;
+  }
+});
+</script>
+</body>
+</html>
