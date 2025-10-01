@@ -1,0 +1,91 @@
+#heatmap-map {
+    height: calc(100% + 40px);
+}
+
+.cssGrid,
+.cssGrid>div {
+    height: 100%;
+}
+
+.checkmateFormEditField {
+    width: calc(100% - 1em);
+    max-width: 100%;
+}
+
+select.checkmateFormEditField {
+    width: 100%;
+}
+
+label {
+    padding-top: 1em;
+    display: block;
+    padding-bottom: 0.5em;
+}
+
+#controls {
+    height: 100%;
+    padding: 20px;
+    background-color: #e5f2fa;
+    border-right: 1px solid #ddd;
+}
+
+#loading {
+    transform: scale(0.5);
+}
+
+#loading>div {
+    background: #2c7ab1;
+    ;
+}
+
+#error {
+    margin-top: 10px;
+    color: #cc0000;
+}
+
+#message {
+    margin-top: 10px;
+    color: #0a49f5;
+}
+
+ol {
+    padding-left: 0;
+}
+
+#disclaimer {
+    background-color: #E5F7FD;
+    border: 1px solid #E5F7FD;
+    color: #25477B;
+    fill: #25477B;
+    align-items: center;
+    width: fit-content;
+    border-radius: 6px;
+    padding: 4px 6px;
+    position: relative;
+    display: block;
+}
+
+#disclaimerLabel {
+    font-size: 14px;
+    line-height: 16px;
+    padding-right: 5px;
+    color: #25477B;
+    fill: #25477B;
+    font-weight: 600;
+    letter-spacing: 2px;
+    margin-right: 0px;
+    text-transform: uppercase;
+
+    -webkit-touch-callout: none;
+    /* iOS Safari */
+    -webkit-user-select: none;
+    /* Safari */
+    -khtml-user-select: none;
+    /* Konqueror HTML */
+    -moz-user-select: none;
+    /* Old versions of Firefox */
+    -ms-user-select: none;
+    /* Internet Explorer/Edge */
+    user-select: none;
+    /* Non-prefixed version, currently supported by Chrome, Edge, Opera and Firefox */
+}
