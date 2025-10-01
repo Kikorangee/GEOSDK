@@ -1,9 +1,6 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
-  
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { 
@@ -162,9 +159,6 @@
       font-size: 12px;
     }
     .checkbox-group input[type="checkbox"] { width: 14px; height: 14px; }
-    .map-container { height: 300px; background: #f8f9fa; border-radius: 8px; margin: 10px 0; border: 2px solid #e2e8f0; }
-    #map { height: 100%; width: 100%; }
-    .leaflet-container { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important; }
   </style>
 </head>
 <body>
@@ -200,7 +194,8 @@
       <button id="startMonitoring" class="btn btn-primary">Start Monitoring</button>
       <button id="stopMonitoring" class="btn btn-danger" disabled>Stop Monitoring</button>
       <button id="checkNow" class="btn btn-warning">Check Now</button>
-      <button id="showMap" class="btn btn-info">Show Map</button>
+      <button id="showGeofences" class="btn btn-info">Show Geofences on Map</button>
+      <button id="clearMap" class="btn btn-secondary">Clear Map</button>
     </div>
 
     <div id="statusMessage"></div>
@@ -232,10 +227,6 @@
       <div id="geofenceContainer"></div>
     </div>
 
-    <div class="map-container" id="mapContainer" style="display:none;">
-      <div id="map"></div>
-    </div>
-
     <div id="vehicleSection" class="section" style="display:none;">
       <div class="section-title">Vehicle Status</div>
       <div id="vehicleList" class="vehicle-list"></div>
@@ -256,7 +247,7 @@
       <div class="form-group">
         <label>Coordinates (lat,lng per line):</label>
         <textarea id="coordTextarea" placeholder="-35.0, 173.0&#10;-35.0, 174.5&#10;-36.5, 174.5&#10;-36.5, 173.0"></textarea>
-        <p class="muted">Enter at least 3 points</p>
+        <p class="muted">Enter at least 3 points to create a polygon</p>
       </div>
       <button id="saveGeofence" class="btn btn-success">Save Geofence</button>
       <button id="cancelGeofence" class="btn btn-secondary">Cancel</button>
@@ -275,29 +266,14 @@
     </div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-
   <script>
     geotab.addin.geofenceMonitor = function(element, service) {
-      if (typeof L !== 'undefined') {
-        delete L.Icon.Default.prototype._getIconUrl;
-        L.Icon.Default.mergeOptions({
-          iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png'
-        });
-      }
-
       let monitoringInterval = null;
       let isMonitoring = false;
       let activeViolations = new Map();
-      let map = null;
-      let markers = new Map();
       let geofences = [];
-      let geofencePolygons = new Map();
-      let drawControl = null;
-      let drawnItems = null;
+      let drawnGeofences = new Map();
+      let drawnMarkers = new Map();
 
       const DEFAULT_GEOFENCES = [
         {
@@ -408,10 +384,37 @@
         return inside;
       }
 
-      function calculateCenter(coordinates) {
-        let lat = 0, lng = 0;
-        coordinates.forEach(coord => { lat += coord[0]; lng += coord[1]; });
-        return [lat / coordinates.length, lng / coordinates.length];
+      function drawGeofencesOnMap() {
+        clearMapDrawings();
+        geofences.forEach(geofence => {
+          const pathSegments = geofence.coordinates.map((coord, index) => ({
+            type: index === 0 ? 'M' : 'L',
+            points: [{ lat: coord[0], lng: coord[1] }]
+          }));
+          pathSegments.push({ type: 'Z', points: [] });
+
+          const path = service.canvas.path(pathSegments, 100);
+          path.change({
+            stroke: geofence.color,
+            'stroke-width': 3,
+            fill: geofence.color,
+            'fill-opacity': 0.1
+          });
+
+          path.attach('click', () => {
+            showMessage(`Clicked: ${geofence.name}`, 'info');
+          });
+
+          drawnGeofences.set(geofence.id, path);
+        });
+        showMessage(`Drew ${geofences.length} geofences on map`, 'success');
+      }
+
+      function clearMapDrawings() {
+        drawnGeofences.forEach(path => path.remove());
+        drawnGeofences.clear();
+        drawnMarkers.forEach(marker => marker.remove());
+        drawnMarkers.clear();
       }
 
       async function getCurrentLocations() {
@@ -446,84 +449,36 @@
         return locations;
       }
 
-      function initializeMap() {
-        const mapContainer = document.getElementById('mapContainer');
-        mapContainer.style.display = 'block';
-        if (typeof L === 'undefined') {
-          console.warn('Leaflet not available');
-          return null;
-        }
-        try {
-          if (map) map.remove();
-          map = L.map('map').setView([-35.5, 173.8], 8);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap',
-            maxZoom: 18
-          }).addTo(map);
-          drawnItems = new L.FeatureGroup();
-          map.addLayer(drawnItems);
-          drawAllGeofences();
-          setTimeout(() => { if (map) map.invalidateSize(); }, 250);
-          console.log('Map initialized');
-          return map;
-        } catch (error) {
-          console.error('Map init failed:', error);
-          return null;
-        }
-      }
+      function drawVehicleMarkers(locations) {
+        const activeGeofence = getActiveGeofence();
+        if (!activeGeofence) return;
 
-      function drawAllGeofences() {
-        if (!map || typeof L === 'undefined') return;
-        try {
-          geofencePolygons.forEach(polygon => map.removeLayer(polygon));
-          geofencePolygons.clear();
-          geofences.forEach(geofence => {
-            const polygon = L.polygon(geofence.coordinates, {
-              color: geofence.color,
-              fillColor: geofence.color,
-              fillOpacity: 0.1,
-              weight: 3
-            }).addTo(map);
-            polygon.bindPopup(`<b>${geofence.name}</b><br>${geofence.coordinates.length} points`);
-            geofencePolygons.set(geofence.id, polygon);
-          });
-          if (geofences.length > 0) {
-            const allBounds = L.latLngBounds([]);
-            geofences.forEach(geofence => {
-              geofence.coordinates.forEach(coord => allBounds.extend(coord));
-            });
-            map.fitBounds(allBounds, { padding: [20, 20] });
-          }
-        } catch (error) {
-          console.error('Draw geofences error:', error);
-        }
-      }
+        drawnMarkers.forEach(marker => marker.remove());
+        drawnMarkers.clear();
 
-      function updateMapMarkers(locations) {
-        if (!map || typeof L === 'undefined') return;
-        try {
-          const activeGeofence = getActiveGeofence();
-          if (!activeGeofence) return;
-          markers.forEach(marker => map.removeLayer(marker));
-          markers.clear();
-          locations.forEach(location => {
-            const isInside = isInGeofence(location.latitude, location.longitude, activeGeofence);
-            const markerColor = isInside ? '#48bb78' : '#e53e3e';
-            const statusText = isInside ? 'Inside' : 'Outside';
-            const marker = L.circleMarker([location.latitude, location.longitude], {
-              radius: 8,
-              fillColor: markerColor,
-              color: '#fff',
-              weight: 2,
-              opacity: 1,
-              fillOpacity: 0.8
-            }).addTo(map);
-            marker.bindPopup(`<b>${location.deviceName}</b><br>${statusText}<br>${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`);
-            markers.set(location.deviceId, marker);
+        locations.forEach(location => {
+          const isInside = isInGeofence(location.latitude, location.longitude, activeGeofence);
+          const markerColor = isInside ? '#48bb78' : '#e53e3e';
+
+          const marker = service.canvas.circle(
+            { lat: location.latitude, lng: location.longitude },
+            10,
+            200
+          );
+          marker.change({
+            fill: markerColor,
+            stroke: '#fff',
+            'stroke-width': 2,
+            'fill-opacity': 0.8
           });
-        } catch (error) {
-          console.error('Update markers error:', error);
-        }
+
+          marker.attach('click', () => {
+            const status = isInside ? 'Inside Boundary' : 'Outside Boundary';
+            showMessage(`${location.deviceName}: ${status}`, isInside ? 'success' : 'error');
+          });
+
+          drawnMarkers.set(location.deviceId, marker);
+        });
       }
 
       async function checkBoundaryViolations() {
@@ -537,6 +492,7 @@
           const now = new Date();
           let totalMonitored = 0, insideCount = 0, outsideCount = 0, violationCount = 0;
           const vehicleItems = [];
+          
           locations.forEach(location => {
             totalMonitored++;
             const isInside = isInGeofence(location.latitude, location.longitude, activeGeofence);
@@ -568,11 +524,13 @@
               </div>
             `);
           });
+          
           document.getElementById('totalMonitored').textContent = totalMonitored;
           document.getElementById('insideBoundary').textContent = insideCount;
           document.getElementById('outsideBoundary').textContent = outsideCount;
           document.getElementById('violations').textContent = violationCount;
           document.getElementById('statsSection').style.display = 'block';
+          
           const vehicleSection = document.getElementById('vehicleSection');
           const vehicleList = document.getElementById('vehicleList');
           if (vehicleItems.length > 0) {
@@ -581,7 +539,8 @@
           } else {
             vehicleSection.style.display = 'none';
           }
-          if (map) updateMapMarkers(locations);
+          
+          drawVehicleMarkers(locations);
           showMessage(`Monitoring ${activeGeofence.name}: ${insideCount} inside, ${outsideCount} outside`, 'info');
         } catch (error) {
           console.error('Check error:', error);
@@ -611,17 +570,13 @@
         viewGeofence: function(geofenceId) {
           const geofence = geofences.find(g => g.id === geofenceId);
           if (!geofence) return;
-          if (!map || typeof L === 'undefined') {
-            const center = calculateCenter(geofence.coordinates);
-            const mapLink = `https://www.google.com/maps?q=${center[0]},${center[1]}&z=10`;
-            showMessage(`${geofence.name} - ${geofence.coordinates.length} points - <a href="${mapLink}" target="_blank">View on Google Maps</a>`, 'info');
-            return;
-          }
-          const polygon = geofencePolygons.get(geofenceId);
-          if (polygon) {
-            map.fitBounds(polygon.getBounds(), { padding: [20, 20] });
-            polygon.openPopup();
-          }
+          
+          const bounds = {
+            sw: { lat: Math.min(...geofence.coordinates.map(c => c[0])), lng: Math.min(...geofence.coordinates.map(c => c[1])) },
+            ne: { lat: Math.max(...geofence.coordinates.map(c => c[0])), lng: Math.max(...geofence.coordinates.map(c => c[1])) }
+          };
+          
+          service.map.setBounds(bounds);
           showMessage(`Viewing: ${geofence.name}`, 'info');
         },
         exportGeofence: function(geofenceId) {
@@ -642,9 +597,9 @@
           if (!confirm('Are you sure you want to delete this geofence?')) return;
           geofences = geofences.filter(g => g.id !== geofenceId);
           await saveGeofences();
-          const polygon = geofencePolygons.get(geofenceId);
-          if (polygon && map) map.removeLayer(polygon);
-          geofencePolygons.delete(geofenceId);
+          const drawn = drawnGeofences.get(geofenceId);
+          if (drawn) drawn.remove();
+          drawnGeofences.delete(geofenceId);
           renderGeofenceList();
           updateActiveGeofenceSelect();
           showMessage('Geofence deleted', 'success');
@@ -663,6 +618,7 @@
           document.getElementById('startMonitoring').disabled = true;
           document.getElementById('stopMonitoring').disabled = false;
           showMessage(`Monitoring started for: ${activeGeofence.name}`, 'success');
+          drawGeofencesOnMap();
           await checkBoundaryViolations();
           const interval = parseInt(document.getElementById('checkInterval').value) || 30;
           monitoringInterval = setInterval(checkBoundaryViolations, interval * 1000);
@@ -686,23 +642,10 @@
       };
 
       document.getElementById('checkNow').onclick = checkBoundaryViolations;
-
-      document.getElementById('showMap').onclick = async function() {
-        try {
-          showMessage('Loading map...', 'info');
-          initializeMap();
-          const locations = await getCurrentLocations();
-          if (map && typeof L !== 'undefined') {
-            updateMapMarkers(locations);
-            setTimeout(() => { if (map) map.invalidateSize(); }, 100);
-            showMessage(`Map showing ${locations.length} vehicles and ${geofences.length} geofences`, 'success');
-          } else {
-            showMessage(`${geofences.length} geofences, ${locations.length} vehicles (interactive map not available)`, 'info');
-          }
-        } catch (error) {
-          console.error('Show map error:', error);
-          showMessage('Error: ' + error.message, 'error');
-        }
+      document.getElementById('showGeofences').onclick = drawGeofencesOnMap;
+      document.getElementById('clearMap').onclick = function() {
+        clearMapDrawings();
+        showMessage('Cleared map', 'info');
       };
 
       document.getElementById('createGeofence').onclick = function() {
@@ -731,7 +674,6 @@
           document.getElementById('geofenceModal').classList.remove('active');
           renderGeofenceList();
           updateActiveGeofenceSelect();
-          if (map) drawAllGeofences();
           showMessage(`Geofence "${name}" created successfully!`, 'success');
         } catch (e) {
           alert('Invalid coordinate format. Use: lat, lng (one per line)');
@@ -759,7 +701,6 @@
           document.getElementById('importModal').classList.remove('active');
           renderGeofenceList();
           updateActiveGeofenceSelect();
-          if (map) drawAllGeofences();
           showMessage(`Imported: ${newGeofence.name}`, 'success');
         } catch (e) {
           alert('Invalid JSON format: ' + e.message);
