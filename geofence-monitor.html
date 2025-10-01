@@ -4,561 +4,109 @@
     <meta charset="UTF-8">
     <title>Geofence Monitor</title>
     <style>
-        .container {
-            padding: 15px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        .section {
-            background: white;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .section-title {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 12px;
-            color: #2d3748;
-        }
-        .form-group {
-            margin-bottom: 12px;
-        }
-        label {
-            display: block;
-            margin-bottom: 4px;
-            font-size: 13px;
-            color: #4a5568;
-        }
-        select, input {
-            width: 100%;
-            padding: 8px 12px;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            font-size: 14px;
-        }
-        .btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            margin-right: 8px;
-            margin-bottom: 8px;
-        }
-        .btn-success {
-            background: #38a169;
-            color: white;
-        }
-        .btn-danger {
-            background: #e53e3e;
-            color: white;
-        }
-        .btn-primary {
-            background: #3182ce;
-            color: white;
-        }
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-        .status-badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        .status-inside {
-            background: #c6f6d5;
-            color: #22543d;
-        }
-        .status-outside {
-            background: #fed7d7;
-            color: #742a2a;
-        }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin: 15px 0;
-        }
-        .stat-card {
-            background: #f7fafc;
-            padding: 12px;
-            border-radius: 6px;
-            text-align: center;
-            border-left: 3px solid #3182ce;
-        }
-        .stat-number {
-            font-size: 18px;
-            font-weight: 700;
-            color: #2d3748;
-        }
-        .stat-label {
-            font-size: 11px;
-            color: #718096;
-        }
-        .vehicle-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 12px;
-        }
-        .vehicle-table th {
-            background: #f7fafc;
-            padding: 8px;
-            text-align: left;
-            font-weight: 600;
-            color: #4a5568;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        .vehicle-table td {
-            padding: 8px;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        .alert {
-            padding: 10px;
-            border-radius: 6px;
-            margin: 10px 0;
-            font-size: 13px;
-        }
-        .alert-success {
-            background: #c6f6d5;
-            color: #22543d;
-            border-left: 3px solid #38a169;
-        }
-        .alert-error {
-            background: #fed7d7;
-            color: #742a2a;
-            border-left: 3px solid #e53e3e;
-        }
-        .alert-info {
-            background: #bee3f8;
-            color: #2a4365;
-            border-left: 3px solid #3182ce;
-        }
+        .container { padding: 15px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .card { background: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .card-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #2d3748; }
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; margin: 5px; }
+        .btn-success { background: #38a169; color: white; }
+        .btn-danger { background: #e53e3e; color: white; }
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+        .status-connected { background: #c6f6d5; color: #22543d; }
+        .status-disconnected { background: #fed7d7; color: #742a2a; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="section">
-            <div class="section-title">🚨 Geofence Monitoring</div>
+        <div class="card">
+            <div class="card-title">🚨 Geofence Monitor</div>
+            <p>Real-time boundary monitoring for vehicles</p>
             
-            <div class="form-group">
-                <label for="activeGeofence">Active Geofence:</label>
-                <select id="activeGeofence">
-                    <option value="">Select geofence...</option>
-                </select>
+            <div>
+                <button id="startDemo" class="btn btn-success">▶ Start Demo</button>
+                <button id="stopDemo" class="btn btn-danger">⏹ Stop Demo</button>
             </div>
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-                <div class="form-group">
-                    <label for="checkInterval">Check Interval (s):</label>
-                    <input id="checkInterval" type="number" value="30" min="5">
-                </div>
-                <div class="form-group">
-                    <label for="timeoutMinutes">Timeout (min):</label>
-                    <input id="timeoutMinutes" type="number" value="30" min="1">
-                </div>
-            </div>
-            
-            <div style="margin-bottom: 15px;">
-                <button id="startMonitoring" class="btn btn-success">▶ Start Monitoring</button>
-                <button id="stopMonitoring" class="btn btn-danger" disabled>⏹ Stop</button>
-                <button id="checkNow" class="btn btn-primary">🔍 Check Now</button>
-            </div>
-            
-            <div id="connectionStatus" class="status-badge status-outside">Not Monitoring</div>
-        </div>
-
-        <div id="monitoringStats" class="section" style="display: none;">
-            <div class="section-title">📊 Monitoring Stats</div>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div id="totalVehicles" class="stat-number">0</div>
-                    <div class="stat-label">Total Vehicles</div>
-                </div>
-                <div class="stat-card">
-                    <div id="insideCount" class="stat-number">0</div>
-                    <div class="stat-label">Inside Boundary</div>
-                </div>
-                <div class="stat-card">
-                    <div id="outsideCount" class="stat-number">0</div>
-                    <div class="stat-label">Outside Boundary</div>
-                </div>
-                <div class="stat-card">
-                    <div id="violationsCount" class="stat-number">0</div>
-                    <div class="stat-label">Active Violations</div>
-                </div>
+            <div id="demoStatus" class="status-badge status-disconnected" style="margin-top: 10px;">
+                Demo Not Running
             </div>
         </div>
 
-        <div id="resultsSection" class="section" style="display: none;">
-            <div class="section-title">📍 Vehicle Status</div>
-            <div id="monitoringResults"></div>
+        <div id="demoResults" class="card" style="display: none;">
+            <div class="card-title">Demo Results</div>
+            <div id="resultsContent"></div>
         </div>
-
-        <div id="messageArea"></div>
     </div>
 
     <script>
         (function () {
             'use strict';
             
-            // Main Add-In function following Geotab pattern
-            window.geotab.addin.geofenceMonitor = function (element, service) {
+            window.geotab.addin.geofenceMonitor = function (element, services) {
+                let demoInterval = null;
+                let isRunning = false;
                 
-                let isMonitoring = false;
-                let monitoringInterval = null;
-                let activeViolations = new Map();
-                let geofences = [];
-                
-                // Default geofences
-                const defaultGeofences = [
-                    {
-                        id: 'northland',
-                        name: 'Northland Region',
-                        coordinates: [
-                            [-34.4, 172.8],
-                            [-34.4, 174.8],
-                            [-36.5, 174.8],
-                            [-36.5, 172.8]
-                        ]
-                    }
-                ];
-                
-                // Initialize function
-                const initialize = async () => {
-                    console.log('Geofence Monitor Add-In initializing...');
-                    
-                    try {
-                        // Load saved geofences
-                        await loadGeofences();
-                        
-                        // Set up event listeners
-                        setupEventListeners();
-                        
-                        // Update UI
-                        updateGeofenceSelect();
-                        
-                        showMessage('✅ Geofence Monitor ready', 'success');
-                        
-                    } catch (error) {
-                        console.error('Initialization failed:', error);
-                        showMessage('Initialization failed', 'error');
-                    }
+                const initialize = () => {
+                    console.log('Geofence Monitor initialized');
+                    setupEventListeners();
+                    return Promise.resolve();
                 };
                 
-                // Load geofences from storage
-                const loadGeofences = async () => {
-                    try {
-                        const saved = await service.localStorage.get('geofences');
-                        geofences = saved ? JSON.parse(saved) : defaultGeofences;
-                    } catch (error) {
-                        geofences = defaultGeofences;
-                    }
-                };
-                
-                // Save geofences to storage
-                const saveGeofences = async () => {
-                    try {
-                        await service.localStorage.set('geofences', JSON.stringify(geofences));
-                    } catch (error) {
-                        console.error('Failed to save geofences:', error);
-                    }
-                };
-                
-                // Set up event listeners
                 const setupEventListeners = () => {
-                    document.getElementById('startMonitoring').addEventListener('click', startMonitoring);
-                    document.getElementById('stopMonitoring').addEventListener('click', stopMonitoring);
-                    document.getElementById('checkNow').addEventListener('click', checkBoundaryViolations);
+                    document.getElementById('startDemo').addEventListener('click', startDemo);
+                    document.getElementById('stopDemo').addEventListener('click', stopDemo);
                 };
                 
-                // Show message to user
-                const showMessage = (message, type = 'info') => {
-                    const messageArea = document.getElementById('messageArea');
-                    const alertClass = type === 'error' ? 'alert-error' : 
-                                     type === 'success' ? 'alert-success' : 'alert-info';
+                const startDemo = () => {
+                    if (isRunning) return;
                     
-                    messageArea.innerHTML = `<div class="alert ${alertClass}">${message}</div>`;
+                    isRunning = true;
+                    document.getElementById('startDemo').disabled = true;
+                    document.getElementById('stopDemo').disabled = false;
+                    document.getElementById('demoStatus').textContent = 'Demo Running';
+                    document.getElementById('demoStatus').className = 'status-badge status-connected';
+                    document.getElementById('demoResults').style.display = 'block';
+                    
+                    // Update demo data every 3 seconds
+                    updateDemoData();
+                    demoInterval = setInterval(updateDemoData, 3000);
                 };
                 
-                // Update geofence selection dropdown
-                const updateGeofenceSelect = () => {
-                    const select = document.getElementById('activeGeofence');
-                    select.innerHTML = '<option value="">Select geofence...</option>';
+                const stopDemo = () => {
+                    isRunning = false;
+                    clearInterval(demoInterval);
+                    document.getElementById('startDemo').disabled = false;
+                    document.getElementById('stopDemo').disabled = true;
+                    document.getElementById('demoStatus').textContent = 'Demo Stopped';
+                    document.getElementById('demoStatus').className = 'status-badge status-disconnected';
+                };
+                
+                const updateDemoData = () => {
+                    const mockData = [
+                        { name: 'Truck 101', status: 'Inside', location: '-35.3, 173.5' },
+                        { name: 'Van 202', status: 'Outside', location: '-35.1, 174.2' },
+                        { name: 'Car 303', status: 'Inside', location: '-35.5, 173.8' }
+                    ];
                     
-                    geofences.forEach(geofence => {
-                        const option = document.createElement('option');
-                        option.value = geofence.id;
-                        option.textContent = geofence.name;
-                        select.appendChild(option);
+                    let html = '<table style="width: 100%; font-size: 12px;">';
+                    html += '<tr><th>Vehicle</th><th>Status</th><th>Location</th></tr>';
+                    
+                    mockData.forEach(vehicle => {
+                        const statusClass = vehicle.status === 'Inside' ? 'status-connected' : 'status-disconnected';
+                        html += `<tr>
+                            <td>${vehicle.name}</td>
+                            <td><span class="status-badge ${statusClass}">${vehicle.status}</span></td>
+                            <td>${vehicle.location}</td>
+                        </tr>`;
                     });
+                    
+                    html += '</table>';
+                    document.getElementById('resultsContent').innerHTML = html;
                 };
                 
-                // Get active geofence
-                const getActiveGeofence = () => {
-                    const activeId = document.getElementById('activeGeofence').value;
-                    return geofences.find(g => g.id === activeId);
-                };
-                
-                // Check if point is in polygon
-                const isInGeofence = (lat, lon, geofence) => {
-                    if (!lat || !lon || !geofence) return false;
-                    
-                    const coordinates = geofence.coordinates;
-                    let inside = false;
-                    
-                    for (let i = 0, j = coordinates.length - 1; i < coordinates.length; j = i++) {
-                        const xi = coordinates[i][1], yi = coordinates[i][0];
-                        const xj = coordinates[j][1], yj = coordinates[j][0];
-                        
-                        const intersect = ((yi > lon) !== (yj > lon)) &&
-                            (lat < (xj - xi) * (lon - yi) / (yj - yi) + xi);
-                            
-                        if (intersect) inside = !inside;
-                    }
-                    
-                    return inside;
-                };
-                
-                // Get current vehicle locations
-                const getCurrentLocations = async () => {
-                    try {
-                        // Get devices from Geotab API
-                        const devices = await service.api.call('Get', {
-                            typeName: 'Device',
-                            resultsLimit: 100
-                        });
-                        
-                        const locations = [];
-                        
-                        // Get status for each device
-                        for (const device of devices) {
-                            try {
-                                const statusData = await service.api.call('Get', {
-                                    typeName: 'DeviceStatusInfo',
-                                    search: {
-                                        deviceSearch: {
-                                            id: device.id
-                                        }
-                                    }
-                                });
-                                
-                                if (statusData && statusData.length > 0) {
-                                    const status = statusData[0];
-                                    if (status.latitude && status.longitude) {
-                                        locations.push({
-                                            id: device.id,
-                                            name: device.name,
-                                            latitude: status.latitude,
-                                            longitude: status.longitude,
-                                            timestamp: new Date(status.dateTime || Date.now())
-                                        });
-                                    }
-                                }
-                            } catch (error) {
-                                console.warn(`Failed to get status for device ${device.id}:`, error);
-                            }
-                        }
-                        
-                        return locations;
-                        
-                    } catch (error) {
-                        console.error('Error getting vehicle locations:', error);
-                        throw error;
-                    }
-                };
-                
-                // Check for boundary violations
-                const checkBoundaryViolations = async () => {
-                    try {
-                        const activeGeofence = getActiveGeofence();
-                        if (!activeGeofence) {
-                            showMessage('Please select a geofence to monitor', 'error');
-                            return;
-                        }
-                        
-                        showMessage('Checking vehicle locations...', 'info');
-                        
-                        const locations = await getCurrentLocations();
-                        const now = new Date();
-                        
-                        let totalCount = 0;
-                        let insideCount = 0;
-                        let outsideCount = 0;
-                        let newViolations = 0;
-                        
-                        const resultsHTML = [];
-                        
-                        // Process each vehicle
-                        for (const location of locations) {
-                            totalCount++;
-                            const isInside = isInGeofence(location.latitude, location.longitude, activeGeofence);
-                            
-                            if (isInside) {
-                                insideCount++;
-                                // Remove from active violations if inside
-                                if (activeViolations.has(location.id)) {
-                                    activeViolations.delete(location.id);
-                                }
-                            } else {
-                                outsideCount++;
-                                
-                                // Check if this is a new violation
-                                if (!activeViolations.has(location.id)) {
-                                    activeViolations.set(location.id, {
-                                        deviceId: location.id,
-                                        deviceName: location.name,
-                                        startTime: now,
-                                        location: location
-                                    });
-                                    newViolations++;
-                                }
-                            }
-                            
-                            // Add to results table
-                            const statusClass = isInside ? 'status-inside' : 'status-outside';
-                            const statusText = isInside ? 'Inside' : 'Outside';
-                            
-                            resultsHTML.push(`
-                                <tr>
-                                    <td>${location.name}</td>
-                                    <td>${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}</td>
-                                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
-                                    <td>${location.timestamp.toLocaleTimeString()}</td>
-                                </tr>
-                            `);
-                        }
-                        
-                        // Update statistics
-                        updateStatistics(totalCount, insideCount, outsideCount, activeViolations.size);
-                        
-                        // Update results display
-                        updateResultsDisplay(resultsHTML, activeGeofence.name);
-                        
-                        if (newViolations > 0) {
-                            showMessage(`🚨 ${newViolations} new boundary violations detected`, 'error');
-                        } else {
-                            showMessage(`✅ All vehicles within boundaries`, 'success');
-                        }
-                        
-                    } catch (error) {
-                        console.error('Error checking boundary violations:', error);
-                        showMessage(`Error: ${error.message}`, 'error');
-                    }
-                };
-                
-                // Update statistics display
-                const updateStatistics = (total, inside, outside, violations) => {
-                    document.getElementById('totalVehicles').textContent = total;
-                    document.getElementById('insideCount').textContent = inside;
-                    document.getElementById('outsideCount').textContent = outside;
-                    document.getElementById('violationsCount').textContent = violations;
-                    
-                    document.getElementById('monitoringStats').style.display = 'block';
-                };
-                
-                // Update results display
-                const updateResultsDisplay = (resultsHTML, geofenceName) => {
-                    const resultsSection = document.getElementById('resultsSection');
-                    const resultsContainer = document.getElementById('monitoringResults');
-                    
-                    if (resultsHTML.length > 0) {
-                        resultsContainer.innerHTML = `
-                            <p><small>Monitoring: ${geofenceName}</small></p>
-                            <table class="vehicle-table">
-                                <thead>
-                                    <tr>
-                                        <th>Vehicle</th>
-                                        <th>Location</th>
-                                        <th>Status</th>
-                                        <th>Last Update</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${resultsHTML.join('')}
-                                </tbody>
-                            </table>
-                        `;
-                        resultsSection.style.display = 'block';
-                    } else {
-                        resultsContainer.innerHTML = '<p>No vehicle data available</p>';
-                    }
-                };
-                
-                // Start monitoring
-                const startMonitoring = async () => {
-                    if (isMonitoring) return;
-                    
-                    const activeGeofence = getActiveGeofence();
-                    if (!activeGeofence) {
-                        showMessage('Please select a geofence first', 'error');
-                        return;
-                    }
-                    
-                    try {
-                        isMonitoring = true;
-                        document.getElementById('startMonitoring').disabled = true;
-                        document.getElementById('stopMonitoring').disabled = false;
-                        document.getElementById('connectionStatus').textContent = 'Monitoring';
-                        document.getElementById('connectionStatus').className = 'status-badge status-inside';
-                        
-                        showMessage(`🚀 Started monitoring: ${activeGeofence.name}`, 'success');
-                        
-                        // Do initial check
-                        await checkBoundaryViolations();
-                        
-                        // Set up interval for continuous monitoring
-                        const interval = parseInt(document.getElementById('checkInterval').value) || 30;
-                        monitoringInterval = setInterval(checkBoundaryViolations, interval * 1000);
-                        
-                    } catch (error) {
-                        isMonitoring = false;
-                        document.getElementById('startMonitoring').disabled = false;
-                        document.getElementById('stopMonitoring').disabled = true;
-                        showMessage(`Failed to start monitoring: ${error.message}`, 'error');
-                    }
-                };
-                
-                // Stop monitoring
-                const stopMonitoring = () => {
-                    if (monitoringInterval) {
-                        clearInterval(monitoringInterval);
-                        monitoringInterval = null;
-                    }
-                    
-                    isMonitoring = false;
-                    document.getElementById('startMonitoring').disabled = false;
-                    document.getElementById('stopMonitoring').disabled = true;
-                    document.getElementById('connectionStatus').textContent = 'Not Monitoring';
-                    document.getElementById('connectionStatus').className = 'status-badge status-outside';
-                    
-                    showMessage('⏹ Monitoring stopped', 'info');
-                };
-                
-                // Public API following Geotab pattern
                 return {
-                    // Initialize the Add-In
-                    initialize: () => {
-                        return initialize();
-                    },
-                    
-                    // Focus event - when Add-In tab is selected
-                    focus: () => {
-                        console.log('Geofence Monitor Add-In focused');
-                        // Refresh data when focused
-                        if (isMonitoring) {
-                            checkBoundaryViolations();
-                        }
-                    },
-                    
-                    // Blur event - when Add-In tab is deselected
-                    blur: () => {
-                        console.log('Geofence Monitor Add-In blurred');
-                    }
+                    initialize: initialize,
+                    focus: () => console.log('Geofence Monitor focused'),
+                    blur: () => console.log('Geofence Monitor blurred')
                 };
             };
         })();
