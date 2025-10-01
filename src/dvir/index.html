@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Inspector DVIR</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- Geotab API SDK (Drive provides window.geotab and API object) -->
+  <script src="https://cdn.geotab.com/sdk/js/GeotabApi.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <header class="bar">
+      <img src="icon.svg" alt="icon" class="logo" />
+      <h1>Inspector DVIR</h1>
+      <button id="settingsBtn" class="ghost">Settings</button>
+    </header>
+
+    <section class="controls">
+      <label>Group
+        <select id="groupSelect"></select>
+      </label>
+      <label>Zone
+        <select id="zoneSelect"></select>
+      </label>
+      <label>Asset search
+        <input id="assetSearch" placeholder="Search by name…" />
+      </label>
+    </section>
+
+    <section class="assets">
+      <h2>Assets</h2>
+      <div id="assetList" class="list"></div>
+    </section>
+
+    <section class="form">
+      <h2>Checklist</h2>
+      <div id="checklist">
+        <div class="row"><label><input type="checkbox" data-defect="brakes"> Brakes OK</label></div>
+        <div class="row"><label><input type="checkbox" data-defect="lights"> Lights OK</label></div>
+        <div class="row"><label><input type="checkbox" data-defect="tyres"> Tyres OK</label></div>
+        <div class="row">
+          <label>Notes
+            <textarea id="notes" placeholder="Optional notes"></textarea>
+          </label>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <label>Odometer
+          <input id="odo" type="number" min="0" step="1" />
+        </label>
+        <label>Hubodometer (required for heavy equipment)
+          <input id="hubo" type="number" min="0" step="1" />
+        </label>
+      </div>
+
+      <div class="grid2">
+        <label>Inspection type
+          <select id="logType">
+            <option value="PreTrip">Pre-trip</option>
+            <option value="PostTrip">Post-trip</option>
+          </select>
+        </label>
+        <label>Severity threshold (email/webhook)
+          <select id="severityThreshold">
+            <option value="none">None</option>
+            <option value="minor">Any defect</option>
+            <option value="major">Critical only</option>
+          </select>
+        </label>
+      </div>
+
+      <button id="submitBtn" class="primary">Submit DVIR</button>
+      <p id="status" class="muted"></p>
+    </section>
+  </div>
+
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-card">
+      <h3>Settings</h3>
+      <label><input type="checkbox" id="reminderEnabled"> Ignition → DVIR reminder</label>
+      <label>Reminder minutes <input type="number" id="reminderMinutes" min="1" max="30" value="5"></label>
+      <label>Apply to heavy equipment group only <input type="checkbox" id="heavyOnly"></label>
+      <label>Webhook URL (optional) <input id="webhookUrl" placeholder="https://…"></label>
+      <div class="actions">
+        <button id="saveSettings" class="primary">Save</button>
+        <button id="closeSettings" class="ghost">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="inspector.js"></script>
+</body>
+</html>

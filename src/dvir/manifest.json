@@ -1,0 +1,15 @@
+{
+  "name": "Inspector DVIR",
+  "supportEmail": "support@example.com",
+  "version": "1.0.0",
+  "items": [
+    {
+      "url": "index.html",
+      "path": "driveApp",
+      "menuName": {
+        "en": "Inspector DVIR"
+      },
+      "icon": "icon.svg"
+    }
+  ]
+}
