@@ -1,115 +1,783 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <title>Geofence Monitor</title>
-    <style>
-        .container { padding: 15px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .card { background: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .card-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #2d3748; }
-        .btn { padding: 8px 16px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; margin: 5px; }
-        .btn-success { background: #38a169; color: white; }
-        .btn-danger { background: #e53e3e; color: white; }
-        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
-        .status-connected { background: #c6f6d5; color: #22543d; }
-        .status-disconnected { background: #fed7d7; color: #742a2a; }
-    </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+  
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f8f9fa;
+      color: #333;
+      font-size: 13px;
+      padding: 12px;
+    }
+    .section {
+      background: white;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .section-title {
+      color: #2d3748;
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    .form-group { margin-bottom: 10px; }
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 4px;
+      font-size: 12px;
+      color: #4a5568;
+    }
+    .form-control, select {
+      width: 100%;
+      padding: 8px;
+      border: 2px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .form-control:focus, select:focus {
+      outline: none;
+      border-color: #1e3c72;
+    }
+    .btn {
+      width: 100%;
+      padding: 8px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 6px;
+    }
+    .btn-primary { background: linear-gradient(135deg, #1e3c72, #2a5298); color: white; }
+    .btn-success { background: linear-gradient(135deg, #48bb78, #38a169); color: white; }
+    .btn-warning { background: linear-gradient(135deg, #ed8936, #dd6b20); color: white; }
+    .btn-danger { background: linear-gradient(135deg, #f56565, #e53e3e); color: white; }
+    .btn-info { background: linear-gradient(135deg, #4299e1, #3182ce); color: white; }
+    .btn-secondary { background: linear-gradient(135deg, #718096, #4a5568); color: white; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-sm { padding: 5px 10px; font-size: 11px; }
+    .alert { padding: 10px; border-radius: 6px; margin: 10px 0; font-size: 12px; }
+    .alert-success { background: #c6f6d5; color: #22543d; border-left: 3px solid #38a169; }
+    .alert-error { background: #fed7d7; color: #742a2a; border-left: 3px solid #e53e3e; }
+    .alert-warning { background: #fefcbf; color: #744210; border-left: 3px solid #d69e2e; }
+    .alert-info { background: #ebf8ff; color: #2b6cb0; border-left: 3px solid #4299e1; }
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
+    .stat-card {
+      background: #f8f9fa;
+      padding: 10px;
+      border-radius: 6px;
+      text-align: center;
+      border-top: 3px solid #1e3c72;
+    }
+    .stat-number { font-size: 20px; font-weight: 700; color: #1e3c72; }
+    .stat-label { color: #666; font-size: 10px; }
+    .geofence-item {
+      background: #f8f9fa;
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 6px;
+      border-left: 3px solid #1e3c72;
+      font-size: 12px;
+    }
+    .geofence-item.active { border-left-color: #48bb78; background: #c6f6d5; }
+    .geofence-actions { margin-top: 6px; display: flex; gap: 4px; }
+    .status-inside {
+      background: #c6f6d5;
+      color: #22543d;
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 11px;
+      display: inline-block;
+    }
+    .status-outside {
+      background: #fed7d7;
+      color: #742a2a;
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 11px;
+      display: inline-block;
+    }
+    .muted { color: #718096; font-size: 11px; }
+    .vehicle-list { max-height: 250px; overflow-y: auto; }
+    .vehicle-item {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      padding: 8px;
+      margin: 6px 0;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .vehicle-item.violation { border-left: 3px solid #e53e3e; background: #fff5f5; }
+    textarea {
+      width: 100%;
+      min-height: 70px;
+      padding: 8px;
+      border: 2px solid #e2e8f0;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 11px;
+      resize: vertical;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.6);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal.active { display: flex; }
+    .modal-content {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 380px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .modal-title { font-size: 16px; margin-bottom: 12px; color: #2d3748; font-weight: 700; }
+    .checkbox-group { margin: 8px 0; }
+    .checkbox-group label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      font-weight: normal;
+      font-size: 12px;
+    }
+    .checkbox-group input[type="checkbox"] { width: 14px; height: 14px; }
+    .map-container { height: 300px; background: #f8f9fa; border-radius: 8px; margin: 10px 0; border: 2px solid #e2e8f0; }
+    #map { height: 100%; width: 100%; }
+    .leaflet-container { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important; }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="card">
-            <div class="card-title">🚨 Geofence Monitor</div>
-            <p>Real-time boundary monitoring for vehicles</p>
-            
-            <div>
-                <button id="startDemo" class="btn btn-success">▶ Start Demo</button>
-                <button id="stopDemo" class="btn btn-danger">⏹ Stop Demo</button>
-            </div>
-            
-            <div id="demoStatus" class="status-badge status-disconnected" style="margin-top: 10px;">
-                Demo Not Running
-            </div>
-        </div>
-
-        <div id="demoResults" class="card" style="display: none;">
-            <div class="card-title">Demo Results</div>
-            <div id="resultsContent"></div>
-        </div>
+  <div id="app">
+    <div class="section">
+      <div class="section-title">Geofence Configuration</div>
+      <div class="form-group">
+        <label>Active Geofence:</label>
+        <select id="activeGeofence" class="form-control">
+          <option value="">Select geofence...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Check Interval (seconds):</label>
+        <input id="checkInterval" class="form-control" type="number" value="30" min="5" />
+      </div>
+      <div class="form-group">
+        <label>Vehicle Limit:</label>
+        <input id="resultsLimit" class="form-control" type="number" value="50" min="1" max="1000" />
+      </div>
+      <div class="checkbox-group">
+        <label>
+          <input type="checkbox" id="enableAlerts" checked />
+          Enable Audio Alerts
+        </label>
+      </div>
+      <button id="createGeofence" class="btn btn-success">Create New Geofence</button>
+      <button id="importGeofence" class="btn btn-info">Import Geofence</button>
     </div>
 
-    <script>
-        (function () {
-            'use strict';
-            
-            window.geotab.addin.geofenceMonitor = function (element, services) {
-                let demoInterval = null;
-                let isRunning = false;
-                
-                const initialize = () => {
-                    console.log('Geofence Monitor initialized');
-                    setupEventListeners();
-                    return Promise.resolve();
-                };
-                
-                const setupEventListeners = () => {
-                    document.getElementById('startDemo').addEventListener('click', startDemo);
-                    document.getElementById('stopDemo').addEventListener('click', stopDemo);
-                };
-                
-                const startDemo = () => {
-                    if (isRunning) return;
-                    
-                    isRunning = true;
-                    document.getElementById('startDemo').disabled = true;
-                    document.getElementById('stopDemo').disabled = false;
-                    document.getElementById('demoStatus').textContent = 'Demo Running';
-                    document.getElementById('demoStatus').className = 'status-badge status-connected';
-                    document.getElementById('demoResults').style.display = 'block';
-                    
-                    // Update demo data every 3 seconds
-                    updateDemoData();
-                    demoInterval = setInterval(updateDemoData, 3000);
-                };
-                
-                const stopDemo = () => {
-                    isRunning = false;
-                    clearInterval(demoInterval);
-                    document.getElementById('startDemo').disabled = false;
-                    document.getElementById('stopDemo').disabled = true;
-                    document.getElementById('demoStatus').textContent = 'Demo Stopped';
-                    document.getElementById('demoStatus').className = 'status-badge status-disconnected';
-                };
-                
-                const updateDemoData = () => {
-                    const mockData = [
-                        { name: 'Truck 101', status: 'Inside', location: '-35.3, 173.5' },
-                        { name: 'Van 202', status: 'Outside', location: '-35.1, 174.2' },
-                        { name: 'Car 303', status: 'Inside', location: '-35.5, 173.8' }
-                    ];
-                    
-                    let html = '<table style="width: 100%; font-size: 12px;">';
-                    html += '<tr><th>Vehicle</th><th>Status</th><th>Location</th></tr>';
-                    
-                    mockData.forEach(vehicle => {
-                        const statusClass = vehicle.status === 'Inside' ? 'status-connected' : 'status-disconnected';
-                        html += `<tr>
-                            <td>${vehicle.name}</td>
-                            <td><span class="status-badge ${statusClass}">${vehicle.status}</span></td>
-                            <td>${vehicle.location}</td>
-                        </tr>`;
-                    });
-                    
-                    html += '</table>';
-                    document.getElementById('resultsContent').innerHTML = html;
-                };
-                
-                return {
-                    initialize: initialize,
-                    focus: () => console.log('Geofence Monitor focused'),
-                    blur: () => console.log('Geofence Monitor blurred')
-                };
-            };
-        })();
-    </script>
+    <div class="section">
+      <div class="section-title">Monitoring Controls</div>
+      <button id="startMonitoring" class="btn btn-primary">Start Monitoring</button>
+      <button id="stopMonitoring" class="btn btn-danger" disabled>Stop Monitoring</button>
+      <button id="checkNow" class="btn btn-warning">Check Now</button>
+      <button id="showMap" class="btn btn-info">Show Map</button>
+    </div>
+
+    <div id="statusMessage"></div>
+
+    <div id="statsSection" class="section" style="display:none;">
+      <div class="section-title">Statistics</div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div id="totalMonitored" class="stat-number">0</div>
+          <div class="stat-label">Total</div>
+        </div>
+        <div class="stat-card">
+          <div id="insideBoundary" class="stat-number">0</div>
+          <div class="stat-label">Inside</div>
+        </div>
+        <div class="stat-card">
+          <div id="outsideBoundary" class="stat-number">0</div>
+          <div class="stat-label">Outside</div>
+        </div>
+        <div class="stat-card">
+          <div id="violations" class="stat-number">0</div>
+          <div class="stat-label">Violations</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="geofenceList" class="section">
+      <div class="section-title">Your Geofences</div>
+      <div id="geofenceContainer"></div>
+    </div>
+
+    <div class="map-container" id="mapContainer" style="display:none;">
+      <div id="map"></div>
+    </div>
+
+    <div id="vehicleSection" class="section" style="display:none;">
+      <div class="section-title">Vehicle Status</div>
+      <div id="vehicleList" class="vehicle-list"></div>
+    </div>
+  </div>
+
+  <div id="geofenceModal" class="modal">
+    <div class="modal-content">
+      <h3 class="modal-title">Create New Geofence</h3>
+      <div class="form-group">
+        <label>Geofence Name: *</label>
+        <input id="geofenceName" class="form-control" placeholder="e.g., Northland Region" />
+      </div>
+      <div class="form-group">
+        <label>Display Color:</label>
+        <input id="geofenceColor" class="form-control" type="color" value="#1e3c72" />
+      </div>
+      <div class="form-group">
+        <label>Coordinates (lat,lng per line):</label>
+        <textarea id="coordTextarea" placeholder="-35.0, 173.0&#10;-35.0, 174.5&#10;-36.5, 174.5&#10;-36.5, 173.0"></textarea>
+        <p class="muted">Enter at least 3 points</p>
+      </div>
+      <button id="saveGeofence" class="btn btn-success">Save Geofence</button>
+      <button id="cancelGeofence" class="btn btn-secondary">Cancel</button>
+    </div>
+  </div>
+
+  <div id="importModal" class="modal">
+    <div class="modal-content">
+      <h3 class="modal-title">Import Geofence</h3>
+      <div class="form-group">
+        <label>Paste Geofence JSON:</label>
+        <textarea id="importTextarea" placeholder='{"name":"My Geofence","coordinates":[...]}'></textarea>
+      </div>
+      <button id="confirmImport" class="btn btn-success">Import</button>
+      <button id="cancelImport" class="btn btn-secondary">Cancel</button>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+
+  <script>
+    geotab.addin.geofenceMonitor = function(element, service) {
+      if (typeof L !== 'undefined') {
+        delete L.Icon.Default.prototype._getIconUrl;
+        L.Icon.Default.mergeOptions({
+          iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png'
+        });
+      }
+
+      let monitoringInterval = null;
+      let isMonitoring = false;
+      let activeViolations = new Map();
+      let map = null;
+      let markers = new Map();
+      let geofences = [];
+      let geofencePolygons = new Map();
+      let drawControl = null;
+      let drawnItems = null;
+
+      const DEFAULT_GEOFENCES = [
+        {
+          id: 'northland-default',
+          name: 'Northland Region (Default)',
+          coordinates: [[-34.4, 172.8], [-34.4, 174.8], [-36.5, 174.8], [-36.5, 172.8]],
+          color: '#1e3c72'
+        }
+      ];
+
+      async function initialize() {
+        try {
+          const session = await service.api.getSession();
+          console.log('Geofence Monitor initialized:', session.database);
+          await loadGeofences();
+          renderGeofenceList();
+          updateActiveGeofenceSelect();
+          showMessage('Ready - Database: ' + session.database, 'success');
+        } catch (error) {
+          console.error('Init error:', error);
+          showMessage('Error: ' + error.message, 'error');
+        }
+      }
+
+      async function loadGeofences() {
+        try {
+          const stored = await service.localStorage.get('geofences');
+          geofences = stored ? JSON.parse(stored) : [...DEFAULT_GEOFENCES];
+        } catch (error) {
+          geofences = [...DEFAULT_GEOFENCES];
+        }
+      }
+
+      async function saveGeofences() {
+        try {
+          await service.localStorage.set('geofences', JSON.stringify(geofences));
+        } catch (error) {
+          console.error('Save error:', error);
+        }
+      }
+
+      function showMessage(msg, type = 'info') {
+        const el = document.getElementById('statusMessage');
+        const classes = { error: 'alert-error', success: 'alert-success', warning: 'alert-warning', info: 'alert-info' };
+        el.innerHTML = `<div class="alert ${classes[type]}">${msg}</div>`;
+        if (type === 'success') setTimeout(() => { el.innerHTML = ''; }, 5000);
+      }
+
+      function renderGeofenceList() {
+        const container = document.getElementById('geofenceContainer');
+        if (geofences.length === 0) {
+          container.innerHTML = '<p class="muted">No geofences created.</p>';
+          return;
+        }
+        let html = '';
+        geofences.forEach(geofence => {
+          const activeId = document.getElementById('activeGeofence').value;
+          const isActive = geofence.id === activeId;
+          html += `
+            <div class="geofence-item ${isActive ? 'active' : ''}">
+              <div>
+                <strong>${geofence.name}</strong><br>
+                <span class="muted">${geofence.coordinates.length} points ${isActive ? '• Active' : ''}</span>
+              </div>
+              <div class="geofence-actions">
+                <button onclick="window.geoMonitor.viewGeofence('${geofence.id}')" class="btn btn-info btn-sm">View</button>
+                <button onclick="window.geoMonitor.exportGeofence('${geofence.id}')" class="btn btn-warning btn-sm">Export</button>
+                ${geofence.id !== 'northland-default' ? `<button onclick="window.geoMonitor.deleteGeofence('${geofence.id}')" class="btn btn-danger btn-sm">Delete</button>` : ''}
+              </div>
+            </div>
+          `;
+        });
+        container.innerHTML = html;
+      }
+
+      function updateActiveGeofenceSelect() {
+        const select = document.getElementById('activeGeofence');
+        const currentValue = select.value;
+        select.innerHTML = '<option value="">Select geofence...</option>';
+        geofences.forEach(geofence => {
+          const option = document.createElement('option');
+          option.value = geofence.id;
+          option.textContent = geofence.name;
+          select.appendChild(option);
+        });
+        if (currentValue && geofences.find(g => g.id === currentValue)) {
+          select.value = currentValue;
+        } else if (geofences.length > 0) {
+          select.value = geofences[0].id;
+        }
+      }
+
+      function getActiveGeofence() {
+        const activeId = document.getElementById('activeGeofence').value;
+        return geofences.find(g => g.id === activeId);
+      }
+
+      function isInGeofence(lat, lon, geofence) {
+        if (!lat || !lon || !geofence) return false;
+        const polygon = geofence.coordinates;
+        let inside = false;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+          const xi = polygon[i][1], yi = polygon[i][0];
+          const xj = polygon[j][1], yj = polygon[j][0];
+          const intersect = ((yi > lon) !== (yj > lon)) && (lat < (xj - xi) * (lon - yi) / (yj - yi) + xi);
+          if (intersect) inside = !inside;
+        }
+        return inside;
+      }
+
+      function calculateCenter(coordinates) {
+        let lat = 0, lng = 0;
+        coordinates.forEach(coord => { lat += coord[0]; lng += coord[1]; });
+        return [lat / coordinates.length, lng / coordinates.length];
+      }
+
+      async function getCurrentLocations() {
+        const resultsLimit = parseInt(document.getElementById('resultsLimit').value) || 50;
+        const devices = await service.api.call('Get', { typeName: 'Device', resultsLimit: resultsLimit });
+        console.log('Found devices:', devices.length);
+        const locations = [];
+        for (const device of devices) {
+          try {
+            const statusData = await service.api.call('Get', {
+              typeName: 'DeviceStatusInfo',
+              search: { deviceSearch: { id: device.id } }
+            });
+            if (statusData && statusData.length > 0) {
+              const status = statusData[0];
+              if (status.latitude && status.longitude) {
+                locations.push({
+                  deviceId: device.id,
+                  deviceName: device.name,
+                  latitude: status.latitude,
+                  longitude: status.longitude,
+                  speed: status.speed || 0,
+                  timestamp: new Date(status.dateTime || Date.now())
+                });
+              }
+            }
+          } catch (error) {
+            console.warn(`Location error for ${device.name}:`, error);
+          }
+        }
+        console.log('Found locations:', locations.length);
+        return locations;
+      }
+
+      function initializeMap() {
+        const mapContainer = document.getElementById('mapContainer');
+        mapContainer.style.display = 'block';
+        if (typeof L === 'undefined') {
+          console.warn('Leaflet not available');
+          return null;
+        }
+        try {
+          if (map) map.remove();
+          map = L.map('map').setView([-35.5, 173.8], 8);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap',
+            maxZoom: 18
+          }).addTo(map);
+          drawnItems = new L.FeatureGroup();
+          map.addLayer(drawnItems);
+          drawAllGeofences();
+          setTimeout(() => { if (map) map.invalidateSize(); }, 250);
+          console.log('Map initialized');
+          return map;
+        } catch (error) {
+          console.error('Map init failed:', error);
+          return null;
+        }
+      }
+
+      function drawAllGeofences() {
+        if (!map || typeof L === 'undefined') return;
+        try {
+          geofencePolygons.forEach(polygon => map.removeLayer(polygon));
+          geofencePolygons.clear();
+          geofences.forEach(geofence => {
+            const polygon = L.polygon(geofence.coordinates, {
+              color: geofence.color,
+              fillColor: geofence.color,
+              fillOpacity: 0.1,
+              weight: 3
+            }).addTo(map);
+            polygon.bindPopup(`<b>${geofence.name}</b><br>${geofence.coordinates.length} points`);
+            geofencePolygons.set(geofence.id, polygon);
+          });
+          if (geofences.length > 0) {
+            const allBounds = L.latLngBounds([]);
+            geofences.forEach(geofence => {
+              geofence.coordinates.forEach(coord => allBounds.extend(coord));
+            });
+            map.fitBounds(allBounds, { padding: [20, 20] });
+          }
+        } catch (error) {
+          console.error('Draw geofences error:', error);
+        }
+      }
+
+      function updateMapMarkers(locations) {
+        if (!map || typeof L === 'undefined') return;
+        try {
+          const activeGeofence = getActiveGeofence();
+          if (!activeGeofence) return;
+          markers.forEach(marker => map.removeLayer(marker));
+          markers.clear();
+          locations.forEach(location => {
+            const isInside = isInGeofence(location.latitude, location.longitude, activeGeofence);
+            const markerColor = isInside ? '#48bb78' : '#e53e3e';
+            const statusText = isInside ? 'Inside' : 'Outside';
+            const marker = L.circleMarker([location.latitude, location.longitude], {
+              radius: 8,
+              fillColor: markerColor,
+              color: '#fff',
+              weight: 2,
+              opacity: 1,
+              fillOpacity: 0.8
+            }).addTo(map);
+            marker.bindPopup(`<b>${location.deviceName}</b><br>${statusText}<br>${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`);
+            markers.set(location.deviceId, marker);
+          });
+        } catch (error) {
+          console.error('Update markers error:', error);
+        }
+      }
+
+      async function checkBoundaryViolations() {
+        try {
+          const activeGeofence = getActiveGeofence();
+          if (!activeGeofence) {
+            showMessage('Please select a geofence to monitor', 'warning');
+            return;
+          }
+          const locations = await getCurrentLocations();
+          const now = new Date();
+          let totalMonitored = 0, insideCount = 0, outsideCount = 0, violationCount = 0;
+          const vehicleItems = [];
+          locations.forEach(location => {
+            totalMonitored++;
+            const isInside = isInGeofence(location.latitude, location.longitude, activeGeofence);
+            if (isInside) {
+              insideCount++;
+              if (activeViolations.has(location.deviceId)) activeViolations.delete(location.deviceId);
+            } else {
+              outsideCount++;
+              if (!activeViolations.has(location.deviceId)) {
+                activeViolations.set(location.deviceId, {
+                  deviceId: location.deviceId,
+                  deviceName: location.deviceName,
+                  startTime: now,
+                  location: location
+                });
+                if (document.getElementById('enableAlerts').checked) playAlertSound();
+              }
+              violationCount++;
+            }
+            const statusClass = isInside ? 'status-inside' : 'status-outside';
+            const statusText = isInside ? 'Inside' : 'Outside';
+            const itemClass = isInside ? '' : 'violation';
+            vehicleItems.push(`
+              <div class="vehicle-item ${itemClass}">
+                <strong>${location.deviceName}</strong><br>
+                <span class="${statusClass}">${statusText}</span><br>
+                <span class="muted">${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}</span><br>
+                <span class="muted">${location.timestamp.toLocaleTimeString()}</span>
+              </div>
+            `);
+          });
+          document.getElementById('totalMonitored').textContent = totalMonitored;
+          document.getElementById('insideBoundary').textContent = insideCount;
+          document.getElementById('outsideBoundary').textContent = outsideCount;
+          document.getElementById('violations').textContent = violationCount;
+          document.getElementById('statsSection').style.display = 'block';
+          const vehicleSection = document.getElementById('vehicleSection');
+          const vehicleList = document.getElementById('vehicleList');
+          if (vehicleItems.length > 0) {
+            vehicleSection.style.display = 'block';
+            vehicleList.innerHTML = vehicleItems.join('');
+          } else {
+            vehicleSection.style.display = 'none';
+          }
+          if (map) updateMapMarkers(locations);
+          showMessage(`Monitoring ${activeGeofence.name}: ${insideCount} inside, ${outsideCount} outside`, 'info');
+        } catch (error) {
+          console.error('Check error:', error);
+          showMessage('Error: ' + error.message, 'error');
+        }
+      }
+
+      function playAlertSound() {
+        try {
+          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          oscillator.frequency.value = 800;
+          oscillator.type = 'sine';
+          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.5);
+        } catch (error) {
+          console.warn('Audio error:', error);
+        }
+      }
+
+      window.geoMonitor = {
+        viewGeofence: function(geofenceId) {
+          const geofence = geofences.find(g => g.id === geofenceId);
+          if (!geofence) return;
+          if (!map || typeof L === 'undefined') {
+            const center = calculateCenter(geofence.coordinates);
+            const mapLink = `https://www.google.com/maps?q=${center[0]},${center[1]}&z=10`;
+            showMessage(`${geofence.name} - ${geofence.coordinates.length} points - <a href="${mapLink}" target="_blank">View on Google Maps</a>`, 'info');
+            return;
+          }
+          const polygon = geofencePolygons.get(geofenceId);
+          if (polygon) {
+            map.fitBounds(polygon.getBounds(), { padding: [20, 20] });
+            polygon.openPopup();
+          }
+          showMessage(`Viewing: ${geofence.name}`, 'info');
+        },
+        exportGeofence: function(geofenceId) {
+          const geofence = geofences.find(g => g.id === geofenceId);
+          if (!geofence) return;
+          const exportData = { name: geofence.name, coordinates: geofence.coordinates, color: geofence.color };
+          const dataStr = JSON.stringify(exportData, null, 2);
+          const dataBlob = new Blob([dataStr], { type: 'application/json' });
+          const url = URL.createObjectURL(dataBlob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${geofence.name.replace(/\s+/g, '_')}.json`;
+          link.click();
+          URL.revokeObjectURL(url);
+          showMessage(`Exported: ${geofence.name}`, 'success');
+        },
+        deleteGeofence: async function(geofenceId) {
+          if (!confirm('Are you sure you want to delete this geofence?')) return;
+          geofences = geofences.filter(g => g.id !== geofenceId);
+          await saveGeofences();
+          const polygon = geofencePolygons.get(geofenceId);
+          if (polygon && map) map.removeLayer(polygon);
+          geofencePolygons.delete(geofenceId);
+          renderGeofenceList();
+          updateActiveGeofenceSelect();
+          showMessage('Geofence deleted', 'success');
+        }
+      };
+
+      document.getElementById('startMonitoring').onclick = async function() {
+        if (isMonitoring) return;
+        const activeGeofence = getActiveGeofence();
+        if (!activeGeofence) {
+          showMessage('Please select a geofence to monitor', 'error');
+          return;
+        }
+        try {
+          isMonitoring = true;
+          document.getElementById('startMonitoring').disabled = true;
+          document.getElementById('stopMonitoring').disabled = false;
+          showMessage(`Monitoring started for: ${activeGeofence.name}`, 'success');
+          await checkBoundaryViolations();
+          const interval = parseInt(document.getElementById('checkInterval').value) || 30;
+          monitoringInterval = setInterval(checkBoundaryViolations, interval * 1000);
+        } catch (error) {
+          isMonitoring = false;
+          document.getElementById('startMonitoring').disabled = false;
+          document.getElementById('stopMonitoring').disabled = true;
+          showMessage('Error: ' + error.message, 'error');
+        }
+      };
+
+      document.getElementById('stopMonitoring').onclick = function() {
+        if (monitoringInterval) {
+          clearInterval(monitoringInterval);
+          monitoringInterval = null;
+        }
+        isMonitoring = false;
+        document.getElementById('startMonitoring').disabled = false;
+        document.getElementById('stopMonitoring').disabled = true;
+        showMessage('Monitoring stopped', 'warning');
+      };
+
+      document.getElementById('checkNow').onclick = checkBoundaryViolations;
+
+      document.getElementById('showMap').onclick = async function() {
+        try {
+          showMessage('Loading map...', 'info');
+          initializeMap();
+          const locations = await getCurrentLocations();
+          if (map && typeof L !== 'undefined') {
+            updateMapMarkers(locations);
+            setTimeout(() => { if (map) map.invalidateSize(); }, 100);
+            showMessage(`Map showing ${locations.length} vehicles and ${geofences.length} geofences`, 'success');
+          } else {
+            showMessage(`${geofences.length} geofences, ${locations.length} vehicles (interactive map not available)`, 'info');
+          }
+        } catch (error) {
+          console.error('Show map error:', error);
+          showMessage('Error: ' + error.message, 'error');
+        }
+      };
+
+      document.getElementById('createGeofence').onclick = function() {
+        document.getElementById('geofenceName').value = '';
+        document.getElementById('geofenceColor').value = '#1e3c72';
+        document.getElementById('coordTextarea').value = '';
+        document.getElementById('geofenceModal').classList.add('active');
+      };
+
+      document.getElementById('saveGeofence').onclick = async function() {
+        const name = document.getElementById('geofenceName').value.trim();
+        const color = document.getElementById('geofenceColor').value;
+        const coordText = document.getElementById('coordTextarea').value.trim();
+        if (!name) { alert('Please enter a geofence name'); return; }
+        if (!coordText) { alert('Please enter coordinates'); return; }
+        try {
+          const coordinates = coordText.split('\n').map(line => {
+            const [lat, lng] = line.split(',').map(s => parseFloat(s.trim()));
+            if (isNaN(lat) || isNaN(lng)) throw new Error('Invalid coordinates');
+            return [lat, lng];
+          });
+          if (coordinates.length < 3) { alert('Please enter at least 3 coordinate points'); return; }
+          const newGeofence = { id: 'geo-' + Date.now(), name: name, coordinates: coordinates, color: color };
+          geofences.push(newGeofence);
+          await saveGeofences();
+          document.getElementById('geofenceModal').classList.remove('active');
+          renderGeofenceList();
+          updateActiveGeofenceSelect();
+          if (map) drawAllGeofences();
+          showMessage(`Geofence "${name}" created successfully!`, 'success');
+        } catch (e) {
+          alert('Invalid coordinate format. Use: lat, lng (one per line)');
+        }
+      };
+
+      document.getElementById('cancelGeofence').onclick = function() {
+        document.getElementById('geofenceModal').classList.remove('active');
+      };
+
+      document.getElementById('importGeofence').onclick = function() {
+        document.getElementById('importTextarea').value = '';
+        document.getElementById('importModal').classList.add('active');
+      };
+
+      document.getElementById('confirmImport').onclick = async function() {
+        const importText = document.getElementById('importTextarea').value.trim();
+        if (!importText) { alert('Please paste geofence JSON'); return; }
+        try {
+          const importData = JSON.parse(importText);
+          if (!importData.name || !importData.coordinates) throw new Error('Invalid geofence format');
+          const newGeofence = { id: 'geo-' + Date.now(), name: importData.name, coordinates: importData.coordinates, color: importData.color || '#1e3c72' };
+          geofences.push(newGeofence);
+          await saveGeofences();
+          document.getElementById('importModal').classList.remove('active');
+          renderGeofenceList();
+          updateActiveGeofenceSelect();
+          if (map) drawAllGeofences();
+          showMessage(`Imported: ${newGeofence.name}`, 'success');
+        } catch (e) {
+          alert('Invalid JSON format: ' + e.message);
+        }
+      };
+
+      document.getElementById('cancelImport').onclick = function() {
+        document.getElementById('importModal').classList.remove('active');
+      };
+
+      window.onclick = function(event) {
+        if (event.target.classList.contains('modal')) {
+          event.target.classList.remove('active');
+        }
+      };
+
+      initialize();
+    };
+  </script>
 </body>
 </html>
