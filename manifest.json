@@ -1,0 +1,13 @@
+{
+    "name": "Geofence Monitor",
+    "supportEmail": "your-email@company.com",
+    "version": "1.0.0",
+    "items": [{
+        "page": "map",
+        "title": "Geofence Monitor",
+        "noView": false,
+        "mapScript": {
+            "url": "https://kikorangee.github.io/GEOSDK/geofence-monitor.html"
+        }
+    }]
+}
