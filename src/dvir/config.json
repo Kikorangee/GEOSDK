@@ -1,0 +1,8 @@
+{
+  "reminderEnabled": true,
+  "reminderMinutes": 5,
+  "heavyEquipmentGroupId": "",
+  "applyHeavyOnly": true,
+  "severityEmailThreshold": "minor",
+  "webhookUrl": ""
+}
