@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Northland Geofence Monitoring</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            color: #333;
+            padding: 0;
+            margin: 0;
+            font-size: 14px;
+        }
+        
+        .container {
+            width: 100%;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .header, .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        
+        .header h1 {
+            color: #2d3748;
+            font-size: 1.8em;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1em;
+            color: #666;
+        }
+        
+        .card-title {
+            color: #2d3748;
+            font-size: 1.3em;
+            font-weight: 700;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #1e3c72;
+            box-shadow: 0 0 0 3px rgba(30,60,114,0.1);
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin: 3px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: #fff;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: #fff;
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #ed8936, #dd6b20);
+            color: #fff;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #f56565, #e53e3e);
+            color: #fff;
+        }
+        
+        .btn-info {
+            background: linear-gradient(135deg, #4299e1, #3182ce);
+            color: #fff;
+        }
+        
+        .btn[disabled] {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .alert {
+            padding: 12px;
+            border-radius: 6px;
+            margin: 12px 0;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .alert-success {
+            background: #c6f6d5;
+            color: #22543d;
+            border-left: 4px solid #38a169;
+        }
+        
+        .alert-error {
+            background: #fed7d7;
+            color: #742a2a;
+            border-left: 4px solid #e53e3e;
+        }
+        
+        .alert-warning {
+            background: #fefcbf;
+            color: #744210;
+            border-left: 4px solid #d69e2e;
+        }
+        
+        .alert-info {
+            background: #ebf8ff;
+            color: #2b6cb0;
+            border-left: 4px solid #4299e1;
+        }
+        
+        .geofence-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background: #fff;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            font-size: 13px;
+        }
+        
+        .geofence-table th {
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: #fff;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        .geofence-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: top;
+            line-height: 1.4;
+        }
+        
+        .geofence-table tr:hover {
+            background: #f7fafc;
+        }
+        
+        .geofence-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        
+        .status-inside {
+            background: #c6f6d5;
+            color: #22543d;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        
+        .status-outside {
+            background: #fed7d7;
+            color: #742a2a;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        
+        .status-unknown {
+            background: #e2e8f0;
+            color: #4a5568;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        
+        .muted {
+            color: #718096;
+            font-size: 12px;
+        }
+        
+        .config-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+        
+        .config-section h4 {
+            margin-bottom: 12px;
+            color: #2d3748;
+        }
+        
+        .checkbox-group {
+            margin: 8px 0;
+        }
+        
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin: 15px 0;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            border-top: 4px solid #1e3c72;
+        }
+        
+        .stat-number {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #1e3c72;
+            margin: 3px 0;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.8em;
+        }
+        
+        .violation-item {
+            background: #fff;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 6px;
+            border-left: 4px solid #e53e3e;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+        }
+        
+        .violation-item.warning {
+            border-left-color: #ed8936;
+        }
+        
+        .violation-item.info {
+            border-left-color: #4299e1;
+        }
+        
+        /* Layout */
+        .main-layout {
+            display: flex;
+            height: calc(100vh - 100px);
+            gap: 15px;
+            padding: 15px;
+        }
+        
+        .sidebar {
+            width: 350px;
+            overflow-y: auto;
+        }
+        
+        .map-container {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Export Controls */
+        .export-controls {
+            margin: 15px 0;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #4299e1;
+        }
+        
+        .export-btn {
+            background: #2c3e50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 3px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .export-btn:hover {
+            background: #34495e;
+        }
+        
+        .export-btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚨 Northland Geofence Monitoring</h1>
+            <p>Real-time unauthorized usage alerts and boundary monitoring</p>
+        </div>
+
+        <div class="main-layout">
+            <div class="sidebar">
+                <div class="card">
+                    <h3 class="card-title">Authentication</h3>
+                    <div class="form-row">
+                        <input id="server" class="form-control" placeholder="Server" value="my.geotab.com" />
+                        <input id="database" class="form-control" placeholder="Database" />
+                    </div>
+                    <div class="form-row">
+                        <input id="username" class="form-control" placeholder="Username" />
+                        <input id="password" class="form-control" type="password" placeholder="Password" />
+                    </div>
+                    <button id="authButton" class="btn btn-primary">🔐 Authenticate</button>
+                    <div id="authResult"></div>
+                </div>
+
+                <div id="monitoringSection" class="card" style="display:none;">
+                    <h3 class="card-title">📍 Northland Boundary Monitoring</h3>
+                    
+                    <!-- Configuration Section -->
+                    <div class="config-section">
+                        <h4>⚙️ Monitoring Configuration</h4>
+                        
+                        <div class="form-row">
+                            <div>
+                                <label for="defaultTimeout">Default Timeout (minutes):</label>
+                                <input id="defaultTimeout" class="form-control" type="number" value="30" min="1" />
+                            </div>
+                            <div>
+                                <label for="checkInterval">Check Interval (minutes):</label>
+                                <input id="checkInterval" class="form-control" type="number" value="5" min="1" />
+                            </div>
+                        </div>
+                        
+                        <div class="checkbox-group">
+                            <label>
+                                <input type="checkbox" id="enableRealTime" checked />
+                                Enable Real-time Monitoring
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div>
+                            <label for="fromDate">From Date:</label>
+                            <input id="fromDate" class="form-control" type="date" />
+                        </div>
+                        <div>
+                            <label for="toDate">To Date:</label>
+                            <input id="toDate" class="form-control" type="date" />
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div style="display: flex; gap: 8px; margin: 15px 0; flex-wrap: wrap;">
+                        <button id="startMonitoring" class="btn btn-success">🚀 Start Monitoring</button>
+                        <button id="stopMonitoring" class="btn btn-danger" disabled>⏹️ Stop Monitoring</button>
+                        <button id="checkViolations" class="btn btn-warning">🔍 Check Current Locations</button>
+                    </div>
+
+                    <!-- Export Controls -->
+                    <div class="export-controls">
+                        <h4>📊 Export Reports</h4>
+                        <div style="display: flex; gap: 8px; margin-top: 10px;">
+                            <button id="exportExcel" class="export-btn" disabled>Export to Excel</button>
+                            <button id="exportPdf" class="export-btn" disabled>Export PDF Report</button>
+                        </div>
+                    </div>
+                    
+                    <div id="infoBanner" class="alert alert-info" style="display:none;"></div>
+                    
+                    <!-- Statistics -->
+                    <div id="monitoringStats" style="display:none;">
+                        <h4>📊 Monitoring Statistics</h4>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div id="totalMonitored" class="stat-number">0</div>
+                                <div class="stat-label">Total Monitored</div>
+                            </div>
+                            <div class="stat-card">
+                                <div id="insideBoundary" class="stat-number">0</div>
+                                <div class="stat-label">Inside Boundary</div>
+                            </div>
+                            <div class="stat-card">
+                                <div id="outsideBoundary" class="stat-number">0</div>
+                                <div class="stat-label">Outside Boundary</div>
+                            </div>
+                            <div class="stat-card">
+                                <div id="violations" class="stat-number">0</div>
+                                <div class="stat-label">Active Violations</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="monitoringResult"></div>
+                </div>
+            </div>
+            
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    
+    <script>
+        // Global variables
+        let api = null;
+        let credentials = null;
+        let monitoringInterval = null;
+        let isMonitoring = false;
+        let map = null;
+        let northlandBoundary = null;
+        let currentMarkers = [];
+        let currentViolations = [];
+
+        // Northland boundary coordinates (approximate polygon)
+        const NORTHLAND_BOUNDARY_COORDS = [
+            [-35.0, 173.0],  // NW
+            [-35.0, 174.5],  // NE
+            [-36.5, 174.5],  // SE
+            [-36.5, 173.0],  // SW
+            [-35.0, 173.0]   // Close polygon
+        ];
+
+        // Initialize map
+        function initMap() {
+            if (map) {
+                map.remove();
+            }
+            
+            // Center on Northland region
+            map = L.map('map').setView([-35.5, 173.8], 9);
+            
+            // Add base layer
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            // Add Northland boundary
+            northlandBoundary = L.polygon(NORTHLAND_BOUNDARY_COORDS, {
+                color: '#1e3c72',
+                weight: 2,
+                fillColor: '#1e3c72',
+                fillOpacity: 0.1
+            }).addTo(map);
+            
+            console.log('Map initialized successfully');
+        }
+
+        // Check if location is within Northland boundary
+        function isInNorthland(lat, lon) {
+            if (!lat || !lon) return false;
+            
+            // Simple bounding box check
+            return lat >= -36.5 && 
+                   lat <= -35.0 && 
+                   lon >= 173.0 && 
+                   lon <= 174.5;
+        }
+
+        // Set default dates
+        function setDefaultDates() {
+            const today = new Date();
+            const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+            document.getElementById('toDate').value = today.toISOString().split('T')[0];
+            document.getElementById('fromDate').value = yesterday.toISOString().split('T')[0];
+        }
+
+        // Show message
+        function showMessage(elId, msg, type = 'info') {
+            const el = document.getElementById(elId);
+            const c = type === 'error' ? 'alert-error' : 
+                      type === 'success' ? 'alert-success' : 
+                      type === 'warning' ? 'alert-warning' : 'alert-info';
+            el.style.display = '';
+            el.innerHTML = `<div class="alert ${c}">${msg}</div>`;
+        }
+
+        // Authenticate with Geotab
+        async function authenticate() {
+            const server = document.getElementById('server').value.trim();
+            const database = document.getElementById('database').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!server || !database || !username || !password) {
+                showMessage('authResult', 'Please fill in all fields', 'error');
+                return;
+            }
+
+            try {
+                showMessage('authResult', 'Authenticating...', 'warning');
+                
+                // Use Geotab API for authentication
+                api = await new Promise((resolve, reject) => {
+                    if (typeof gapi !== 'undefined') {
+                        // If in Geotab environment
+                        gapi.authenticate(server, database, username, password, 
+                            (result) => resolve(result),
+                            (error) => reject(error)
+                        );
+                    } else {
+                        // Fallback for testing
+                        setTimeout(() => {
+                            credentials = { sessionId: 'test-session' };
+                            resolve({ credentials: credentials });
+                        }, 1000);
+                    }
+                });
+
+                showMessage('authResult', 'Authentication successful!', 'success');
+                document.getElementById('monitoringSection').style.display = '';
+                
+                // Initialize map after authentication
+                initMap();
+                
+            } catch (error) {
+                console.error('Authentication error:', error);
+                showMessage('authResult', `Authentication failed: ${error.message || error}`, 'error');
+            }
+        }
+
+        // Get current device locations
+        async function getCurrentLocations() {
+            try {
+                if (!api) throw new Error('Not authenticated');
+                
+                // Get devices
+                const devices = await new Promise((resolve, reject) => {
+                    if (typeof gapi !== 'undefined') {
+                        gapi.call('Get', {
+                            typeName: 'Device',
+                            resultsLimit: 100
+                        }, resolve, reject);
+                    } else {
+                        // Mock data for testing
+                        setTimeout(() => {
+                            resolve([
+                                { id: '1', name: 'Vehicle 1' },
+                                { id: '2', name: 'Vehicle 2' },
+                                { id: '3', name: 'Vehicle 3' }
+                            ]);
+                        }, 500);
+                    }
+                });
+
+                const locations = [];
+                
+                // Get status data for each device
+                for (const device of devices) {
+                    try {
+                        const statusData = await new Promise((resolve, reject) => {
+                            if (typeof gapi !== 'undefined') {
+                                gapi.call('Get', {
+                                    typeName: 'StatusData',
+                                    search: {
+                                        deviceSearch: { id: device.id }
+                                    },
+                                    resultsLimit: 1
+                                }, resolve, reject);
+                            } else {
+                                // Mock location data
+                                setTimeout(() => {
+                                    const isInside = Math.random() > 0.3;
+                                    const lat = isInside ? -35.5 + (Math.random() - 0.5) : -37.0;
+                                    const lon = isInside ? 173.8 + (Math.random() - 0.5) : 175.0;
+                                    resolve([{
+                                        device: { id: device.id },
+                                        latitude: lat,
+                                        longitude: lon,
+                                        dateTime: new Date().toISOString()
+                                    }]);
+                                }, 100);
+                            }
+                        });
+
+                        if (statusData && statusData.length > 0) {
+                            const data = statusData[0];
+                            locations.push({
+                                deviceId: device.id,
+                                deviceName: device.name,
+                                latitude: data.latitude,
+                                longitude: data.longitude,
+                                timestamp: new Date(data.dateTime),
+                                isInside: isInNorthland(data.latitude, data.longitude)
+                            });
+                        }
+                    } catch (error) {
+                        console.warn(`Could not get location for device ${device.name}:`, error);
+                    }
+                }
+
+                return locations;
+                
+            } catch (error) {
+                console.error('Error getting locations:', error);
+                throw error;
+            }
+        }
+
+        // Update map with locations
+        function updateMap(locations) {
+            // Clear existing markers
+            currentMarkers.forEach(marker => map.removeLayer(marker));
+            currentMarkers = [];
+
+            let insideCount = 0;
+            let outsideCount = 0;
+            currentViolations = [];
+
+            locations.forEach(location => {
+                const isInside = location.isInside;
+                const color = isInside ? 'green' : 'red';
+                const icon = L.divIcon({
+                    className: 'custom-marker',
+                    html: `<div style="background-color: ${color}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                    iconSize: [16, 16],
+                    iconAnchor: [8, 8]
+                });
+
+                const marker = L.marker([location.latitude, location.longitude], { icon: icon })
+                    .bindPopup(`
+                        <strong>${location.deviceName}</strong><br>
+                        Status: ${isInside ? 'INSIDE' : 'OUTSIDE'}<br>
+                        Location: ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}<br>
+                        Last Update: ${location.timestamp.toLocaleTimeString()}
+                    `)
+                    .addTo(map);
+
+                currentMarkers.push(marker);
+
+                if (isInside) {
+                    insideCount++;
+                } else {
+                    outsideCount++;
+                    currentViolations.push(location);
+                }
+            });
+
+            // Update statistics
+            updateMonitoringStats(locations.length, insideCount, outsideCount, currentViolations.length);
+            
+            // Auto-fit map to show all markers and boundary
+            if (locations.length > 0) {
+                const group = new L.featureGroup([northlandBoundary, ...currentMarkers]);
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
+        }
+
+        // Update monitoring statistics
+        function updateMonitoringStats(total, inside, outside, violations) {
+            document.getElementById('totalMonitored').textContent = total;
+            document.getElementById('insideBoundary').textContent = inside;
+            document.getElementById('outsideBoundary').textContent = outside;
+            document.getElementById('violations').textContent = violations;
+            document.getElementById('monitoringStats').style.display = 'block';
+        }
+
+        // Check for boundary violations
+        async function checkBoundaryViolations() {
+            try {
+                showMessage('infoBanner', 'Getting current asset locations...', 'info');
+                
+                const locations = await getCurrentLocations();
+                
+                if (locations.length === 0) {
+                    showMessage('infoBanner', 'No location data available', 'warning');
+                    return;
+                }
+                
+                updateMap(locations);
+                
+                if (currentViolations.length > 0) {
+                    showMessage('infoBanner', `🚨 Found ${currentViolations.length} assets outside Northland boundary!`, 'error');
+                } else {
+                    showMessage('infoBanner', `✅ All ${locations.length} assets are within Northland boundary`, 'success');
+                }
+                
+                // Enable export buttons
+                document.getElementById('exportExcel').disabled = false;
+                document.getElementById('exportPdf').disabled = false;
+                
+            } catch (error) {
+                console.error('Error checking violations:', error);
+                showMessage('infoBanner', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Start continuous monitoring
+        function startMonitoring() {
+            if (isMonitoring) return;
+            
+            const interval = parseInt(document.getElementById('checkInterval').value) || 5;
+            isMonitoring = true;
+            
+            document.getElementById('startMonitoring').disabled = true;
+            document.getElementById('stopMonitoring').disabled = false;
+            
+            // Initial check
+            checkBoundaryViolations();
+            
+            // Set up interval
+            monitoringInterval = setInterval(checkBoundaryViolations, interval * 60 * 1000);
+            
+            showMessage('infoBanner', `🔄 Started continuous monitoring (checking every ${interval} minutes)`, 'success');
+        }
+
+        // Stop monitoring
+        function stopMonitoring() {
+            if (monitoringInterval) {
+                clearInterval(monitoringInterval);
+                monitoringInterval = null;
+            }
+            
+            isMonitoring = false;
+            document.getElementById('startMonitoring').disabled = false;
+            document.getElementById('stopMonitoring').disabled = true;
+            
+            showMessage('infoBanner', '⏹️ Monitoring stopped', 'warning');
+        }
+
+        // Export to Excel
+        function exportToExcel() {
+            if (currentViolations.length === 0) {
+                showMessage('infoBanner', 'No violations to export', 'warning');
+                return;
+            }
+            
+            try {
+                // Prepare data for Excel
+                const worksheetData = [];
+                
+                // Add headers
+                worksheetData.push(['Device Name', 'Latitude', 'Longitude', 'Status', 'Timestamp']);
+                
+                // Add data rows
+                currentViolations.forEach(violation => {
+                    worksheetData.push([
+                        violation.deviceName,
+                        violation.latitude,
+                        violation.longitude,
+                        'OUTSIDE BOUNDARY',
+                        violation.timestamp.toLocaleString()
+                    ]);
+                });
+                
+                // Create workbook
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+                
+                // Add worksheet to workbook
+                XLSX.utils.book_append_sheet(wb, ws, 'Boundary Violations');
+                
+                // Export to file
+                XLSX.writeFile(wb, `northland-violations-${new Date().toISOString().split('T')[0]}.xlsx`);
+                
+                showMessage('infoBanner', `📊 Exported ${currentViolations.length} violations to Excel`, 'success');
+                
+            } catch (error) {
+                console.error('Error exporting to Excel:', error);
+                showMessage('infoBanner', 'Error exporting to Excel', 'error');
+            }
+        }
+
+        // Export to PDF
+        async function exportToPDF() {
+            if (currentViolations.length === 0) {
+                showMessage('infoBanner', 'No violations to export', 'warning');
+                return;
+            }
+            
+            try {
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('landscape', 'mm', 'a4');
+                
+                // Add title
+                pdf.setFontSize(20);
+                pdf.setTextColor(40, 40, 40);
+                pdf.text('Northland Boundary Violations Report', 20, 20);
+                
+                // Add generation info
+                pdf.setFontSize(12);
+                pdf.setTextColor(100, 100, 100);
+                pdf.text(`Generated: ${new Date().toLocaleString()}`, 20, 30);
+                pdf.text(`Total Violations: ${currentViolations.length}`, 20, 37);
+                
+                let yPosition = 50;
+                
+                // Add violations table
+                pdf.setFontSize(14);
+                pdf.setTextColor(40, 40, 40);
+                pdf.text('Boundary Violations:', 20, yPosition);
+                yPosition += 10;
+                
+                pdf.setFontSize(10);
+                currentViolations.forEach((violation, index) => {
+                    if (yPosition > 270) {
+                        pdf.addPage();
+                        yPosition = 20;
+                    }
+                    
+                    const line1 = `${index + 1}. ${violation.deviceName}`;
+                    const line2 = `   Location: ${violation.latitude.toFixed(4)}, ${violation.longitude.toFixed(4)}`;
+                    const line3 = `   Time: ${violation.timestamp.toLocaleString()}`;
+                    
+                    pdf.text(line1, 25, yPosition);
+                    pdf.text(line2, 25, yPosition + 4);
+                    pdf.text(line3, 25, yPosition + 8);
+                    
+                    yPosition += 15;
+                });
+                
+                // Save PDF
+                pdf.save(`northland-violations-${new Date().toISOString().split('T')[0]}.pdf`);
+                
+                showMessage('infoBanner', `📄 Exported ${currentViolations.length} violations to PDF`, 'success');
+                
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                showMessage('infoBanner', 'Error generating PDF', 'error');
+            }
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set default dates
+            setDefaultDates();
+            
+            // Initialize map immediately
+            initMap();
+            
+            // Authentication
+            document.getElementById('authButton').addEventListener('click', authenticate);
+            
+            // Monitoring controls
+            document.getElementById('startMonitoring').addEventListener('click', startMonitoring);
+            document.getElementById('stopMonitoring').addEventListener('click', stopMonitoring);
+            document.getElementById('checkViolations').addEventListener('click', checkBoundaryViolations);
+            
+            // Export controls
+            document.getElementById('exportExcel').addEventListener('click', exportToExcel);
+            document.getElementById('exportPdf').addEventListener('click', exportToPDF);
+            
+            // Check if we're in a Geotab environment
+            if (typeof gapi !== 'undefined') {
+                console.log('Running in Geotab environment');
+                // Auto-authenticate if possible
+                try {
+                    api = gapi.getApi();
+                    if (api) {
+                        document.getElementById('monitoringSection').style.display = '';
+                        initMap();
+                        showMessage('authResult', 'Auto-authenticated with Geotab', 'success');
+                    }
+                } catch (e) {
+                    console.log('Manual authentication required');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
