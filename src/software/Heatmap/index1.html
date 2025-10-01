@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <meta name="description" content="">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Heat Map</title>
+
+  <!-- build:css styles/vendor.css -->
+  <!-- bower:css -->
+  <link rel="stylesheet" href="bower_components/leaflet/dist/leaflet.css">
+  <!-- endbower -->
+  <!-- endbuild -->
+
+  <!-- build:css styles/main.css -->
+  <link rel="stylesheet" href="styles/spinner.css">
+  <link rel="stylesheet" href="styles/main.css">
+  <!-- endbuild -->
+
+  <!-- Add required libraries for export functionality -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <!-- build:js scripts/vendor.js -->
+  <!-- bower:js -->
+  <script src="bower_components/leaflet/dist/leaflet.js"></script>
+  <script src="bower_components/leaflet.heat/dist/leaflet-heat.js"></script>
+  <!-- endbower -->
+  <!-- endbuild -->
+
+  <!-- build:js scripts/main.js -->
+  <script src="scripts/main.js"></script>
+  <!-- endbuild -->
+
+  <style>
+    .export-controls {
+      margin: 1em 0;
+      padding: 10px;
+      background: #f5f5f5;
+      border-radius: 5px;
+    }
+    
+    .export-btn {
+      background: #2c3e50;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      margin: 5px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    .export-btn:hover {
+      background: #34495e;
+    }
+    
+    .export-btn:disabled {
+      background: #95a5a6;
+      cursor: not-allowed;
+    }
+    
+    .report-options {
+      margin: 10px 0;
+    }
+    
+    .report-options label {
+      display: block;
+      margin: 5px 0;
+    }
+  </style>
+</head>
+
+<body>
+  
+  <div id="heatmap" style="height: calc(100%)">
+    <div id="disclaimer">
+      <label id="disclaimerLabel">Sample add-in/tool</label>
+      <p>This tool is provided as an example and is available on an As-Is basis. You must assume all the risks and
+          costs associated with the use of the sample tool, including, without limitation, any damage to any
+          equipment, software, information or data. In addition, we are not obligated to provide any maintenance,
+          technical or other support for the sample tool. In order to improve our products, we may at any time,
+          and without warning, change the design, presentation, or functionality of the software.</p>
+    </div>
+
+    <div class="cssGrid sm-part-12">
+      <div class="lg-part-2 md-part-3 sm-part-12">
+        <div id="controls">
+
+          <h2>Heatmap</h2>
+          <p>
+            This example demonstrates how to create an add-in to visualize location or exception
+            (rule violation) history using a heat map.
+          </p>
+
+          <label for="visualizeBy">Visualize by:</label>
+          <input type="radio" id="visualizeByLocationHistory" name="visualizeBy" value="locationHistory" checked> Location History
+          <input type="radio" id="visualizeByExceptionHistory" name="visualizeBy" value="exceptionHistory"> Exception History
+
+          <label for="exceptionTypes">Rule:</label>
+          <select id="exceptionTypes" class="checkmateFormEditField" ng-mousedown="selectType($event)" disabled>
+              <option disabled="disabled">Select a rule</option>
+          </select>
+
+          <label for="vehicles">Vehicle(s):</label>
+          <select id="vehicles" class="checkmateFormEditField" multiple="true"
+            ng-mousedown="selectType($event)">
+          </select>
+
+          <label for="from">From:</label>
+          <input id="from" type="datetime-local" class="checkmateFormEditField" />
+
+          <label for="to">To:</label>
+          <input id="to" type="datetime-local" class="checkmateFormEditField" />
+          
+          <div style="margin:1em"></div>
+          <input type="submit" value="Show Heat Map" id="showHeatMap">
+          
+          <!-- Export Controls -->
+          <div class="export-controls">
+            <h3>Export Reports</h3>
+            
+            <div class="report-options">
+              <label>
+                <input type="checkbox" id="includeMap" checked> Include map in PDF report
+              </label>
+              <label>
+                <input type="checkbox" id="includeSummary" checked> Include summary data
+              </label>
+              <label>
+                <input type="checkbox" id="includeRawData" checked> Include raw data in Excel export
+              </label>
+            </div>
+            
+            <button id="exportExcel" class="export-btn" disabled>Export to Excel</button>
+            <button id="exportPdf" class="export-btn" disabled>Print PDF Report</button>
+          </div>
+          
+          <div id="error"></div>
+          <div id="message"></div>
+
+          <div id="loading" class="spinner" style="display:none">
+              <div></div>
+              <div></div>
+              <div></div>
+          </div>
+
+          <div>
+            <h3>Instructions</h3>
+            <ol>
+              <li>Choose to visualize by <i>location history</i> or <i>exception history</i>.</li>
+              <li>If visualizing by exception history, select a rule for which to search for exceptions.</li>
+              <li>Select the vehicle(s) to search on.</li>
+              <li>Specify a date/time range.</li>
+              <li>Click the <i>Show Heat Map</i> button to update the map.</li>
+              <li>After applying any changes to the MyGeotab Groups Filter, refresh the page to apply the filter to the list of vehicles and repeat the above steps.</li>
+              <li>Use Export buttons to generate Excel spreadsheets or PDF reports.</li>
+            </ol>
+            <p>
+              When selecting veicles, use CTRL+Click to select/deselect individual vehicles 
+              or SHIFT+Click to select a range of vehicles.  To select all vehicles in the
+              list, first select one and then use CTRL+A.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="lg-part-10 md-part-9 sm-part-12">
+          <div id="heatmap-map" style="width:100%"></div>
+        </div>
+    </div>
+  </div>
+
+  <script>
+    // Export functionality
+    document.addEventListener('DOMContentLoaded', function() {
+      const exportExcelBtn = document.getElementById('exportExcel');
+      const exportPdfBtn = document.getElementById('exportPdf');
+      
+      // Store heatmap data globally for export
+      window.heatmapData = {
+        points: [],
+        summary: {},
+        filters: {}
+      };
+      
+      // Enable export buttons when data is available
+      function enableExportButtons() {
+        exportExcelBtn.disabled = false;
+        exportPdfBtn.disabled = false;
+      }
+      
+      // Export to Excel functionality
+      exportExcelBtn.addEventListener('click', function() {
+        if (window.heatmapData.points.length === 0) {
+          alert('No data available to export. Please generate a heat map first.');
+          return;
+        }
+        
+        try {
+          // Prepare data for Excel
+          const worksheetData = [];
+          
+          // Add headers
+          const headers = ['Latitude', 'Longitude', 'Intensity', 'Vehicle', 'Timestamp', 'Address'];
+          worksheetData.push(headers);
+          
+          // Add data rows
+          window.heatmapData.points.forEach(point => {
+            worksheetData.push([
+              point.lat,
+              point.lng,
+              point.intensity || 1,
+              point.vehicleName || 'N/A',
+              point.dateTime || 'N/A',
+              point.address || 'N/A'
+            ]);
+          });
+          
+          // Create workbook
+          const wb = XLSX.utils.book_new();
+          const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+          
+          // Add worksheet to workbook
+          XLSX.utils.book_append_sheet(wb, ws, 'Heatmap Data');
+          
+          // Add summary sheet if requested
+          if (document.getElementById('includeSummary').checked) {
+            const summaryData = [
+              ['Heat Map Report Summary'],
+              ['Generated', new Date().toLocaleString()],
+              ['Total Data Points', window.heatmapData.points.length],
+              ['Date Range', `${window.heatmapData.filters.from || 'N/A'} to ${window.heatmapData.filters.to || 'N/A'}`],
+              ['Vehicles', window.heatmapData.filters.vehicles || 'N/A'],
+              ['Visualization Type', window.heatmapData.filters.visualizeBy || 'N/A']
+            ];
+            
+            const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+            XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+          }
+          
+          // Export to file
+          XLSX.writeFile(wb, `heatmap-report-${new Date().toISOString().split('T')[0]}.xlsx`);
+          
+        } catch (error) {
+          console.error('Error exporting to Excel:', error);
+          alert('Error exporting to Excel: ' + error.message);
+        }
+      });
+      
+      // Export to PDF functionality
+      exportPdfBtn.addEventListener('click', async function() {
+        if (window.heatmapData.points.length === 0) {
+          alert('No data available to export. Please generate a heat map first.');
+          return;
+        }
+        
+        try {
+          const { jsPDF } = window.jspdf;
+          const pdf = new jsPDF('landscape', 'mm', 'a4');
+          
+          // Add title
+          pdf.setFontSize(20);
+          pdf.setTextColor(40, 40, 40);
+          pdf.text('Heat Map Analysis Report', 20, 20);
+          
+          // Add generation info
+          pdf.setFontSize(12);
+          pdf.setTextColor(100, 100, 100);
+          pdf.text(`Generated: ${new Date().toLocaleString()}`, 20, 30);
+          
+          let yPosition = 45;
+          
+          // Add summary section
+          if (document.getElementById('includeSummary').checked) {
+            pdf.setFontSize(16);
+            pdf.setTextColor(40, 40, 40);
+            pdf.text('Summary', 20, yPosition);
+            yPosition += 10;
+            
+            pdf.setFontSize(10);
+            pdf.text(`Total Data Points: ${window.heatmapData.points.length}`, 25, yPosition);
+            yPosition += 6;
+            pdf.text(`Date Range: ${window.heatmapData.filters.from || 'N/A'} to ${window.heatmapData.filters.to || 'N/A'}`, 25, yPosition);
+            yPosition += 6;
+            pdf.text(`Vehicles: ${window.heatmapData.filters.vehicles || 'N/A'}`, 25, yPosition);
+            yPosition += 6;
+            pdf.text(`Visualization Type: ${window.heatmapData.filters.visualizeBy || 'N/A'}`, 25, yPosition);
+            yPosition += 15;
+          }
+          
+          // Add map image if requested
+          if (document.getElementById('includeMap').checked) {
+            const mapElement = document.getElementById('heatmap-map');
+            
+            if (mapElement) {
+              pdf.setFontSize(16);
+              pdf.text('Heat Map Visualization', 20, yPosition);
+              yPosition += 10;
+              
+              const canvas = await html2canvas(mapElement, {
+                scale: 1,
+                useCORS: true,
+                logging: false,
+                width: mapElement.offsetWidth,
+                height: mapElement.offsetHeight
+              });
+              
+              const imgData = canvas.toDataURL('image/jpeg', 0.7);
+              const imgWidth = 250;
+              const imgHeight = (canvas.height * imgWidth) / canvas.width;
+              
+              // Add new page if needed
+              if (yPosition + imgHeight > 180) {
+                pdf.addPage();
+                yPosition = 20;
+              }
+              
+              pdf.addImage(imgData, 'JPEG', 20, yPosition, imgWidth, imgHeight);
+              yPosition += imgHeight + 10;
+            }
+          }
+          
+          // Add data table if there's space
+          if (yPosition < 250 && window.heatmapData.points.length > 0) {
+            pdf.setFontSize(16);
+            pdf.text('Sample Data Points', 20, yPosition);
+            yPosition += 10;
+            
+            pdf.setFontSize(8);
+            let sampleData = window.heatmapData.points.slice(0, 10); // Show first 10 points
+            
+            sampleData.forEach((point, index) => {
+              if (yPosition > 270) {
+                pdf.addPage();
+                yPosition = 20;
+              }
+              
+              const line = `${index + 1}. Lat: ${point.lat.toFixed(4)}, Lng: ${point.lng.toFixed(4)}, Vehicle: ${point.vehicleName || 'N/A'}`;
+              pdf.text(line, 25, yPosition);
+              yPosition += 4;
+            });
+          }
+          
+          // Save PDF
+          pdf.save(`heatmap-report-${new Date().toISOString().split('T')[0]}.pdf`);
+          
+        } catch (error) {
+          console.error('Error generating PDF:', error);
+          alert('Error generating PDF: ' + error.message);
+        }
+      });
+      
+      // Make enableExportButtons available globally
+      window.enableExportButtons = enableExportButtons;
+      
+      // Override or extend the existing showHeatMap functionality
+      const originalShowHeatMap = document.getElementById('showHeatMap').onclick;
+      document.getElementById('showHeatMap').onclick = function() {
+        // Call original function if it exists
+        if (typeof originalShowHeatMap === 'function') {
+          originalShowHeatMap();
+        }
+        
+        // Set a timeout to enable export buttons after heatmap is loaded
+        setTimeout(() => {
+          // This would need to be integrated with your existing heatmap data loading
+          // For now, we'll assume the data is available and enable the buttons
+          // You'll need to update window.heatmapData with actual data from your heatmap
+          enableExportButtons();
+        }, 2000);
+      };
+    });
+  </script>
+</body>
+
+</html>
