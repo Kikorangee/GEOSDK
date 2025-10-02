@@ -309,12 +309,20 @@
             <input type="password" id="password" class="config-input" placeholder="Password">
             <input type="text" id="inspectorDriverId" class="config-input" placeholder="Inspector Driver ID (e.g., b123)">
             <button class="config-btn" onclick="saveConfig()">Save Configuration</button>
+            <button class="config-btn" onclick="testConfig()" style="background: #007bff;">Test Connection</button>
             <p style="margin-top: 12px; font-size: 13px; color: #856404;">
                 ℹ️ Config is saved in browser. For testing without API, leave blank and use "Demo Mode"
             </p>
+            <div id="configStatus" style="margin-top: 10px; padding: 10px; display: none; border-radius: 4px;"></div>
         </div>
 
         <div class="status-message" id="statusMessage"></div>
+        
+        <!-- Connection Status Bar -->
+        <div id="connectionStatus" style="background: #fff3cd; border: 2px solid #ffc107; padding: 12px; margin: 16px; border-radius: 8px; text-align: center;">
+            <strong id="connectionStatusText">⚠️ Demo Mode</strong> - 
+            <a href="#" onclick="showConfig(); return false;" style="color: #0066cc;">Configure Geotab Connection</a>
+        </div>
 
         <div class="form-section">
             <div class="inspector-section">
@@ -598,7 +606,37 @@
                 document.getElementById('userName').value = parsed.userName || '';
                 document.getElementById('password').value = parsed.password || '';
                 document.getElementById('inspectorDriverId').value = parsed.inspectorDriverId || '';
+                
+                // Update connection status
+                updateConnectionStatus(parsed);
+            } else {
+                updateConnectionStatus(null);
             }
+        }
+        
+        // Update connection status bar
+        function updateConnectionStatus(config) {
+            const statusDiv = document.getElementById('connectionStatus');
+            const statusText = document.getElementById('connectionStatusText');
+            
+            if (config && config.dbName && config.userName && config.password && config.inspectorDriverId) {
+                statusDiv.style.background = '#d4edda';
+                statusDiv.style.borderColor = '#28a745';
+                statusText.innerHTML = '✅ Connected to Geotab';
+                statusDiv.innerHTML = `<strong>${statusText.innerHTML}</strong> (${config.dbName}) - <a href="#" onclick="showConfig(); return false;" style="color: #155724;">Edit Settings</a>`;
+            } else {
+                statusDiv.style.background = '#fff3cd';
+                statusDiv.style.borderColor = '#ffc107';
+                statusText.innerHTML = '⚠️ Demo Mode';
+                statusDiv.innerHTML = `<strong>${statusText.innerHTML}</strong> - Inspections will only be logged to console. <a href="#" onclick="showConfig(); return false;" style="color: #0066cc;">Configure Geotab Connection</a>`;
+            }
+        }
+        
+        // Show config section
+        function showConfig() {
+            const configSection = document.getElementById('configSection');
+            configSection.style.display = 'block';
+            configSection.scrollIntoView({ behavior: 'smooth' });
         }
 
         // Save configuration
@@ -609,13 +647,96 @@
                 password: document.getElementById('password').value,
                 inspectorDriverId: document.getElementById('inspectorDriverId').value
             };
+            
+            if (!config.dbName || !config.userName || !config.password || !config.inspectorDriverId) {
+                const statusDiv = document.getElementById('configStatus');
+                statusDiv.style.display = 'block';
+                statusDiv.style.background = '#fff3cd';
+                statusDiv.style.color = '#856404';
+                statusDiv.textContent = '⚠️ Please fill in all fields';
+                return;
+            }
+            
             localStorage.setItem('geotabConfig', JSON.stringify(config));
-            showStatus('Configuration saved successfully!', 'success');
+            showStatus('✅ Configuration saved successfully!', 'success');
+            
+            const statusDiv = document.getElementById('configStatus');
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#d4edda';
+            statusDiv.style.color = '#155724';
+            statusDiv.textContent = '✅ Configuration saved! Click "Test Connection" to verify.';
+            
+            // Update connection status bar
+            updateConnectionStatus(config);
             
             // Hide config section after save
             setTimeout(() => {
                 document.getElementById('configSection').style.display = 'none';
-            }, 1500);
+            }, 2000);
+        }
+        
+        // Test Geotab connection
+        async function testConfig() {
+            const config = {
+                dbName: document.getElementById('dbName').value,
+                userName: document.getElementById('userName').value,
+                password: document.getElementById('password').value,
+                inspectorDriverId: document.getElementById('inspectorDriverId').value
+            };
+            
+            const statusDiv = document.getElementById('configStatus');
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#d1ecf1';
+            statusDiv.style.color = '#0c5460';
+            statusDiv.textContent = '⏳ Testing connection to Geotab...';
+            
+            try {
+                const apiUrl = 'https://my.geotab.com/apiv1';
+                
+                console.log('Testing Geotab connection...');
+                console.log('Database:', config.dbName);
+                console.log('Username:', config.userName);
+                
+                const authResponse = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        method: 'Authenticate',
+                        params: {
+                            database: config.dbName,
+                            userName: config.userName,
+                            password: config.password
+                        }
+                    })
+                });
+                
+                const authResult = await authResponse.json();
+                console.log('Auth test result:', authResult);
+                
+                if (authResult.error) {
+                    throw new Error(authResult.error.message || JSON.stringify(authResult.error));
+                }
+                
+                // Test inspector driver ID format
+                if (!config.inspectorDriverId.startsWith('b')) {
+                    statusDiv.style.background = '#fff3cd';
+                    statusDiv.style.color = '#856404';
+                    statusDiv.textContent = '⚠️ Warning: Driver ID should start with "b" (e.g., b123). Current value: ' + config.inspectorDriverId;
+                    return;
+                }
+                
+                statusDiv.style.background = '#d4edda';
+                statusDiv.style.color = '#155724';
+                statusDiv.textContent = '✅ Success! Connected to Geotab. Configuration is valid.';
+                
+                console.log('✅ Connection test successful!');
+                
+            } catch (error) {
+                console.error('Connection test failed:', error);
+                statusDiv.style.background = '#f8d7da';
+                statusDiv.style.color = '#721c24';
+                statusDiv.textContent = '❌ Connection failed: ' + error.message;
+            }
         }
 
         // Show/hide defect text areas
@@ -659,7 +780,7 @@
             const inspectorName = document.getElementById('inspectorName').value.trim();
             
             if (!inspectorName) {
-                showStatus('Please enter your name', 'error');
+                showStatus('❌ Please enter your name', 'error');
                 return;
             }
 
@@ -677,12 +798,14 @@
             };
 
             let hasDefects = false;
+            let itemsChecked = 0;
 
             document.querySelectorAll('.check-item').forEach(checkbox => {
                 const item = checkbox.dataset.item;
                 const passed = checkbox.checked;
                 const defectText = document.querySelector(`#defect-${item} textarea`).value.trim();
                 
+                if (passed) itemsChecked++;
                 if (!passed) hasDefects = true;
 
                 inspectionData.items.push({
@@ -695,46 +818,117 @@
 
             inspectionData.additionalComments = document.getElementById('additionalComments').value.trim();
             inspectionData.hasDefects = hasDefects;
+            inspectionData.itemsChecked = itemsChecked;
+            inspectionData.totalItems = document.querySelectorAll('.check-item').length;
+
+            console.log('=== INSPECTION DATA ===');
+            console.log(inspectionData);
+            console.log('======================');
+
+            // Check if items were checked
+            if (itemsChecked === 0) {
+                if (!confirm('No items checked as OK. Submit inspection with all items as defects?')) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit Inspection';
+                    return;
+                }
+            }
 
             // Try to submit to Geotab API
             const config = JSON.parse(localStorage.getItem('geotabConfig') || '{}');
             
             if (config.dbName && config.userName && config.password && config.inspectorDriverId) {
+                console.log('=== SUBMITTING TO GEOTAB ===');
+                console.log('Database:', config.dbName);
+                console.log('Username:', config.userName);
+                console.log('Inspector ID:', config.inspectorDriverId);
+                
                 try {
-                    await submitToGeotab(inspectionData, config);
-                    showStatus('✅ Inspection submitted to Geotab successfully!', 'success');
+                    const result = await submitToGeotab(inspectionData, config);
+                    console.log('✅ Geotab submission successful:', result);
                     
-                    // Reset form after 2 seconds
+                    showStatus(`✅ SUCCESS! Inspection submitted to Geotab for ${vehicleName}`, 'success');
+                    
+                    // Reset form after 3 seconds
                     setTimeout(() => {
-                        if (confirm('Inspection submitted! Start another inspection?')) {
-                            location.reload();
+                        if (confirm(`Inspection for ${vehicleName} submitted!\n\nStart another inspection?`)) {
+                            resetForm();
                         }
-                    }, 2000);
+                    }, 3000);
                 } catch (error) {
-                    console.error('Geotab API Error:', error);
-                    showStatus('❌ Error submitting to Geotab: ' + error.message, 'error');
+                    console.error('❌ Geotab API Error:', error);
+                    showStatus(`❌ Error submitting to Geotab: ${error.message}`, 'error');
+                    
+                    // Show detailed error
+                    alert(`Submission Failed:\n\n${error.message}\n\nCheck:\n- Your credentials in config\n- Inspector Driver ID format (should be like: b123)\n- Internet connection\n\nSee console (F12) for details.`);
+                    
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Submit Inspection';
+                    return;
                 }
             } else {
-                // Demo mode - just log to console
-                console.log('DEMO MODE - Inspection Data:', inspectionData);
-                showStatus('✅ Demo Mode: Inspection logged to console (F12 to view)', 'success');
+                // Demo mode - show what would be submitted
+                console.log('=== DEMO MODE ===');
+                console.log('No Geotab config found. Inspection data logged above.');
+                console.log('To submit to Geotab, configure credentials in the yellow box.');
+                
+                const summary = `
+📋 DEMO MODE - Inspection Summary:
+
+Vehicle: ${vehicleName} (${vehicleId})
+Inspector: ${inspectorName}
+Items Checked OK: ${itemsChecked} / ${inspectionData.totalItems}
+Has Defects: ${hasDefects ? 'YES ⚠️' : 'NO ✅'}
+Time: ${new Date().toLocaleString()}
+
+${hasDefects ? '\n⚠️ DEFECTS FOUND:\n' + inspectionData.items.filter(i => !i.passed && i.defect).map(i => `- ${i.label}: ${i.defect}`).join('\n') : ''}
+
+To submit to Geotab:
+1. Click the yellow config section at top
+2. Enter your Geotab credentials
+3. Save configuration
+4. Try submitting again
+                `.trim();
+                
+                console.log(summary);
+                
+                showStatus('⚠️ DEMO MODE: Inspection data logged to console (press F12 to view)', 'success');
+                
+                // Show alert with summary
+                alert(summary);
                 
                 setTimeout(() => {
                     if (confirm('Demo inspection complete! Start another?')) {
-                        location.reload();
+                        resetForm();
                     }
-                }, 2000);
+                }, 1000);
             }
 
             submitBtn.disabled = false;
             submitBtn.textContent = 'Submit Inspection';
         }
+        
+        // Reset form function
+        function resetForm() {
+            document.querySelectorAll('.check-item').forEach(cb => {
+                cb.checked = false;
+            });
+            document.querySelectorAll('.defect-area').forEach(area => {
+                area.classList.remove('show');
+                area.querySelector('textarea').value = '';
+            });
+            document.querySelectorAll('.defect-indicator').forEach(ind => ind.remove());
+            document.getElementById('additionalComments').value = '';
+            document.getElementById('inspectorName').value = '';
+            window.scrollTo(0, 0);
+            showStatus('✅ Form reset - ready for next inspection', 'success');
+        }
 
         // Submit to Geotab API
         async function submitToGeotab(data, config) {
             const apiUrl = `https://my.geotab.com/apiv1`;
+            
+            console.log('Step 1: Authenticating...');
             
             // First authenticate
             const authResponse = await fetch(apiUrl, {
@@ -751,9 +945,14 @@
             });
 
             const authResult = await authResponse.json();
-            if (authResult.error) throw new Error(authResult.error.message);
+            console.log('Auth response:', authResult);
+            
+            if (authResult.error) {
+                throw new Error(`Authentication failed: ${authResult.error.message || JSON.stringify(authResult.error)}`);
+            }
 
             const credentials = authResult.result.credentials;
+            console.log('✓ Authentication successful');
 
             // Build defects array
             const defects = data.items
@@ -764,32 +963,51 @@
                     defectRemark: item.defect
                 }));
 
+            console.log('Step 2: Creating DVIR with', defects.length, 'defects...');
+
+            // Build remarks from all items
+            const remarks = data.items
+                .map(item => `${item.label}: ${item.passed ? 'OK ✓' : 'DEFECT ✗' + (item.defect ? ' - ' + item.defect : '')}`)
+                .join('\n');
+
+            const fullRemarks = `Inspector: ${data.inspector}\n\n${remarks}\n\n${data.additionalComments ? 'Additional Comments:\n' + data.additionalComments : ''}`;
+
             // Create DVIR
+            const dvirPayload = {
+                method: 'Add',
+                params: {
+                    credentials: credentials,
+                    typeName: 'DVIRLog',
+                    entity: {
+                        dateTime: data.timestamp,
+                        device: { id: data.vehicleId },
+                        driver: { id: config.inspectorDriverId },
+                        defects: defects.length > 0 ? defects : undefined,
+                        defectRemark: defects.length > 0 ? fullRemarks : '',
+                        certify: true,
+                        certifyDate: data.timestamp,
+                        certifyRemark: fullRemarks,
+                        logType: 'PreTrip'
+                    }
+                }
+            };
+
+            console.log('DVIR Payload:', JSON.stringify(dvirPayload, null, 2));
+
             const dvirResponse = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    method: 'Add',
-                    params: {
-                        credentials: credentials,
-                        typeName: 'DVIRLog',
-                        entity: {
-                            dateTime: data.timestamp,
-                            device: { id: data.vehicleId },
-                            driver: { id: config.inspectorDriverId },
-                            defects: defects,
-                            defectRemark: data.additionalComments || '',
-                            certify: true,
-                            certifyDate: data.timestamp,
-                            certifyRemark: `Inspected by: ${data.inspector}`
-                        }
-                    }
-                })
+                body: JSON.stringify(dvirPayload)
             });
 
             const dvirResult = await dvirResponse.json();
-            if (dvirResult.error) throw new Error(dvirResult.error.message);
+            console.log('DVIR response:', dvirResult);
+            
+            if (dvirResult.error) {
+                throw new Error(`DVIR creation failed: ${dvirResult.error.message || JSON.stringify(dvirResult.error)}`);
+            }
 
+            console.log('✓ DVIR created successfully');
             return dvirResult.result;
         }
 
