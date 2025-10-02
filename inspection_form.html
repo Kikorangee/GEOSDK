@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vehicle Inspection</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 16px;
+            padding-bottom: 100px;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #0066cc;
+            color: white;
+            padding: 20px;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .vehicle-info {
+            background: rgba(255,255,255,0.2);
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 12px;
+        }
+        
+        .config-section {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 16px;
+            margin: 16px;
+            border-radius: 8px;
+        }
+        
+        .config-section h3 {
+            color: #856404;
+            margin-bottom: 12px;
+        }
+        
+        .config-input {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .form-section {
+            padding: 20px;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 24px 0 12px 0;
+            color: #333;
+            border-bottom: 2px solid #0066cc;
+            padding-bottom: 8px;
+        }
+        
+        .checklist-item {
+            background: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        
+        .checklist-item label {
+            display: flex;
+            align-items: center;
+            font-size: 16px;
+            cursor: pointer;
+            gap: 12px;
+        }
+        
+        .checklist-item input[type="checkbox"] {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+        }
+        
+        .defect-area {
+            margin-top: 12px;
+            display: none;
+        }
+        
+        .defect-area.show {
+            display: block;
+        }
+        
+        .defect-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-top: 8px;
+            font-size: 14px;
+            min-height: 60px;
+            font-family: inherit;
+        }
+        
+        .inspector-section {
+            background: #e3f2fd;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .inspector-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #90caf9;
+            border-radius: 4px;
+            margin-top: 8px;
+            font-size: 16px;
+        }
+        
+        .submit-section {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 16px;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .submit-btn {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            display: block;
+            padding: 16px;
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .submit-btn:hover {
+            background: #0052a3;
+        }
+        
+        .submit-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .status-message {
+            padding: 16px;
+            margin: 16px;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+        }
+        
+        .status-message.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            display: block;
+        }
+        
+        .status-message.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            display: block;
+        }
+        
+        .config-btn {
+            background: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 8px;
+            font-size: 14px;
+        }
+        
+        .defect-indicator {
+            display: inline-block;
+            padding: 4px 8px;
+            background: #dc3545;
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Vehicle Inspection</h1>
+            <div class="vehicle-info">
+                <div id="vehicleName">Loading vehicle...</div>
+                <div id="vehicleId" style="font-size: 14px; opacity: 0.9; margin-top: 4px;"></div>
+            </div>
+        </div>
+
+        <!-- Configuration Section -->
+        <div class="config-section" id="configSection">
+            <h3>⚙️ Geotab API Configuration</h3>
+            <p style="margin-bottom: 12px; color: #856404;">Enter your Geotab credentials to enable API submission:</p>
+            <input type="text" id="dbName" class="config-input" placeholder="Database Name (e.g., company_name)">
+            <input type="text" id="userName" class="config-input" placeholder="Username">
+            <input type="password" id="password" class="config-input" placeholder="Password">
+            <input type="text" id="inspectorDriverId" class="config-input" placeholder="Inspector Driver ID (e.g., b123)">
+            <button class="config-btn" onclick="saveConfig()">Save Configuration</button>
+            <p style="margin-top: 12px; font-size: 13px; color: #856404;">
+                ℹ️ Config is saved in browser. For testing without API, leave blank and use "Demo Mode"
+            </p>
+        </div>
+
+        <div class="status-message" id="statusMessage"></div>
+
+        <div class="form-section">
+            <div class="inspector-section">
+                <label for="inspectorName" style="font-weight: 600; display: block; margin-bottom: 4px;">
+                    Inspector Name:
+                </label>
+                <input type="text" id="inspectorName" class="inspector-input" placeholder="Enter your name" required>
+            </div>
+
+            <div class="section-title">Pre-Trip Inspection</div>
+
+            <!-- Exterior Items -->
+            <div class="checklist-item">
+                <label>
+                    <input type="checkbox" class="check-item" data-item="tires">
+                    <span>Tires (condition, pressure, tread depth)</span>
+                </label>
+                <div class="defect-area" id="defect-tires">
+                    <textarea class="defect-input" placeholder="Describe the defect..."></textarea>
+                </div>
+            </div>
+
+            <div class="checklist-item">
+                <label>
+                    <input type="checkbox" class="check-item" data-item="lights">
+                    <span>Lights (headlights, brake lights, turn signals)</span>
+                </label>
+                <div class="defect-area" id="defect-lights">
+                    <textarea class="defect-input" placeholder="Describe the defect..."></textarea>
+                </div>
+            </div>
+
+            <div class="checklist-item">
+                <label>
+                    <input type="checkbox" class="check-item" data-item="mirrors">
+                    <span>Mirrors (clean, properly adjusted)</span>
+                </label>
+                <div class="defect-area" id="defect-mirrors">
+                    <textarea class="defect-input" placeholder="Describe the defect..."></textarea>
+                </div>
+            </div>
+
+            <div class="checklist-item">
+                <label>
+                    <input type="checkbox" class="check-item" data-item="body">
+                    <span>Body Damage (dents, scratches, damage)</span>
+                </label>
+                <div class="defect-area" id="defect-body">
+                    <textarea class="defect-input" placeholder="Describe the defect..."></textarea>
+                </div>
+            </div>
+
+            <div class="section-title">Under Hood</div>
+
+            <div class="checklist-item">
+                <label>
+                    <input type="checkbox" class="check-item" data-item="fluids">
+                    <span>Fluid Levels (oil, coolant, washer fluid)</span>
+                </label>
+                <div class="defect-area" id="defect-fluids">
+                    <textarea class="defect-input" placeholder="Describe the defect..."></textarea>
+                </div>
+            </div>
+
+            <div class="checklist-item">
+                <label>
+                    <input type="checkbox" class="check-item" data-item="belts">
+                    <span>Belts and Hoses (condition, no leaks)</span>
+                </label>
+                <div class="defect-area" id="defect-belts">
+                    <textarea class="defect-input" placeholder="Describe the defect..."></textarea>
+                </div>
+            </div>
+
+            <div class="section-title">Interior/Cab</div>
+
+            <div class="checklist-item">
+                <label>
+                    <input type="checkbox" class="check-item" data-item="gauges">
+                    <span>Gauges and Indicators (all functional)</span>
+                </label>
+                <div class="defect-area" id="defect-gauges">
+                    <textarea class="defect-input" placeholder="Describe the defect..."></textarea>
+                </div>
+            </div>
+
+            <div class="checklist-item">
+                <label>
+                    <input type="checkbox" class="check-item" data-item="wipers">
+                    <span>Wipers and Washers (working properly)</span>
+                </label>
+                <div class="defect-area" id="defect-wipers">
+                    <textarea class="defect-input" placeholder="Describe the defect..."></textarea>
+                </div>
+            </div>
+
+            <div class="checklist-item">
+                <label>
+                    <input type="checkbox" class="check-item" data-item="horn">
+                    <span>Horn (operational)</span>
+                </label>
+                <div class="defect-area" id="defect-horn">
+                    <textarea class="defect-input" placeholder="Describe the defect..."></textarea>
+                </div>
+            </div>
+
+            <div class="checklist-item">
+                <label>
+                    <input type="checkbox" class="check-item" data-item="seatbelts">
+                    <span>Seat Belts (functional, not damaged)</span>
+                </label>
+                <div class="defect-area" id="defect-seatbelts">
+                    <textarea class="defect-input" placeholder="Describe the defect..."></textarea>
+                </div>
+            </div>
+
+            <div class="section-title">Safety Equipment</div>
+
+            <div class="checklist-item">
+                <label>
+                    <input type="checkbox" class="check-item" data-item="extinguisher">
+                    <span>Fire Extinguisher (present, charged)</span>
+                </label>
+                <div class="defect-area" id="defect-extinguisher">
+                    <textarea class="defect-input" placeholder="Describe the defect..."></textarea>
+                </div>
+            </div>
+
+            <div class="checklist-item">
+                <label>
+                    <input type="checkbox" class="check-item" data-item="triangle">
+                    <span>Warning Triangles/Flares (present)</span>
+                </label>
+                <div class="defect-area" id="defect-triangle">
+                    <textarea class="defect-input" placeholder="Describe the defect..."></textarea>
+                </div>
+            </div>
+
+            <div class="checklist-item">
+                <label>
+                    <input type="checkbox" class="check-item" data-item="firstaid">
+                    <span>First Aid Kit (present, stocked)</span>
+                </label>
+                <div class="defect-area" id="defect-firstaid">
+                    <textarea class="defect-input" placeholder="Describe the defect..."></textarea>
+                </div>
+            </div>
+
+            <div class="section-title">Additional Comments</div>
+            <textarea id="additionalComments" class="defect-input" placeholder="Any additional notes or observations..."></textarea>
+        </div>
+    </div>
+
+    <div class="submit-section">
+        <button class="submit-btn" id="submitBtn" onclick="submitInspection()">
+            Submit Inspection
+        </button>
+    </div>
+
+    <script>
+        // Parse URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const vehicleId = urlParams.get('id') || urlParams.get('vehicle') || 'DEMO-001';
+        const vehicleName = urlParams.get('name') || 'Demo Vehicle';
+
+        // Display vehicle info
+        document.getElementById('vehicleName').textContent = vehicleName;
+        document.getElementById('vehicleId').textContent = `ID: ${vehicleId}`;
+
+        // Load saved configuration
+        function loadConfig() {
+            const config = localStorage.getItem('geotabConfig');
+            if (config) {
+                const parsed = JSON.parse(config);
+                document.getElementById('dbName').value = parsed.dbName || '';
+                document.getElementById('userName').value = parsed.userName || '';
+                document.getElementById('password').value = parsed.password || '';
+                document.getElementById('inspectorDriverId').value = parsed.inspectorDriverId || '';
+            }
+        }
+
+        // Save configuration
+        function saveConfig() {
+            const config = {
+                dbName: document.getElementById('dbName').value,
+                userName: document.getElementById('userName').value,
+                password: document.getElementById('password').value,
+                inspectorDriverId: document.getElementById('inspectorDriverId').value
+            };
+            localStorage.setItem('geotabConfig', JSON.stringify(config));
+            showStatus('Configuration saved successfully!', 'success');
+            
+            // Hide config section after save
+            setTimeout(() => {
+                document.getElementById('configSection').style.display = 'none';
+            }, 1500);
+        }
+
+        // Show/hide defect text areas
+        document.querySelectorAll('.check-item').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const item = this.dataset.item;
+                const defectArea = document.getElementById(`defect-${item}`);
+                
+                if (!this.checked) {
+                    defectArea.classList.add('show');
+                    // Add defect indicator
+                    if (!this.parentElement.querySelector('.defect-indicator')) {
+                        const indicator = document.createElement('span');
+                        indicator.className = 'defect-indicator';
+                        indicator.textContent = 'DEFECT';
+                        this.parentElement.appendChild(indicator);
+                    }
+                } else {
+                    defectArea.classList.remove('show');
+                    defectArea.querySelector('textarea').value = '';
+                    // Remove defect indicator
+                    const indicator = this.parentElement.querySelector('.defect-indicator');
+                    if (indicator) indicator.remove();
+                }
+            });
+        });
+
+        // Show status message
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `status-message ${type}`;
+            
+            setTimeout(() => {
+                statusEl.style.display = 'none';
+            }, 5000);
+        }
+
+        // Submit inspection
+        async function submitInspection() {
+            const inspectorName = document.getElementById('inspectorName').value.trim();
+            
+            if (!inspectorName) {
+                showStatus('Please enter your name', 'error');
+                return;
+            }
+
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+
+            // Collect inspection data
+            const inspectionData = {
+                vehicleId: vehicleId,
+                vehicleName: vehicleName,
+                inspector: inspectorName,
+                timestamp: new Date().toISOString(),
+                items: []
+            };
+
+            let hasDefects = false;
+
+            document.querySelectorAll('.check-item').forEach(checkbox => {
+                const item = checkbox.dataset.item;
+                const passed = checkbox.checked;
+                const defectText = document.querySelector(`#defect-${item} textarea`).value.trim();
+                
+                if (!passed) hasDefects = true;
+
+                inspectionData.items.push({
+                    name: item,
+                    label: checkbox.parentElement.textContent.trim(),
+                    passed: passed,
+                    defect: defectText
+                });
+            });
+
+            inspectionData.additionalComments = document.getElementById('additionalComments').value.trim();
+            inspectionData.hasDefects = hasDefects;
+
+            // Try to submit to Geotab API
+            const config = JSON.parse(localStorage.getItem('geotabConfig') || '{}');
+            
+            if (config.dbName && config.userName && config.password && config.inspectorDriverId) {
+                try {
+                    await submitToGeotab(inspectionData, config);
+                    showStatus('✅ Inspection submitted to Geotab successfully!', 'success');
+                    
+                    // Reset form after 2 seconds
+                    setTimeout(() => {
+                        if (confirm('Inspection submitted! Start another inspection?')) {
+                            location.reload();
+                        }
+                    }, 2000);
+                } catch (error) {
+                    console.error('Geotab API Error:', error);
+                    showStatus('❌ Error submitting to Geotab: ' + error.message, 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit Inspection';
+                }
+            } else {
+                // Demo mode - just log to console
+                console.log('DEMO MODE - Inspection Data:', inspectionData);
+                showStatus('✅ Demo Mode: Inspection logged to console (F12 to view)', 'success');
+                
+                setTimeout(() => {
+                    if (confirm('Demo inspection complete! Start another?')) {
+                        location.reload();
+                    }
+                }, 2000);
+            }
+
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Inspection';
+        }
+
+        // Submit to Geotab API
+        async function submitToGeotab(data, config) {
+            const apiUrl = `https://my.geotab.com/apiv1`;
+            
+            // First authenticate
+            const authResponse = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    method: 'Authenticate',
+                    params: {
+                        database: config.dbName,
+                        userName: config.userName,
+                        password: config.password
+                    }
+                })
+            });
+
+            const authResult = await authResponse.json();
+            if (authResult.error) throw new Error(authResult.error.message);
+
+            const credentials = authResult.result.credentials;
+
+            // Build defects array
+            const defects = data.items
+                .filter(item => !item.passed && item.defect)
+                .map(item => ({
+                    defectSeverity: 'Minor',
+                    defectType: item.label,
+                    defectRemark: item.defect
+                }));
+
+            // Create DVIR
+            const dvirResponse = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    method: 'Add',
+                    params: {
+                        credentials: credentials,
+                        typeName: 'DVIRLog',
+                        entity: {
+                            dateTime: data.timestamp,
+                            device: { id: data.vehicleId },
+                            driver: { id: config.inspectorDriverId },
+                            defects: defects,
+                            defectRemark: data.additionalComments || '',
+                            certify: true,
+                            certifyDate: data.timestamp,
+                            certifyRemark: `Inspected by: ${data.inspector}`
+                        }
+                    }
+                })
+            });
+
+            const dvirResult = await dvirResponse.json();
+            if (dvirResult.error) throw new Error(dvirResult.error.message);
+
+            return dvirResult.result;
+        }
+
+        // Load config on page load
+        loadConfig();
+    </script>
+</body>
+</html>
