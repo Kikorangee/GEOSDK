@@ -215,6 +215,66 @@
             font-size: 12px;
             margin-left: 8px;
         }
+        
+        .scan-btn {
+            width: 100%;
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 16px;
+            transition: background 0.2s;
+        }
+        
+        .scan-btn:hover {
+            background: #218838;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            overflow: auto;
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            position: relative;
+        }
+        
+        .close-modal {
+            position: absolute;
+            right: 20px;
+            top: 15px;
+            font-size: 35px;
+            font-weight: bold;
+            color: #aaa;
+            cursor: pointer;
+        }
+        
+        .close-modal:hover {
+            color: #000;
+        }
+        
+        #qrReader {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
     </style>
 </head>
 <body>
@@ -224,6 +284,19 @@
             <div class="vehicle-info">
                 <div id="vehicleName">Loading vehicle...</div>
                 <div id="vehicleId" style="font-size: 14px; opacity: 0.9; margin-top: 4px;"></div>
+            </div>
+            <button id="scanBtn" class="scan-btn" onclick="startQRScanner()">
+                📷 Scan Vehicle QR Code
+            </button>
+        </div>
+
+        <!-- QR Scanner Modal -->
+        <div id="qrScannerModal" class="modal">
+            <div class="modal-content">
+                <span class="close-modal" onclick="stopQRScanner()">&times;</span>
+                <h2>Scan Vehicle QR Code</h2>
+                <div id="qrReader" style="width: 100%; max-width: 500px; margin: 0 auto;"></div>
+                <p style="margin-top: 16px; color: #666;">Point camera at vehicle QR code</p>
             </div>
         </div>
 
@@ -401,15 +474,120 @@
         </button>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
     <script>
         // Parse URL parameters
         const urlParams = new URLSearchParams(window.location.search);
-        const vehicleId = urlParams.get('id') || urlParams.get('vehicle') || 'DEMO-001';
-        const vehicleName = urlParams.get('name') || 'Demo Vehicle';
+        let vehicleId = urlParams.get('id') || urlParams.get('vehicle') || 'DEMO-001';
+        let vehicleName = urlParams.get('name') || 'Demo Vehicle';
 
         // Display vehicle info
         document.getElementById('vehicleName').textContent = vehicleName;
         document.getElementById('vehicleId').textContent = `ID: ${vehicleId}`;
+
+        // QR Scanner functionality
+        let html5QrCode = null;
+
+        function startQRScanner() {
+            const modal = document.getElementById('qrScannerModal');
+            modal.style.display = 'block';
+            
+            html5QrCode = new Html5Qrcode("qrReader");
+            
+            html5QrCode.start(
+                { facingMode: "environment" }, // Use back camera
+                {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 }
+                },
+                onScanSuccess,
+                onScanError
+            ).catch(err => {
+                console.error("Unable to start scanner:", err);
+                alert("Unable to access camera. Please check permissions.");
+                stopQRScanner();
+            });
+        }
+
+        function stopQRScanner() {
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    html5QrCode.clear();
+                    html5QrCode = null;
+                }).catch(err => {
+                    console.error("Error stopping scanner:", err);
+                });
+            }
+            document.getElementById('qrScannerModal').style.display = 'none';
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            console.log(`QR Code scanned: ${decodedText}`);
+            
+            // Parse the URL from QR code
+            try {
+                const url = new URL(decodedText);
+                const params = new URLSearchParams(url.search);
+                
+                const newVehicleId = params.get('id') || params.get('vehicle');
+                const newVehicleName = params.get('name');
+                
+                if (newVehicleId && newVehicleName) {
+                    // Check if form has been started
+                    const formStarted = document.querySelectorAll('.check-item:checked').length > 0 ||
+                                       document.getElementById('inspectorName').value.trim() !== '';
+                    
+                    if (formStarted) {
+                        if (!confirm(`Switch to ${newVehicleName}? Current form data will be cleared.`)) {
+                            stopQRScanner();
+                            return;
+                        }
+                        // Reset form
+                        document.querySelectorAll('.check-item').forEach(cb => cb.checked = false);
+                        document.querySelectorAll('.defect-area').forEach(area => {
+                            area.classList.remove('show');
+                            area.querySelector('textarea').value = '';
+                        });
+                        document.querySelectorAll('.defect-indicator').forEach(ind => ind.remove());
+                        document.getElementById('additionalComments').value = '';
+                    }
+                    
+                    // Update global variables
+                    vehicleId = newVehicleId;
+                    vehicleName = newVehicleName;
+                    
+                    // Update display
+                    document.getElementById('vehicleName').textContent = vehicleName;
+                    document.getElementById('vehicleId').textContent = `ID: ${vehicleId}`;
+                    
+                    // Stop scanner
+                    stopQRScanner();
+                    
+                    // Show success message
+                    showStatus(`✅ Loaded vehicle: ${vehicleName}`, 'success');
+                    
+                    // Scroll to top
+                    window.scrollTo(0, 0);
+                } else {
+                    alert("QR code doesn't contain valid vehicle information");
+                }
+            } catch (error) {
+                console.error("Error parsing QR code:", error);
+                alert("Invalid QR code format");
+            }
+        }
+
+        function onScanError(errorMessage) {
+            // Ignore scanning errors (they're constant while searching)
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('qrScannerModal');
+            if (event.target === modal) {
+                stopQRScanner();
+            }
+        }
 
         // Load saved configuration
         function loadConfig() {
