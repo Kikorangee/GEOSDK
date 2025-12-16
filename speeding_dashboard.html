@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Speeding Dashboard (Offline, No Libraries)</title>
+  <style>
+    :root{
+      --bg:#0b0f17; --panel:#111827; --panel2:#0f172a; --text:#e5e7eb; --muted:#9ca3af;
+      --line:#243047; --brand:#ef4444; --good:#34d399; --warn:#fbbf24;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --r:16px; --r2:22px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:var(--sans); color:var(--text);
+      background: radial-gradient(1200px 800px at 20% -10%, rgba(239,68,68,.18), transparent 55%),
+                  radial-gradient(900px 700px at 110% 20%, rgba(59,130,246,.12), transparent 55%),
+                  var(--bg);
+    }
+    .wrap{max-width:1400px;margin:0 auto;padding:22px}
+    header{
+      display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;
+      padding:18px; border-radius:var(--r2);
+      background: linear-gradient(180deg, rgba(17,24,39,.90), rgba(17,24,39,.60));
+      border:1px solid var(--line); box-shadow:var(--shadow);
+      position:sticky; top:12px; z-index:10; backdrop-filter: blur(10px);
+    }
+    h1{margin:0;font-size:18px}
+    .sub{color:var(--muted);font-size:13px;margin-top:4px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+    .chip{
+      display:flex;gap:8px;align-items:center; padding:8px 10px; border-radius:999px;
+      border:1px solid rgba(239,68,68,.35); background: rgba(239,68,68,.10); color:#fecaca; font-size:12px;
+    }
+    .dot{width:8px;height:8px;border-radius:999px;background:var(--brand);box-shadow:0 0 0 5px rgba(239,68,68,.15)}
+    .btn{
+      cursor:pointer; padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,.12);
+      background: rgba(31,41,55,.55); color:var(--text); font-weight:700; font-size:13px;
+    }
+    .btn.primary{
+      background: linear-gradient(180deg, rgba(239,68,68,.95), rgba(239,68,68,.75));
+      border:1px solid rgba(239,68,68,.65);
+      box-shadow: 0 10px 20px rgba(239,68,68,.18);
+    }
+    .btn:active{transform:translateY(1px)}
+    .card{
+      margin-top:16px; border-radius:var(--r); border:1px solid var(--line);
+      background: linear-gradient(180deg, rgba(17,24,39,.90), rgba(17,24,39,.60));
+      box-shadow:var(--shadow); overflow:hidden;
+    }
+    .hd{padding:14px 16px;border-bottom:1px solid rgba(36,48,71,.55);display:flex;justify-content:space-between;gap:10px;align-items:center}
+    .hd h2{margin:0;font-size:13px;font-weight:900}
+    .bd{padding:14px 16px}
+    textarea{
+      width:100%; min-height:170px; resize:vertical; background: rgba(15,23,42,.55); color:var(--text);
+      border:1px solid rgba(255,255,255,.10); border-radius:12px; padding:12px; outline:none;
+      font-family:var(--mono); font-size:12px;
+    }
+    .note{font-size:12px;color:var(--muted);line-height:1.45}
+    .warn{color:var(--warn)}
+    .ok{color:var(--good)}
+    .split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}
+    .kpi{padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+    .kpi .label{color:var(--muted);font-size:12px}
+    .kpi .value{font-size:22px;font-weight:1000}
+    .grid{display:grid;grid-template-columns:1.1fr 1.1fr 1.4fr; gap:16px; margin-top:16px}
+    .tag{
+      display:inline-flex;gap:8px;align-items:center;padding:6px 10px;border-radius:999px;
+      background: rgba(31,41,55,.55); border:1px solid rgba(255,255,255,.08); font-size:12px; color:var(--muted)
+    }
+    .tag strong{color:var(--text)}
+    .mono{font-family:var(--mono)}
+    .right{text-align:right}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{padding:10px;border-bottom:1px solid rgba(36,48,71,.55);vertical-align:top}
+    th{color:var(--muted);font-weight:800;text-align:left;position:sticky;top:0;background: rgba(17,24,39,.92)}
+    tr:hover td{background: rgba(239,68,68,.06)}
+    .svgbg{background: rgba(15,23,42,.35); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:10px}
+    .err{white-space:pre-wrap; font-family:var(--mono); font-size:12px; color:#fecaca}
+    @media (max-width:1100px){
+      .grid{grid-template-columns:1fr}
+      .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .split{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Speeding Dashboard</h1>
+      <div class="sub">Offline HTML. No proxy. No CDNs. Charts + “map” are pure SVG.</div>
+    </div>
+    <div class="row">
+      <span class="chip"><span class="dot"></span> Works offline</span>
+      <button class="btn" id="btnLoadSample">Load sample</button>
+      <button class="btn primary" id="btnBuild">Build dashboard</button>
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="hd">
+      <h2>Load data</h2>
+      <span class="tag">Paste JSON array or <strong>{events:[...]}</strong></span>
+    </div>
+    <div class="bd">
+      <div class="split">
+        <div>
+          <div class="note">
+            Paste JSON or upload a .json file. This dashboard does <span class="warn">not</span> call Navman directly (browser + SOAP + CORS = pain).
+          </div>
+          <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <input type="file" id="fileInput" accept=".json,application/json"/>
+            <button class="btn" id="btnClear">Clear</button>
+          </div>
+        </div>
+        <div class="note">
+          <div><b>Supported field names (common variants):</b></div>
+          <div class="mono" style="margin-top:8px">
+eventTime / DateTimeUTC / StartTimeUTC<br>
+vehicleName / vehicleId / VehicleID<br>
+driverName / driverId / DriverID<br>
+durationSeconds / Duration<br>
+locationText / Location<br>
+lat/lng or Latitude/Longitude
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <textarea id="jsonInput" placeholder='Paste JSON here...'></textarea>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <div class="hd"><h2>Diagnostics</h2><span class="tag">If this shows red, your JSON is broken</span></div>
+        <div class="bd">
+          <div class="note">Status: <span id="status" class="mono">Idle</span></div>
+          <div id="err" class="err"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="kpis" id="kpis" style="display:none">
+    <div class="card kpi">
+      <div class="label">Speeding events</div>
+      <div class="value" id="kpiEvents">—</div>
+      <div class="mono muted" id="kpiRange">—</div>
+    </div>
+    <div class="card kpi">
+      <div class="label">Total duration</div>
+      <div class="value" id="kpiDuration">—</div>
+      <div class="muted">Sum of durations</div>
+    </div>
+    <div class="card kpi">
+      <div class="label">Drivers involved</div>
+      <div class="value" id="kpiDrivers">—</div>
+      <div class="muted">Unique drivers</div>
+    </div>
+    <div class="card kpi">
+      <div class="label">Vehicles involved</div>
+      <div class="value" id="kpiVehicles">—</div>
+      <div class="muted">Unique vehicles</div>
+    </div>
+  </section>
+
+  <section class="grid" id="grid" style="display:none">
+    <div class="card">
+      <div class="hd">
+        <h2>Events per day</h2>
+        <span class="tag"><strong id="tagDays">—</strong> days</span>
+      </div>
+      <div class="bd">
+        <div class="svgbg" id="dailyBox"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="hd">
+        <h2>Events by hour</h2>
+        <span class="tag">Peak: <strong id="tagPeakHour">—</strong></span>
+      </div>
+      <div class="bd">
+        <div class="svgbg" id="hourBox"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="hd">
+        <h2>Lat/Lng plot</h2>
+        <span class="tag"><strong id="tagMapped">—</strong> points</span>
+      </div>
+      <div class="bd">
+        <div class="svgbg" id="mapBox"></div>
+        <div class="note" style="margin-top:10px">
+          This isn’t a tiled map (no internet, no libs). It’s a coordinate plot — still good for hotspots/clusters.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="tableCard" style="display:none">
+    <div class="hd">
+      <h2>Events table</h2>
+      <span class="tag">Rows: <strong id="tagRows">—</strong></span>
+    </div>
+    <div class="bd" style="overflow:auto;max-height:520px">
+      <table>
+        <thead>
+          <tr>
+            <th style="min-width:170px">Time</th>
+            <th style="min-width:150px">Vehicle</th>
+            <th style="min-width:170px">Driver</th>
+            <th class="right" style="min-width:130px">Duration</th>
+            <th>Location</th>
+            <th class="right" style="min-width:110px">Lat</th>
+            <th class="right" style="min-width:110px">Lng</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="card">
+    <div class="hd"><h2>Export</h2><span class="tag">Optional</span></div>
+    <div class="bd">
+      <div class="note">Download what the dashboard normalized your data into.</div>
+      <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn" id="btnDownloadJson">Download normalized JSON</button>
+        <button class="btn" id="btnDownloadCsv">Download CSV</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const statusEl = $("status");
+  const errEl = $("err");
+
+  let normalizedEvents = [];
+
+  function setStatus(msg, isErr=false){
+    statusEl.textContent = msg;
+    statusEl.style.color = isErr ? "#fecaca" : "#a7f3d0";
+  }
+  function showErr(e){
+    errEl.textContent = String(e && e.stack ? e.stack : e);
+  }
+  function clearErr(){ errEl.textContent = ""; }
+
+  const safe = (v) => (v === null || v === undefined) ? "" : String(v);
+
+  function fmtDuration(sec){
+    sec = Number(sec || 0);
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = Math.floor(sec % 60);
+    if (h) return `${h}h ${m}m ${s}s`;
+    if (m) return `${m}m ${s}s`;
+    return `${s}s`;
+  }
+
+  function ymd(d){
+    const pad = (n)=> String(n).padStart(2,"0");
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  }
+
+  function normalize(raw){
+    let arr = raw;
+    if (!Array.isArray(arr) && raw && typeof raw === "object") {
+      arr = raw.events || raw.Events || raw.data || raw.Data || [];
+    }
+    if (!Array.isArray(arr)) throw new Error("JSON must be an array of events or an object containing an events array.");
+
+    const out = arr.map(e => {
+      const eventTime = e.eventTime || e.DateTimeUTC || e.StartTimeUTC || e.StartTime || e.EventTimeUTC || e.Time || e.timestamp || "";
+      const vehicleId = e.vehicleId || e.VehicleID || e.VehicleId || e.Vehicle || "";
+      const vehicleName = e.vehicleName || e.VehicleName || e.DisplayName || e.Registration || vehicleId || "";
+      const driverId = e.driverId || e.DriverID || e.DriverId || e.Driver || "";
+      const driverName = e.driverName || e.DriverName || e.DriverFullName || driverId || "";
+      const durationSeconds = e.durationSeconds ?? e.DurationSeconds ?? e.Duration ?? 0;
+      const locationText = e.locationText || e.LocationText || e.Location || e.Address || "";
+      const lat = e.lat ?? e.Latitude ?? e.latitude ?? null;
+      const lng = e.lng ?? e.Longitude ?? e.longitude ?? null;
+
+      return {
+        eventTime: safe(eventTime),
+        vehicleId: safe(vehicleId),
+        vehicleName: safe(vehicleName),
+        driverId: safe(driverId),
+        driverName: safe(driverName),
+        durationSeconds: Number(durationSeconds || 0),
+        locationText: safe(locationText),
+        lat: (lat === "" || lat === null || lat === undefined) ? null : Number(lat),
+        lng: (lng === "" || lng === null || lng === undefined) ? null : Number(lng),
+      };
+    });
+
+    return out.filter(e => e.eventTime || e.vehicleName || e.driverName);
+  }
+
+  function computeRange(events){
+    const dates = events.map(e => new Date(e.eventTime)).filter(d => !isNaN(d));
+    if (!dates.length) return "—";
+    dates.sort((a,b)=>a-b);
+    return `${ymd(dates[0])} → ${ymd(dates[dates.length-1])}`;
+  }
+
+  function buildDaily(events){
+    const dates = events.map(e => new Date(e.eventTime)).filter(d => !isNaN(d));
+    if (!dates.length) return { labels:[], data:[] };
+    dates.sort((a,b)=>a-b);
+    const start = new Date(dates[0].getFullYear(), dates[0].getMonth(), dates[0].getDate());
+    const end = new Date(dates[dates.length-1].getFullYear(), dates[dates.length-1].getMonth(), dates[dates.length-1].getDate());
+
+    const dayMs = 24*3600*1000;
+    const map = new Map();
+    const labels = [];
+    for(let t = start.getTime(); t <= end.getTime(); t += dayMs){
+      const k = ymd(new Date(t));
+      labels.push(k);
+      map.set(k, 0);
+    }
+    for(const e of events){
+      const d = new Date(e.eventTime);
+      if (isNaN(d)) continue;
+      const k = ymd(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+      if (map.has(k)) map.set(k, map.get(k)+1);
+    }
+    return { labels, data: labels.map(k => map.get(k) || 0) };
+  }
+
+  function buildHourly(events){
+    const buckets = Array.from({length:24}, ()=>0);
+    for(const e of events){
+      const d = new Date(e.eventTime);
+      if (isNaN(d)) continue;
+      buckets[d.getHours()] += 1;
+    }
+    return { labels: buckets.map((_,i)=>String(i).padStart(2,"0")+":00"), data: buckets };
+  }
+
+  function svgBarChart({labels, data, width=520, height=220, xLabelEvery=3}){
+    const padL=42, padR=10, padT=12, padB=34;
+    const w = width, h = height;
+    const plotW = w - padL - padR;
+    const plotH = h - padT - padB;
+    const maxV = Math.max(1, ...data);
+    const n = data.length;
+    const barW = plotW / Math.max(1, n);
+
+    let bars = "";
+    for(let i=0;i<n;i++){
+      const v = data[i];
+      const bh = (v / maxV) * plotH;
+      const x = padL + i*barW + 2;
+      const y = padT + (plotH - bh);
+      const bw = Math.max(1, barW - 4);
+      bars += `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${bw.toFixed(2)}" height="${bh.toFixed(2)}" rx="3" fill="rgba(239,68,68,0.75)"></rect>`;
+      if(i % xLabelEvery === 0 || i === n-1){
+        const lx = padL + i*barW + 2;
+        bars += `<text x="${lx.toFixed(2)}" y="${(h-12).toFixed(2)}" font-size="10" fill="rgba(156,163,175,0.95)">${escapeXml(labels[i])}</text>`;
+      }
+    }
+
+    // y-axis ticks
+    const ticks = 4;
+    let grid = "";
+    for(let t=0;t<=ticks;t++){
+      const y = padT + (plotH * (t/ticks));
+      const val = Math.round(maxV * (1 - t/ticks));
+      grid += `<line x1="${padL}" y1="${y}" x2="${w-padR}" y2="${y}" stroke="rgba(36,48,71,0.55)" stroke-width="1"/>`;
+      grid += `<text x="10" y="${y+4}" font-size="10" fill="rgba(156,163,175,0.95)">${val}</text>`;
+    }
+
+    return `
+      <svg width="100%" viewBox="0 0 ${w} ${h}" role="img" aria-label="bar chart">
+        <rect x="0" y="0" width="${w}" height="${h}" rx="14" fill="rgba(15,23,42,0.12)"></rect>
+        ${grid}
+        ${bars}
+        <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+plotH}" stroke="rgba(156,163,175,0.55)"/>
+        <line x1="${padL}" y1="${padT+plotH}" x2="${w-padR}" y2="${padT+plotH}" stroke="rgba(156,163,175,0.55)"/>
+      </svg>`;
+  }
+
+  function svgScatter({points, width=520, height=220}){
+    const pad=14;
+    const w=width, h=height;
+    if(!points.length){
+      return `<div class="note">No lat/lng points in your data.</div>`;
+    }
+    const lats = points.map(p=>p.lat);
+    const lngs = points.map(p=>p.lng);
+    const minLat=Math.min(...lats), maxLat=Math.max(...lats);
+    const minLng=Math.min(...lngs), maxLng=Math.max(...lngs);
+
+    // Avoid divide-by-zero
+    const latSpan = (maxLat-minLat) || 1;
+    const lngSpan = (maxLng-minLng) || 1;
+
+    let dots = "";
+    for(const p of points){
+      const x = pad + ((p.lng - minLng) / lngSpan) * (w - pad*2);
+      const y = pad + ((maxLat - p.lat) / latSpan) * (h - pad*2);
+      dots += `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="4" fill="rgba(239,68,68,0.75)">
+                 <title>${escapeXml(p.title)}</title>
+              </circle>`;
+    }
+
+    return `
+      <svg width="100%" viewBox="0 0 ${w} ${h}" role="img" aria-label="lat lng plot">
+        <rect x="0" y="0" width="${w}" height="${h}" rx="14" fill="rgba(15,23,42,0.12)"></rect>
+        <text x="14" y="18" font-size="10" fill="rgba(156,163,175,0.95)">Lng ${minLng.toFixed(4)} → ${maxLng.toFixed(4)}</text>
+        <text x="14" y="34" font-size="10" fill="rgba(156,163,175,0.95)">Lat ${minLat.toFixed(4)} → ${maxLat.toFixed(4)}</text>
+        ${dots}
+      </svg>`;
+  }
+
+  function escapeXml(s){
+    return String(s ?? "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#39;");
+  }
+
+  function renderTable(events){
+    const tb = $("tbody");
+    tb.innerHTML = "";
+    $("tagRows").textContent = events.length;
+
+    const sorted = [...events].sort((a,b)=> new Date(b.eventTime) - new Date(a.eventTime));
+    const frag = document.createDocumentFragment();
+    for(const e of sorted){
+      const tr = document.createElement("tr");
+      const lat = (e.lat === null || e.lat === undefined || isNaN(e.lat)) ? "" : Number(e.lat).toFixed(6);
+      const lng = (e.lng === null || e.lng === undefined || isNaN(e.lng)) ? "" : Number(e.lng).toFixed(6);
+      tr.innerHTML = `
+        <td class="mono">${escapeXml(safe(e.eventTime))}</td>
+        <td>${escapeXml(safe(e.vehicleName || e.vehicleId))}</td>
+        <td>${escapeXml(safe(e.driverName || e.driverId))}</td>
+        <td class="right mono">${escapeXml(fmtDuration(e.durationSeconds))}</td>
+        <td>${escapeXml(safe(e.locationText))}</td>
+        <td class="right mono">${escapeXml(lat)}</td>
+        <td class="right mono">${escapeXml(lng)}</td>
+      `;
+      frag.appendChild(tr);
+    }
+    tb.appendChild(frag);
+  }
+
+  function renderAll(events){
+    normalizedEvents = events;
+
+    $("kpis").style.display = "";
+    $("grid").style.display = "";
+    $("tableCard").style.display = "";
+
+    $("kpiEvents").textContent = events.length.toLocaleString();
+    $("kpiDuration").textContent = fmtDuration(events.reduce((a,e)=>a + (Number(e.durationSeconds)||0), 0));
+
+    const drivers = new Set(events.map(e => e.driverId || e.driverName).filter(Boolean));
+    const vehicles = new Set(events.map(e => e.vehicleId || e.vehicleName).filter(Boolean));
+    $("kpiDrivers").textContent = drivers.size.toLocaleString();
+    $("kpiVehicles").textContent = vehicles.size.toLocaleString();
+    $("kpiRange").textContent = computeRange(events);
+
+    const daily = buildDaily(events);
+    $("tagDays").textContent = daily.labels.length || "—";
+    $("dailyBox").innerHTML = svgBarChart({labels: daily.labels, data: daily.data, width: 540, height: 240, xLabelEvery: Math.max(1, Math.floor(daily.labels.length/8))});
+
+    const hourly = buildHourly(events);
+    const max = Math.max(...hourly.data);
+    const peakIdx = hourly.data.indexOf(max);
+    $("tagPeakHour").textContent = max ? hourly.labels[peakIdx] : "—";
+    $("hourBox").innerHTML = svgBarChart({labels: hourly.labels, data: hourly.data, width: 540, height: 240, xLabelEvery: 3});
+
+    const pts = events
+      .filter(e => Number.isFinite(e.lat) && Number.isFinite(e.lng))
+      .map(e => ({lat: e.lat, lng: e.lng, title: `${e.eventTime} | ${e.vehicleName||e.vehicleId} | ${e.driverName||e.driverId}`}));
+
+    $("tagMapped").textContent = pts.length;
+    $("mapBox").innerHTML = svgScatter({points: pts, width: 540, height: 240});
+
+    renderTable(events);
+  }
+
+  function parseFromTextarea(){
+    const txt = $("jsonInput").value.trim();
+    if (!txt) throw new Error("Paste JSON or upload a .json file first.");
+    const raw = JSON.parse(txt);
+    return normalize(raw);
+  }
+
+  // UI hooks
+  $("btnBuild").addEventListener("click", () => {
+    clearErr();
+    try{
+      setStatus("Parsing JSON…");
+      const events = parseFromTextarea();
+      setStatus(`OK — ${events.length} events loaded.`);
+      renderAll(events);
+    }catch(e){
+      setStatus("Error — JSON/format issue.", true);
+      showErr(e);
+      alert("Not working because the JSON is invalid or not in the expected shape.\n\nCheck the Diagnostics panel.");
+    }
+  });
+
+  $("btnClear").addEventListener("click", () => {
+    $("jsonInput").value = "";
+    normalizedEvents = [];
+    $("kpis").style.display = "none";
+    $("grid").style.display = "none";
+    $("tableCard").style.display = "none";
+    $("dailyBox").innerHTML = "";
+    $("hourBox").innerHTML = "";
+    $("mapBox").innerHTML = "";
+    clearErr();
+    setStatus("Idle");
+  });
+
+  $("btnLoadSample").addEventListener("click", () => {
+    const sample = [
+      {"eventTime":"2025-12-14T07:12:00Z","vehicleName":"LAT517","driverName":"Andre S","durationSeconds":35,"locationText":"Hill Rd, Auckland","lat":-36.9992,"lng":174.9065},
+      {"eventTime":"2025-12-14T09:45:10Z","vehicleName":"RLW522","driverName":"Henry P","durationSeconds":58,"locationText":"SH1 near Drury","lat":-37.1050,"lng":174.9452},
+      {"eventTime":"2025-12-15T01:22:40Z","vehicleName":"KUN937","driverName":"Michael M","durationSeconds":22,"locationText":"Great South Rd","lat":-36.9314,"lng":174.8403}
+    ];
+    $("jsonInput").value = JSON.stringify(sample, null, 2);
+    setStatus("Sample loaded. Click Build dashboard.");
+    clearErr();
+  });
+
+  $("fileInput").addEventListener("change", async (ev) => {
+    clearErr();
+    const f = ev.target.files && ev.target.files[0];
+    if (!f) return;
+    const txt = await f.text();
+    $("jsonInput").value = txt;
+    setStatus(`Loaded file: ${f.name}. Click Build dashboard.`);
+  });
+
+  $("btnDownloadJson").addEventListener("click", () => {
+    if (!normalizedEvents.length) return alert("Nothing to download — load data first.");
+    const blob = new Blob([JSON.stringify(normalizedEvents, null, 2)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "speeding_events_normalized.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  $("btnDownloadCsv").addEventListener("click", () => {
+    if (!normalizedEvents.length) return alert("Nothing to download — load data first.");
+    const cols = ["eventTime","vehicleName","vehicleId","driverName","driverId","durationSeconds","locationText","lat","lng"];
+    const esc = (v) => `"${String(v ?? "").replace(/"/g,'""')}"`;
+    const lines = [cols.join(",")].concat(normalizedEvents.map(e => cols.map(c => esc(e[c])).join(",")));
+    const blob = new Blob([lines.join("\n")], {type:"text/csv"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "speeding_events_normalized.csv";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  setStatus("Idle");
+})();
+</script>
+</body>
+</html>
